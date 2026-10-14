@@ -1,0 +1,32 @@
+// ============================================================
+// 07-main.js — Arranque: canvas, listeners e inicialización
+// ============================================================
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+// Click en el canvas: retirar tropa propia
+canvas.addEventListener('click', (ev) => {
+  if (gameOver || !playing) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (ev.clientX - rect.left) * (canvas.width / rect.width);
+  const y = (ev.clientY - rect.top) * (canvas.height / rect.height);
+  for (let i = cats.length - 1; i >= 0; i--) {
+    const c = cats[i];
+    const radius = 22 * (c.scale || 1);
+    const dx = x - c.x, dy = y - c.y;
+    if (dx*dx + dy*dy <= radius*radius) { removeCat(i); break; }
+  }
+});
+
+// Inicialización (orden importante: meta → progreso → escuadrón)
+window.onload = function() {
+  loadMeta();
+  storyProgress = Math.min(loadStoryProgress(), STORY_MAX_LEVEL);
+  eventProgress = loadEventProgress();
+  loadout = loadLoadout();
+  tempLoadout = [...loadout];
+  baseMeta = snapshotMeta();
+  showMenu();
+  loop();
+};
