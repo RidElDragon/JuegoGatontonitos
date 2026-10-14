@@ -1,12 +1,25 @@
 // ============================================================
 // 05-combat.js — Lógica de batalla: spawns, update, modos, cañón
-// v36: Combate redirigido —
-//   · Los ataques priorizan a la unidad enemiga MÁS ADELANTADA en rango.
-//   · Los proyectiles ya NO persiguen un objetivo: vuelan rectos y
-//     impactan al primer enemigo/gato que tocan (o a la base si llegan).
-//   · Así las unidades ya no se quedan pegadas a la base ignorando
-//     enemigos que les pegan cuerpo a cuerpo.
+// v37: Proyectiles con ALCANCE PROPIO —
+//   · Todos los proyectiles desaparecen al recorrer su distancia estipulada
+//     (ya no viajan hasta la base enemiga por inercia).
+//   · EXCEPCIÓN: Arquero y Robo-Pistola, cuyo proyectil llega un poco más
+//     lejos que la propia unidad (+60px) y SÍ puede impactar la base.
+//   · Magos/Gatoclaus/enemigos a distancia: su tiro expira a su propio rango
+//     y nunca daña bases.
 // ============================================================
+
+// v37: helpers de rango de proyectil
+function hasProj(u) {
+  const t = u.type || u.unitType;
+  return t === 'ranged' || t === 'roboRanged' || t === 'aoe';
+}
+function projRangeOf(u) {
+  const t = u.type || u.unitType;
+  const r = u.range || 0;
+  // Arquero / Robo-Pistola: un poco más que ellos mismos. Resto: su propio rango.
+  return (t === 'ranged' || t === 'roboRanged') ? r + 60 : r;
+}
 
 function addFloatingText(x, y, text, color) {
   if (floatingTexts.length >= MAX_FLOATING_TEXTS) floatingTexts.shift();
@@ -33,7 +46,6 @@ function findTarget(unit, targets) {
   }
   return { target, minDist };
 }
-// v36: enemigo MÁS ADELANTADO (el de menor x) dentro del alcance de la unidad
 function findFrontEnemy(unit, range) {
   let best = null;
   for (let i = 0; i < enemies.length; i++) {
@@ -42,7 +54,6 @@ function findFrontEnemy(unit, range) {
   }
   return best;
 }
-// v36: gato MÁS ADELANTADO (el de mayor x) dentro del alcance del enemigo
 function findFrontCat(unit, range) {
   let best = null;
   for (let i = 0; i < cats.length; i++) {
@@ -456,7 +467,6 @@ function update() {
     c.cdTimer--;
     if (c.poisonTimer > 0) { c.poisonTimer--; if (frameCount % 30 === 0) c.hp -= c.poison; }
 
-    // Sanador: cura aliados (proyectil teledirigido) y se mantiene detrás
     if (c.unitType === 'healer') {
       let hurtAlly = null; let minHP = Infinity;
       for (let j = 0; j < cats.length; j++) {
@@ -486,23 +496,42 @@ function update() {
       continue;
     }
 
-    // v36: PRIORIDAD 1 = enemigo más adelantado en rango · PRIORIDAD 2 = base · si no, avanzar
     const front = findFrontEnemy(c, c.range);
     const baseInRange = (ENEMY_BASE_X - c.x) <= c.range;
 
     if (front || baseInRange) {
       if (c.cdTimer <= 0) {
-        if (isRanged(c) || c.unitType === 'aoe') {
-          // v36: proyectil RECTO sin objetivo fijado: golpea al primer enemigo que toque (o a la base)
+        if (isRanged(c)) {
+          // v37: Arquero/Robo-Pistola: proyectil con alcance propio (+60) que SÍ puede tocar la base
           projectiles.push({
             x: c.x + 12, y: c.y - 4,
             vx: (c.projSpeed || 6),
             dmg: c.dmg,
-            type: c.unitType === 'roboRanged' ? 'bullet' : (c.visual === 'gatoclaus' ? 'snow' : (c.unitType === 'aoe' ? 'magic' : 'arrow')),
+            type: c.unitType === 'roboRanged' ? 'bullet' : 'arrow',
             owner: 'cat',
             speed: c.projSpeed || 6,
-            aoeRadius: c.aoeRadius || 0
+            aoeRadius: 0,
+            projRange: projRangeOf(c),
+            traveled: 0,
+            canHitBase: true
           });
+        } else if (c.unitType === 'aoe') {
+          // v37: Mago/Gatoclaus: solo disparan si hay enemigo delante; su tiro expira a su rango y NUNCA daña la base
+          if (front) {
+            projectiles.push({
+              x: c.x + 12, y: c.y - 4,
+              vx: (c.projSpeed || 5),
+              dmg: c.dmg,
+              type: c.visual === 'gatoclaus' ? 'snow' : 'magic',
+              owner: 'cat',
+              speed: c.projSpeed || 5,
+              aoeRadius: c.aoeRadius || 0,
+              projRange: projRangeOf(c),
+              traveled: 0,
+              canHitBase: false
+            });
+          }
+          // sin enemigo delante: se quedan esperando (no pueden asear la base)
         } else if (front) {
           front.hp -= c.dmg;
           addParticle(front.x, front.y, 'rgb(255,100,100)', 2, 2);
@@ -537,12 +566,12 @@ function update() {
     const e = enemies[i];
     e.cdTimer--;
     if (e.poisonTimer > 0) { e.poisonTimer--; if (frameCount % 30 === 0) e.hp -= e.poison; }
-    // v36: atacan al gato más adelantado dentro de su alcance
     const frontCat = findFrontCat(e, e.range);
     if (frontCat) {
       if (e.cdTimer <= 0) {
         if (e.unitType === 'ranged') {
-          projectiles.push({ x: e.x - 12, y: e.y - 4, vx: -(e.projSpeed || 4), dmg: e.dmg, type: 'magic', owner: 'enemy', speed: e.projSpeed || 4, aoeRadius: 0 });
+          // v37: tiro enemigo con alcance propio; expira y nunca toca tu base
+          projectiles.push({ x: e.x - 12, y: e.y - 4, vx: -(e.projSpeed || 4), dmg: e.dmg, type: 'magic', owner: 'enemy', speed: e.projSpeed || 4, aoeRadius: 0, projRange: projRangeOf(e), traveled: 0, canHitBase: false });
         } else if (e.unitType === 'poison') {
           frontCat.hp -= e.dmg; frontCat.poison = e.poisonDmg; frontCat.poisonTimer = e.poisonDur;
           addParticle(frontCat.x, frontCat.y, 'rgb(0,255,0)', 2, 2);
@@ -566,7 +595,6 @@ function update() {
   for (let i = 0; i < projectiles.length; i++) {
     const p = projectiles[i];
 
-    // Curación: sigue teledirigida al aliado
     if (p.isHeal) {
       if (!p.target || p.target.hp <= 0) { p.dead = true; continue; }
       const dx = p.target.x - p.x, dy = p.target.y - p.y, dist = Math.sqrt(dx*dx + dy*dy);
@@ -576,8 +604,8 @@ function update() {
     }
 
     if (p.owner === 'cat') {
-      // v36: vuela RECTO hacia la derecha y choca con el PRIMER enemigo que toque
       p.x += p.speed;
+      p.traveled += p.speed;
       let hit = null;
       for (let j = 0; j < enemies.length; j++) {
         const e = enemies[j];
@@ -596,24 +624,19 @@ function update() {
           addParticle(hit.x, hit.y, 'rgb(255,200,100)', 3, 2);
         }
         p.dead = true;
-      } else if (p.x >= ENEMY_BASE_X - 24) {
-        // llegó a la base enemiga sin chocar con nadie
+      } else if (p.canHitBase && p.x >= ENEMY_BASE_X - 24) {
+        // solo Arquero/Robo-Pistola llegan hasta la base
         enemyBaseHP -= p.dmg;
         addParticle(ENEMY_BASE_X, 170, 'rgb(255,100,100)', 4, 3);
-        if (p.aoeRadius) {
-          addRing(ENEMY_BASE_X, 170, 'rgb(255,0,255)', p.aoeRadius);
-          for (let j = 0; j < enemies.length; j++) {
-            const t = enemies[j];
-            if (Math.abs(t.x - ENEMY_BASE_X) <= p.aoeRadius) { t.hp -= p.dmg; addParticle(t.x, t.y, 'rgb(255,0,255)', 3, 3); }
-          }
-        }
         p.dead = true;
-      } else if (p.x > 930) {
+      } else if (p.traveled >= (p.projRange || 0) || p.x > 930) {
+        // v37: el proyectil agota su alcance y se desvanece
+        addParticle(p.x, p.y, 'rgb(200,200,200)', 2, 2);
         p.dead = true;
       }
     } else {
-      // proyectil enemigo: vuela RECTO hacia la izquierda y choca con el primer gato
       p.x -= p.speed;
+      p.traveled += p.speed;
       let hit = null;
       for (let j = 0; j < cats.length; j++) {
         const c = cats[j];
@@ -624,8 +647,9 @@ function update() {
         hit.hp -= p.dmg;
         addParticle(hit.x, hit.y, 'rgb(255,100,100)', 3, 2);
         p.dead = true;
-      } else if (p.x <= MY_BASE_X + 24 || p.x < -30) {
-        p.dead = true; // se desvanece al llegar a tu base
+      } else if (p.traveled >= (p.projRange || 0) || p.x < -30) {
+        addParticle(p.x, p.y, 'rgb(200,200,200)', 2, 2);
+        p.dead = true;
       }
     }
   }

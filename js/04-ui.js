@@ -1,5 +1,6 @@
 // ============================================================
 // 04-ui.js — Pantallas, menús, grids y refresco de interfaz
+// v37: muestra el rango de proyectil (PRJ) como estadística
 // ============================================================
 
 function setStatus(text, color) {
@@ -242,6 +243,7 @@ function showTroops() {
   buildTroopGrid();
   document.getElementById('troopScreen').style.display = 'flex';
 }
+// v37: la ficha incluye el rango del proyectil (PRJ) cuando la unidad dispara
 function troopStatsLine(u) {
   let line = `${u.cost}💰 · HP:${u.hp} · `;
   line += u.healAmt ? `Cura:${u.healAmt}` : `DMG:${u.dmg}`;
@@ -249,6 +251,7 @@ function troopStatsLine(u) {
   if (u.aoeRadius) line += ` · AOE:${u.aoeRadius}`;
   if (u.healAmt) line += ` · RNG:${u.range}`;
   else if (u.type === 'ranged' || u.type === 'roboRanged') line += ` · RNG:${u.range}`;
+  if (hasProj(u)) line += ` · PRJ:${projRangeOf(u)}`;
   line += ` · CD:${u.spawnCd}s`;
   return line;
 }
@@ -356,7 +359,7 @@ function updateUI() {
       const displayHp = Math.min(Math.floor(stats.hp * waveBonus), MAX_STATS);
       const displayDmg = Math.min(Math.floor(stats.dmg * waveBonus), MAX_STATS);
       const displayHeal = Math.min(Math.floor(stats.healAmt * waveBonus), MAX_STATS);
-      const statsText = i === 11
+      let statsText = i === 11
         ? `HP:${displayHp} DMG:${displayDmg} SPD:${stats.speed.toFixed(1)} CD:${CAT_BASE[i].spawnCd}s`
         : (i === 5 ? `HP:${displayHp} Heal:${displayHeal} RNG:${stats.range}`
         : i === 4 ? `HP:${displayHp} DMG:${displayDmg} AOE:${stats.aoeRadius}`
@@ -364,6 +367,8 @@ function updateUI() {
         : i === 9 ? `HP:${displayHp} DMG:${displayDmg} AOE:${stats.aoeRadius}`
         : i === 12 ? `HP:${displayHp} DMG:${displayDmg} AOE:${stats.aoeRadius} RNG:${stats.range}`
         : `HP:${displayHp} DMG:${displayDmg} SPD:${stats.speed.toFixed(1)}`);
+      // v37: añadir rango de proyectil si la unidad dispara
+      if (hasProj(CAT_BASE[i])) statsText += ` PRJ:${projRangeOf(CAT_BASE[i])}`;
       statsEl.textContent = statsText;
     }
   }
