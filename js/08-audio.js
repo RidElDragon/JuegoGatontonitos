@@ -1,11 +1,12 @@
 // ============================================================
-// 08-audio.js — v40: SONIDO 100% PROCEDURAL (Web Audio API)
+// 08-audio.js — v41: SONIDO 100% PROCEDURAL (Web Audio API)
 // Sin archivos externos: música y SFX sintetizados en vivo.
 //  · Música por contexto: menú, batalla y un tema por evento.
-//  · SFX: clicks, spawns, disparos, cañón, monedas, jefes, fin…
+//  · SFX: clicks, spawns, disparos, cañón, monedas, jefes, fin,
+//    golpes melee ('melee') y impactos recibidos ('cat_hurt').
 //  · Botón ⚙ Opciones (inyectado) con volúmenes y muteos,
 //    persistido en localStorage ('catBattleAudio').
-// Se engancha a funciones globales existentes sin modificarlas.
+//  · window.sfx expuesto para que 05-combat.js dispare SFX.
 // ============================================================
 
 const AudioSys = (function () {
@@ -161,8 +162,14 @@ const AudioSys = (function () {
       case 'boss':         osc(t, 90, 0.6, 'sawtooth', 0.5, 45); osc(t + 0.1, 466, 0.4, 'square', 0.18); break;
       case 'hurt':         noiseSfx(t, 0.08, 0.2, 900); break;
       case 'explode':      noiseSfx(t, 0.25, 0.35, 600); osc(t, 300, 0.3, 'sine', 0.4, 50); break;
+      // v41: golpe cuerpo a cuerpo (tajo + golpe seco)
+      case 'melee':        noiseSfx(t, 0.06, 0.22, 3200); osc(t, 170, 0.09, 'triangle', 0.28, 80); break;
+      // v41: una unidad tuya recibe un impacto
+      case 'cat_hurt':     osc(t, 520, 0.12, 'square', 0.18, 240); noiseSfx(t, 0.05, 0.12, 1500); break;
     }
   }
+  // v41: puente global para que 05-combat.js pueda disparar SFX
+  window.sfx = sfx;
 
   // ---------------- Enganches a funciones existentes ----------------
   function wrap(name, after) {
@@ -227,7 +234,7 @@ const AudioSys = (function () {
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);display:none;align-items:center;justify-content:center;z-index:120';
     overlay.innerHTML = `
       <div style="background:#222233;padding:24px 32px;border-radius:12px;border:3px solid #4488ff;min-width:320px;max-width:90vw">
-        <h2 style="margin:0 0 14px;text-align:center"> OPCIONES DE SONIDO</h2>
+        <h2 style="margin:0 0 14px;text-align:center">⚙ OPCIONES DE SONIDO</h2>
         <label style="display:block;margin:10px 0;font-size:13px">🎵 Volumen de música: <b id="optMusicVal"></b>
           <input id="optMusic" type="range" min="0" max="100" style="width:100%">
         </label>
