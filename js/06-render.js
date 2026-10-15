@@ -1,9 +1,7 @@
 // ============================================================
 // 06-render.js — Dibujo en canvas y bucle principal
-// v44: EVOLUCIÓN VISUAL al Nv.10 — cada tropa gana detalles
-//      propios (pelo, brazos, yelmo, alas, aura…) sin perder
-//      su esencia. Capas: drawEvolvedBack (detrás) y
-//      drawEvolvedFront (encima).
+// v45: Evoluciones completas — brazos del Básico detrás del cuerpo,
+//      Gigante con tronco de árbol, y todas las demás evoluciones.
 // ============================================================
 
 function drawStar(cx, cy, spikes, outerRadius) {
@@ -22,10 +20,38 @@ function drawStar(cx, cy, spikes, outerRadius) {
 }
 
 // ============================================================
-// v44: CAPAS DE EVOLUCIÓN (se dibujan en espacio local del gato)
+// v44/v45: CAPAS DE EVOLUCIÓN
+// drawEvolvedBack: se dibuja DETRÁS del cuerpo del gato
+// drawEvolvedFront: se dibuja ENCIMA del cuerpo del gato
 // ============================================================
+
 function drawEvolvedBack(c) {
   switch (c.type) {
+    case 0: // Básico: mechón de pelo + brazos como patitas (igual que las piernas)
+      // mechón de pelo en la cabeza (se mantiene)
+      ctx.fillStyle = c.color;
+      ctx.beginPath();
+      ctx.moveTo(-5, -15); ctx.quadraticCurveTo(0, -25, 5, -15); ctx.quadraticCurveTo(0, -19, -5, -15);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = c.color2; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-3, -17); ctx.lineTo(-5, -23);
+      ctx.moveTo(0, -18); ctx.lineTo(0, -25);
+      ctx.moveTo(3, -17); ctx.lineTo(5, -23);
+      ctx.stroke();
+      // brazos como patitas (elipses igual que las piernas, sin garras)
+      ctx.fillStyle = c.color2;
+      ctx.beginPath();
+      ctx.ellipse(-20, 6, 3.5, 5, -0.3, 0, Math.PI*2);
+      ctx.ellipse(20, 6, 3.5, 5, 0.3, 0, Math.PI*2);
+      ctx.fill();
+      // almohadillas rosas en la punta (igual que las patas)
+      ctx.fillStyle = '#ffaaaa';
+      ctx.beginPath();
+      ctx.arc(-21, 10, 1.5, 0, Math.PI*2);
+      ctx.arc(21, 10, 1.5, 0, Math.PI*2);
+      ctx.fill();
+      break;
     case 2: // Rápido: rachas de velocidad tras él
       ctx.strokeStyle = 'rgba(255,120,120,0.5)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
       for (let i = 0; i < 3; i++) {
@@ -98,47 +124,6 @@ function drawEvolvedBack(c) {
 
 function drawEvolvedFront(c) {
   switch (c.type) {
-    case 0: // Básico: mechón de pelo + brazos con GARRAS (v45: garras rectas y cortas, brazos del color del cuerpo)
-      // mechón de pelo (se mantiene igual)
-      ctx.fillStyle = c.color;
-      ctx.beginPath();
-      ctx.moveTo(-5, -15); ctx.quadraticCurveTo(0, -25, 5, -15); ctx.quadraticCurveTo(0, -19, -5, -15);
-      ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = c.color2; ctx.lineWidth = 2; ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(-3, -17); ctx.lineTo(-5, -23);
-      ctx.moveTo(0, -18); ctx.lineTo(0, -25);
-      ctx.moveTo(3, -17); ctx.lineTo(5, -23);
-      ctx.stroke();
-      // brazos cortos del MISMO color que el cuerpo
-      ctx.strokeStyle = c.color; ctx.lineWidth = 5; ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(-14, 2); ctx.lineTo(-20, 7);
-      ctx.moveTo(14, 2); ctx.lineTo(20, 7);
-      ctx.stroke();
-      // manoplas también del color del cuerpo
-      ctx.fillStyle = c.color;
-      ctx.beginPath();
-      ctx.arc(-20, 7, 4, 0, Math.PI*2);
-      ctx.arc(20, 7, 4, 0, Math.PI*2);
-      ctx.fill();
-      // garras rectas y cortas (3 por mano, líneas blancas simples)
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2.2;
-      ctx.lineCap = 'round';
-      // mano izquierda (apuntan hacia afuera)
-      ctx.beginPath();
-      ctx.moveTo(-22, 4);  ctx.lineTo(-26, 2);
-      ctx.moveTo(-22, 7);  ctx.lineTo(-27, 7);
-      ctx.moveTo(-22, 10); ctx.lineTo(-26, 12);
-      ctx.stroke();
-      // mano derecha (apuntan hacia afuera)
-      ctx.beginPath();
-      ctx.moveTo(22, 4);  ctx.lineTo(26, 2);
-      ctx.moveTo(22, 7);  ctx.lineTo(27, 7);
-      ctx.moveTo(22, 10); ctx.lineTo(26, 12);
-      ctx.stroke();
-      break;
     case 1: // Tanque: yelmo metálico + escudo
       ctx.fillStyle = '#778899';
       ctx.beginPath(); ctx.arc(0, -6, 15, Math.PI, 0); ctx.closePath(); ctx.fill();
@@ -183,14 +168,57 @@ function drawEvolvedFront(c) {
       ctx.beginPath(); ctx.ellipse(0, -24, 9, 3, 0, 0, Math.PI*2); ctx.stroke();
       ctx.shadowBlur = 0;
       break;
-    case 6: // Gigante: hombreras con pinchos
-      ctx.fillStyle = '#cc4400';
-      ctx.beginPath(); ctx.arc(-16, -6, 7, 0, Math.PI*2); ctx.arc(16, -6, 7, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#ffcc66';
+    case 6: // Gigante: tronco de árbol enorme con corteza y ramas rotas
+      // tronco inclinado sobre el hombro derecho
+      ctx.save();
+      ctx.translate(18, -4);
+      ctx.rotate(0.35);
+      // cuerpo del tronco
+      const trunkGrad = ctx.createLinearGradient(-6, 0, 6, 0);
+      trunkGrad.addColorStop(0, '#5a3a1a');
+      trunkGrad.addColorStop(0.5, '#8a5a2b');
+      trunkGrad.addColorStop(1, '#4a2a10');
+      ctx.fillStyle = trunkGrad;
       ctx.beginPath();
-      ctx.moveTo(-19, -10); ctx.lineTo(-22, -18); ctx.lineTo(-15, -12); ctx.closePath();
-      ctx.moveTo(19, -10); ctx.lineTo(22, -18); ctx.lineTo(15, -12); ctx.closePath();
+      ctx.moveTo(-5, -28);
+      ctx.lineTo(5, -28);
+      ctx.lineTo(6, 28);
+      ctx.lineTo(-6, 28);
+      ctx.closePath();
       ctx.fill();
+      // anillos de corteza
+      ctx.strokeStyle = '#3a2010';
+      ctx.lineWidth = 1;
+      for (let i = -24; i <= 24; i += 6) {
+        ctx.beginPath();
+        ctx.moveTo(-6, i);
+        ctx.quadraticCurveTo(0, i - 1, 6, i);
+        ctx.stroke();
+      }
+      // grietas verticales
+      ctx.strokeStyle = '#2a1505';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(-2, -26); ctx.lineTo(-1, 26);
+      ctx.moveTo(3, -20); ctx.lineTo(2, 20);
+      ctx.stroke();
+      // ramas cortadas en la punta
+      ctx.strokeStyle = '#5a3a1a';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-3, -28); ctx.lineTo(-10, -34);
+      ctx.moveTo(2, -28); ctx.lineTo(8, -35);
+      ctx.moveTo(0, -28); ctx.lineTo(0, -38);
+      ctx.stroke();
+      // tocones de ramas
+      ctx.fillStyle = '#d4a070';
+      ctx.beginPath();
+      ctx.arc(-10, -34, 2, 0, Math.PI*2);
+      ctx.arc(8, -35, 2, 0, Math.PI*2);
+      ctx.arc(0, -38, 2, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
       break;
     case 7: // Robo-Espada: hoja energética + visor ampliado
       ctx.strokeStyle = 'rgba(0,255,255,0.8)'; ctx.lineWidth = 5; ctx.lineCap = 'round';
@@ -323,7 +351,7 @@ function drawCat(c) {
     ctx.beginPath();
     ctx.arc(0, 0, 18, 0, Math.PI*2);
     ctx.fill();
-    // ...y orejas DELANTE de la bola (rellenan la frente)
+    // ...y orejas DELANTE de la bola (rellenan la frente, adiós look frentón)
     ctx.fillStyle = c.color;
     ctx.beginPath();
     ctx.moveTo(-13, -12); ctx.lineTo(-11, -29); ctx.lineTo(-1, -17); ctx.closePath();
@@ -417,8 +445,28 @@ function drawCat(c) {
     ctx.arc(-7, 19 + legAnimH, 2, 0, Math.PI*2);
     ctx.arc(7, 19 + legAnim2H, 2, 0, Math.PI*2);
     ctx.fill();
-    // v44: evolución DELANTE también para el Sin Cabeza
-    if (isEvolved(c)) drawEvolvedFront(c);
+    // sin orejas ni bigotes: no tiene cabeza
+    ctx.fillStyle = 'rgba(170,255,194,0.55)';
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = '#88ffaa';
+    for (let i = 0; i < 4; i++) {
+      const fy = -14 - i * 5 - Math.abs(Math.sin(frameCount * 0.08 + i)) * 4;
+      ctx.beginPath();
+      ctx.arc(-3 + i * 2.5, fy, 2.2 - i * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#00331a';
+    ctx.beginPath();
+    ctx.ellipse(0, -7, 6.5, 2.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#ee2222';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-4, -7); ctx.lineTo(-3, -3.5);
+    ctx.moveTo(0, -8); ctx.lineTo(1, -3.5);
+    ctx.moveTo(4, -7); ctx.lineTo(3, -4);
+    ctx.stroke();
     ctx.shadowBlur = 10;
     ctx.shadowColor = '#ffaa00';
     ctx.fillStyle = '#ff8800';
@@ -596,7 +644,7 @@ function drawCat(c) {
     ctx.fillStyle = '#ffd700';
     ctx.fillRect(23, -1, 2, 2);
   } else if (c.visual === 'gatoclaus') {
-    // bola única: barba, gorro y bola de nieve
+    // bola única: barba, gorro y bola de nieve (sin saco/pipa)
     ctx.fillStyle = '#f4f4f4';
     ctx.beginPath();
     ctx.moveTo(-11, 8);
