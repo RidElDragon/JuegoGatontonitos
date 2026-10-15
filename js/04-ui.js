@@ -1,10 +1,40 @@
 // ============================================================
 // 04-ui.js — Pantallas, menús, grids y refresco de interfaz
-// v38: HUD de batalla — el Mago muestra su RNG y el Gato Sin
-//      Cabeza ya no muestra CD en partida (el CD solo vive en
-//      la Selección de Tropas).
+// v39: SISTEMA DE RAREZAS (Normal/Raro/Superraro/Épico/Legendario/Mítico)
+//      con borde de color, brillo y etiqueta ◆ en botones y tarjetas.
+//      (Si una rareza llega a afectar la mecánica, mover el bloque a 01-config.js)
 // ============================================================
 
+// -------------------- RAREZAS --------------------
+const RARITIES = {
+  normal:     { name:'Normal',     color:'#b8c0c8', glow:false },
+  raro:       { name:'Raro',       color:'#33aaff', glow:false },
+  superraro:  { name:'Superraro',  color:'#33cc66', glow:false },
+  epico:      { name:'Épico',      color:'#aa55ff', glow:true },
+  legendario: { name:'Legendario', color:'#ffbb00', glow:true },
+  mitico:     { name:'Mítico',     color:'#ff3355', glow:true },
+};
+// Por índice de unidad (0-12)
+const UNIT_RARITY = [
+  'normal','normal','normal','normal','normal','normal','normal', // Básico..Gigante
+  'raro','raro',          // Robo-Espada, Robo-Pistola
+  'legendario',           // Rey Gatontito
+  'legendario',           // Gato Demoníaco
+  'epico',                // Gato Sin Cabeza
+  'legendario',           // Gatoclaus
+];
+function rarityOf(idx) { return RARITIES[UNIT_RARITY[idx] || 'normal'] || RARITIES.normal; }
+function applyRarityStyle(el, idx) {
+  const r = rarityOf(idx);
+  el.style.border = '2px solid ' + r.color;
+  el.style.boxShadow = r.glow ? ('0 0 10px ' + r.color) : '';
+}
+function rarityTag(idx) {
+  const r = rarityOf(idx);
+  return `<span class="sb-info" style="color:${r.color};font-weight:bold">◆ ${r.name}</span>`;
+}
+
+// -------------------- UTILIDADES UI --------------------
 function setStatus(text, color) {
   const status = document.getElementById('saveStatus');
   status.textContent = text;
@@ -110,10 +140,11 @@ function buildUpgradeScreen() {
     const maxed = lvl >= unitLevelCap();
     const cost = getUnitCoinCost(idx);
     const b = document.createElement('button');
+    applyRarityStyle(b, idx); // v39 borde/brillo de rareza
     if (!unlocked) {
       b.className = 'upg-card lockedcard';
       b.disabled = true;
-      b.innerHTML = `🔒 ${u.name}<span class="sb-info locked">${unlockLabel(idx)}</span><span class="sb-info locked">Desbloquéala para mejorarla</span>`;
+      b.innerHTML = `🔒 ${u.name}${rarityTag(idx)}<span class="sb-info locked">${unlockLabel(idx)}</span><span class="sb-info locked">Desbloquéala para mejorarla</span>`;
     } else {
       const cur = unitStatsAt(idx, lvl);
       const nxt = unitStatsAt(idx, lvl + 1);
@@ -122,7 +153,7 @@ function buildUpgradeScreen() {
       else preview = `HP ${cur.hp}→<span class="up">${nxt.hp}</span> · DMG ${cur.dmg}→<span class="up">${nxt.dmg}</span>`;
       b.className = 'upg-card' + (maxed ? ' maxed' : '');
       b.disabled = maxed || coins < cost;
-      b.innerHTML = `${UNIT_EMOJI[idx]} ${u.name}<span class="sb-info">Nivel ${lvl}/${unitLevelCap()}</span><span class="sb-info">${maxed ? '' : preview}</span><span class="sb-info">${maxed ? '🏆 MAX' : `➡ Nv.${lvl+1}: ${cost} ${COIN}`}</span>`;
+      b.innerHTML = `${UNIT_EMOJI[idx]} ${u.name}${rarityTag(idx)}<span class="sb-info">Nivel ${lvl}/${unitLevelCap()}</span><span class="sb-info">${maxed ? '' : preview}</span><span class="sb-info">${maxed ? '🏆 MAX' : `➡ Nv.${lvl+1}: ${cost} ${COIN}`}</span>`;
       b.onclick = () => buyUnitUpgrade(idx);
     }
     ug.appendChild(b);
@@ -245,7 +276,6 @@ function showTroops() {
   buildTroopGrid();
   document.getElementById('troopScreen').style.display = 'flex';
 }
-// La ficha de selección conserva TODA la info (incluido el CD de invocación)
 function troopStatsLine(u) {
   let line = `${u.cost}💰 · HP:${u.hp} · `;
   line += u.healAmt ? `Cura:${u.healAmt}` : `DMG:${u.dmg}`;
@@ -266,10 +296,11 @@ function buildTroopGrid() {
     const b = document.createElement('button');
     b.className = 'troop-card' + (sel ? ' selected' : '') + (unlocked ? '' : ' lockedcard');
     b.disabled = !unlocked;
+    applyRarityStyle(b, idx); // v39 borde/brillo de rareza
     if (unlocked) {
-      b.innerHTML = `${UNIT_EMOJI[idx]} ${u.name}<span class="sb-info">${troopStatsLine(u)}</span><span class="sb-info">${sel ? '✅ En el escuadrón' : '➕ Añadir'}</span>`;
+      b.innerHTML = `${UNIT_EMOJI[idx]} ${u.name}${rarityTag(idx)}<span class="sb-info">${troopStatsLine(u)}</span><span class="sb-info">${sel ? '✅ En el escuadrón' : '➕ Añadir'}</span>`;
     } else {
-      b.innerHTML = `🔒 ${u.name}<span class="sb-info">${troopStatsLine(u)}</span><span class="sb-info locked">${unlockLabel(idx)}</span>`;
+      b.innerHTML = `🔒 ${u.name}${rarityTag(idx)}<span class="sb-info">${troopStatsLine(u)}</span><span class="sb-info locked">${unlockLabel(idx)}</span>`;
     }
     b.onclick = () => toggleTroop(idx);
     grid.appendChild(b);
@@ -295,7 +326,8 @@ function buildMetaInfoPanel() {
   const el = document.getElementById('metaInfo');
   let html = '';
   activeUnitList().forEach(idx => {
-    html += `${UNIT_EMOJI[idx]} ${CAT_BASE[idx].name}: <b>Nv.${unitLevels[idx]}/${unitLevelCap()}</b><br>`;
+    const r = rarityOf(idx);
+    html += `${UNIT_EMOJI[idx]} <span style="color:${r.color}">${CAT_BASE[idx].name}</span>: <b>Nv.${unitLevels[idx]}/${unitLevelCap()}</b><br>`;
   });
   html += `<hr style="border-color:#444">💵 Income: <b>Nv.${incomeLevel}/${MAX_INCOME_LEVEL}</b><br>`;
   html += `💣 Cañón: <b>D${cannonDmgLevel} R${cannonRangeLevel} C${cannonCdLevel}</b>`;
@@ -314,7 +346,8 @@ function buildUnitButtons() {
     b.className = `cat${idx + 1} side`;
     b.id = 'btn' + idx;
     b.onclick = () => spawnCat(idx);
-    b.innerHTML = `${UNIT_EMOJI[idx]} ${u.name} (${u.cost}💰)<span class="level-badge" id="lvl${idx}">${unitLevels[idx]}</span><span class="stats" id="stats${idx}"></span><span class="cd" id="cd${idx}">CD: ${u.spawnCd}s</span>`;
+    applyRarityStyle(b, idx); // v39 borde/brillo de rareza
+    b.innerHTML = `${UNIT_EMOJI[idx]} ${u.name} (${u.cost}💰)<span class="level-badge" id="lvl${idx}">${unitLevels[idx]}</span>${rarityTag(idx)}<span class="stats" id="stats${idx}"></span><span class="cd" id="cd${idx}">CD: ${u.spawnCd}s</span>`;
     uc.appendChild(b);
   });
   buildMetaInfoPanel();
@@ -361,7 +394,7 @@ function updateUI() {
       const displayHp = Math.min(Math.floor(stats.hp * waveBonus), MAX_STATS);
       const displayDmg = Math.min(Math.floor(stats.dmg * waveBonus), MAX_STATS);
       const displayHeal = Math.min(Math.floor(stats.healAmt * waveBonus), MAX_STATS);
-      // v38: Mago (4) con RNG · Gato Sin Cabeza (11) sin CD en partida (usa la línea normal)
+      // v38: Mago (4) con RNG · Gato Sin Cabeza (11) sin CD en partida
       let statsText = i === 5 ? `HP:${displayHp} Heal:${displayHeal} RNG:${stats.range}`
         : i === 4 ? `HP:${displayHp} DMG:${displayDmg} AOE:${stats.aoeRadius} RNG:${stats.range}`
         : (i === 3 || i === 8) ? `HP:${displayHp} DMG:${displayDmg} RNG:${stats.range}`
