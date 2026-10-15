@@ -1,5 +1,7 @@
 // ============================================================
 // 02-state.js — Estado mutable global + cálculos/getters
+// v44: EVOLUCIÓN — al Nv.10 las unidades ganan +10% de stats
+//      y marcan isEvolved() para su apariencia mejorada.
 // ============================================================
 
 // --- Progreso persistente (se rellena en 07-main.js al iniciar) ---
@@ -57,6 +59,13 @@ let fps = 60;
 let frameAccumulator = 0;
 let fpsSampleTimer = 0;
 let fpsTickCount = 0;
+
+// ------------------------------------------------------------
+// v44: EVOLUCIÓN DE UNIDADES
+// ------------------------------------------------------------
+const EVOLVE_LEVEL = 10;   // nivel al que evoluciona una tropa
+const EVOLVE_MULT = 1.10;  // +10% de estadísticas
+function isEvolved(c) { return !!c && (c.level || 1) >= EVOLVE_LEVEL; }
 
 // ------------------------------------------------------------
 // Utilidades y consultas de modo
@@ -130,11 +139,11 @@ function getCannonRangeCoinCost() { const l = cannonRangeLevel; return 12000 + 8
 function getCannonCdCoinCost()    { const l = cannonCdLevel;    return 15000 + 10000 * l * (l - 1); }
 
 // ------------------------------------------------------------
-// Stats de unidades y multiplicadores
+// Stats de unidades y multiplicadores (v44: incluyen evolución)
 // ------------------------------------------------------------
 function unitStatsAt(idx, lvl) {
   const base = CAT_BASE[idx];
-  const mult = Math.pow(base.upMult || 1.15, lvl - 1);
+  const mult = Math.pow(base.upMult || 1.15, lvl - 1) * (lvl >= EVOLVE_LEVEL ? EVOLVE_MULT : 1);
   return {
     hp:  Math.min(Math.floor(base.hp * mult), MAX_STATS),
     dmg: Math.min(Math.floor(base.dmg * mult), MAX_STATS),
@@ -144,7 +153,7 @@ function unitStatsAt(idx, lvl) {
 function getCatStats(type) {
   const base = CAT_BASE[type];
   const lvl = unitLevels[type];
-  const mult = Math.pow(base.upMult || 1.15, lvl - 1);
+  const mult = Math.pow(base.upMult || 1.15, lvl - 1) * (lvl >= EVOLVE_LEVEL ? EVOLVE_MULT : 1);
   return {
     ...base,
     hp:  Math.min(Math.floor(base.hp * mult), MAX_STATS),

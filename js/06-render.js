@@ -1,5 +1,9 @@
 // ============================================================
 // 06-render.js — Dibujo en canvas y bucle principal
+// v44: EVOLUCIÓN VISUAL al Nv.10 — cada tropa gana detalles
+//      propios (pelo, brazos, yelmo, alas, aura…) sin perder
+//      su esencia. Capas: drawEvolvedBack (detrás) y
+//      drawEvolvedFront (encima).
 // ============================================================
 
 function drawStar(cx, cy, spikes, outerRadius) {
@@ -15,6 +19,230 @@ function drawStar(cx, cy, spikes, outerRadius) {
   }
   ctx.closePath();
   ctx.fill();
+}
+
+// ============================================================
+// v44: CAPAS DE EVOLUCIÓN (se dibujan en espacio local del gato)
+// ============================================================
+function drawEvolvedBack(c) {
+  switch (c.type) {
+    case 2: // Rápido: rachas de velocidad tras él
+      ctx.strokeStyle = 'rgba(255,120,120,0.5)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      for (let i = 0; i < 3; i++) {
+        const y = -6 + i * 8;
+        ctx.beginPath(); ctx.moveTo(-20 - i * 4, y); ctx.lineTo(-34 - i * 6, y + (i - 1) * 2); ctx.stroke();
+      }
+      break;
+    case 3: // Arquero: carcaj con flechas a la espalda
+      ctx.save();
+      ctx.rotate(-0.5);
+      ctx.fillStyle = '#8B4513'; ctx.fillRect(-6, -34, 12, 20);
+      ctx.restore();
+      ctx.strokeStyle = '#dddddd'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(-2, -30); ctx.lineTo(-6, -38);
+      ctx.moveTo(2, -31); ctx.lineTo(0, -40);
+      ctx.moveTo(5, -30); ctx.lineTo(6, -38);
+      ctx.stroke();
+      ctx.fillStyle = '#ff4444';
+      ctx.beginPath();
+      ctx.arc(-6, -38, 1.5, 0, Math.PI*2); ctx.arc(0, -40, 1.5, 0, Math.PI*2); ctx.arc(6, -38, 1.5, 0, Math.PI*2);
+      ctx.fill();
+      break;
+    case 4: // Mago: círculo rúnico giratorio
+      ctx.strokeStyle = 'rgba(120,255,120,0.45)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(0, 0, 26, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI*2); ctx.stroke();
+      for (let i = 0; i < 6; i++) {
+        const a = frameCount * 0.02 + i * Math.PI / 3;
+        ctx.fillStyle = 'rgba(150,255,150,0.7)';
+        ctx.beginPath(); ctx.arc(Math.cos(a) * 24, Math.sin(a) * 24, 2, 0, Math.PI*2); ctx.fill();
+      }
+      break;
+    case 5: // Sanador: alas de luz
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.beginPath();
+      ctx.moveTo(-12, -4); ctx.quadraticCurveTo(-30, -14, -26, 4); ctx.quadraticCurveTo(-20, 2, -12, 6);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(12, -4); ctx.quadraticCurveTo(30, -14, 26, 4); ctx.quadraticCurveTo(20, 2, 12, 6);
+      ctx.closePath(); ctx.fill();
+      break;
+    case 9: // Rey: rayos de aura dorada
+      ctx.strokeStyle = 'rgba(255,215,0,0.35)'; ctx.lineWidth = 2;
+      for (let i = 0; i < 8; i++) {
+        const a = i * Math.PI / 4 + frameCount * 0.01;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * 26, Math.sin(a) * 26);
+        ctx.lineTo(Math.cos(a) * 34, Math.sin(a) * 34);
+        ctx.stroke();
+      }
+      break;
+    case 10: // Demonio: alas demoníacas
+      ctx.fillStyle = 'rgba(120,0,0,0.85)';
+      ctx.beginPath();
+      ctx.moveTo(-12, -6); ctx.quadraticCurveTo(-30, -22, -34, -6); ctx.quadraticCurveTo(-26, -8, -22, 0);
+      ctx.quadraticCurveTo(-18, -4, -12, 2);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(12, -6); ctx.quadraticCurveTo(30, -22, 34, -6); ctx.quadraticCurveTo(26, -8, 22, 0);
+      ctx.quadraticCurveTo(18, -4, 12, 2);
+      ctx.closePath(); ctx.fill();
+      break;
+    case 11: // Sin Cabeza: aura espectral ampliada
+      ctx.fillStyle = 'rgba(136,255,170,0.25)';
+      ctx.beginPath(); ctx.ellipse(0, 4, 26, 20, 0, 0, Math.PI*2); ctx.fill();
+      break;
+  }
+}
+
+function drawEvolvedFront(c) {
+  switch (c.type) {
+    case 0: // Básico: mechón de pelo + brazos con GARRAS (v45: garras rectas y cortas, brazos del color del cuerpo)
+      // mechón de pelo (se mantiene igual)
+      ctx.fillStyle = c.color;
+      ctx.beginPath();
+      ctx.moveTo(-5, -15); ctx.quadraticCurveTo(0, -25, 5, -15); ctx.quadraticCurveTo(0, -19, -5, -15);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = c.color2; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-3, -17); ctx.lineTo(-5, -23);
+      ctx.moveTo(0, -18); ctx.lineTo(0, -25);
+      ctx.moveTo(3, -17); ctx.lineTo(5, -23);
+      ctx.stroke();
+      // brazos cortos del MISMO color que el cuerpo
+      ctx.strokeStyle = c.color; ctx.lineWidth = 5; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-14, 2); ctx.lineTo(-20, 7);
+      ctx.moveTo(14, 2); ctx.lineTo(20, 7);
+      ctx.stroke();
+      // manoplas también del color del cuerpo
+      ctx.fillStyle = c.color;
+      ctx.beginPath();
+      ctx.arc(-20, 7, 4, 0, Math.PI*2);
+      ctx.arc(20, 7, 4, 0, Math.PI*2);
+      ctx.fill();
+      // garras rectas y cortas (3 por mano, líneas blancas simples)
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.2;
+      ctx.lineCap = 'round';
+      // mano izquierda (apuntan hacia afuera)
+      ctx.beginPath();
+      ctx.moveTo(-22, 4);  ctx.lineTo(-26, 2);
+      ctx.moveTo(-22, 7);  ctx.lineTo(-27, 7);
+      ctx.moveTo(-22, 10); ctx.lineTo(-26, 12);
+      ctx.stroke();
+      // mano derecha (apuntan hacia afuera)
+      ctx.beginPath();
+      ctx.moveTo(22, 4);  ctx.lineTo(26, 2);
+      ctx.moveTo(22, 7);  ctx.lineTo(27, 7);
+      ctx.moveTo(22, 10); ctx.lineTo(26, 12);
+      ctx.stroke();
+      break;
+    case 1: // Tanque: yelmo metálico + escudo
+      ctx.fillStyle = '#778899';
+      ctx.beginPath(); ctx.arc(0, -6, 15, Math.PI, 0); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#556677'; ctx.fillRect(-2, -21, 4, 10);
+      ctx.strokeStyle = '#334455'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(0, -6, 15, Math.PI, 0); ctx.stroke();
+      ctx.fillStyle = '#3366cc';
+      ctx.beginPath();
+      ctx.moveTo(16, 0); ctx.lineTo(26, -6); ctx.lineTo(26, 8); ctx.quadraticCurveTo(21, 14, 16, 10);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#99ccff'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = '#99ccff';
+      ctx.beginPath(); ctx.arc(21, 3, 2.5, 0, Math.PI*2); ctx.fill();
+      break;
+    case 2: // Rápido: cinta roja con colas al viento
+      ctx.strokeStyle = '#ff2222'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-14, -10); ctx.quadraticCurveTo(0, -16, 14, -10); ctx.stroke();
+      ctx.strokeStyle = '#ff6666'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-14, -10); ctx.lineTo(-24, -6);
+      ctx.moveTo(-14, -9); ctx.lineTo(-23, -2);
+      ctx.stroke();
+      break;
+    case 3: // Arquero: capucha de explorador
+      ctx.fillStyle = 'rgba(80,40,140,0.9)';
+      ctx.beginPath();
+      ctx.moveTo(-16, -8); ctx.quadraticCurveTo(0, -30, 16, -8);
+      ctx.quadraticCurveTo(8, -14, 0, -13); ctx.quadraticCurveTo(-8, -14, -16, -8);
+      ctx.closePath(); ctx.fill();
+      break;
+    case 4: // Mago: bastón con orbe brillante
+      ctx.strokeStyle = '#8B4513'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(16, 14); ctx.lineTo(20, -16); ctx.stroke();
+      ctx.fillStyle = '#88ff88';
+      ctx.shadowBlur = 8; ctx.shadowColor = '#88ff88';
+      ctx.beginPath(); ctx.arc(20, -19, 4, 0, Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
+      break;
+    case 5: // Sanador: halo dorado
+      ctx.strokeStyle = '#ffee88'; ctx.lineWidth = 2.5;
+      ctx.shadowBlur = 6; ctx.shadowColor = '#ffee88';
+      ctx.beginPath(); ctx.ellipse(0, -24, 9, 3, 0, 0, Math.PI*2); ctx.stroke();
+      ctx.shadowBlur = 0;
+      break;
+    case 6: // Gigante: hombreras con pinchos
+      ctx.fillStyle = '#cc4400';
+      ctx.beginPath(); ctx.arc(-16, -6, 7, 0, Math.PI*2); ctx.arc(16, -6, 7, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ffcc66';
+      ctx.beginPath();
+      ctx.moveTo(-19, -10); ctx.lineTo(-22, -18); ctx.lineTo(-15, -12); ctx.closePath();
+      ctx.moveTo(19, -10); ctx.lineTo(22, -18); ctx.lineTo(15, -12); ctx.closePath();
+      ctx.fill();
+      break;
+    case 7: // Robo-Espada: hoja energética + visor ampliado
+      ctx.strokeStyle = 'rgba(0,255,255,0.8)'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+      ctx.shadowBlur = 10; ctx.shadowColor = '#00ffff';
+      ctx.beginPath(); ctx.moveTo(19, 1); ctx.lineTo(30, -10); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#00ffff'; ctx.fillRect(-7, -17, 14, 4);
+      break;
+    case 8: // Robo-Pistola: segunda pistola + pod de misil
+      ctx.fillStyle = '#445566'; ctx.fillRect(12, -7, 12, 4); ctx.fillRect(14, -3, 3, 4);
+      ctx.fillStyle = '#ffd700'; ctx.fillRect(23, -6, 2, 2);
+      ctx.fillStyle = '#667788'; ctx.fillRect(-20, -8, 8, 6);
+      ctx.fillStyle = '#ff4444'; ctx.beginPath(); ctx.arc(-16, -9, 2, 0, Math.PI*2); ctx.fill();
+      break;
+    case 9: // Rey: anillo radiante sobre la corona + gemas flotantes
+      ctx.strokeStyle = 'rgba(255,240,150,0.9)'; ctx.lineWidth = 2;
+      ctx.shadowBlur = 8; ctx.shadowColor = '#ffd700';
+      ctx.beginPath(); ctx.arc(0, -26, 15, 0, Math.PI*2); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ff5555'; ctx.beginPath(); ctx.arc(-18, -30, 2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#55ff55'; ctx.beginPath(); ctx.arc(18, -30, 2, 0, Math.PI*2); ctx.fill();
+      break;
+    case 10: // Demonio: cuernos grandes rematados en brasa
+      ctx.strokeStyle = '#440000'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-10, -16); ctx.quadraticCurveTo(-16, -26, -10, -32);
+      ctx.moveTo(10, -16); ctx.quadraticCurveTo(16, -26, 10, -32);
+      ctx.stroke();
+      ctx.fillStyle = '#ff6666';
+      ctx.beginPath(); ctx.arc(-10, -32, 2, 0, Math.PI*2); ctx.arc(10, -32, 2, 0, Math.PI*2); ctx.fill();
+      break;
+    case 11: // Sin Cabeza: cadena cruzada + llama en la calabaza
+      ctx.strokeStyle = 'rgba(200,200,210,0.8)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-14, 2); ctx.quadraticCurveTo(0, 8, 14, 2); ctx.stroke();
+      for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.arc(i * 6, 5 + Math.abs(i), 1.6, 0, Math.PI*2); ctx.stroke(); }
+      ctx.fillStyle = 'rgba(255,200,80,0.9)';
+      ctx.shadowBlur = 8; ctx.shadowColor = '#ffaa00';
+      ctx.beginPath();
+      ctx.moveTo(20, -6); ctx.quadraticCurveTo(22, -13, 24, -6); ctx.quadraticCurveTo(22, -8, 20, -6);
+      ctx.closePath(); ctx.fill();
+      ctx.shadowBlur = 0;
+      break;
+    case 12: // Gatoclaus: astas de reno + aura de escarcha
+      ctx.strokeStyle = '#8a5a2b'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-8, -14); ctx.lineTo(-12, -24); ctx.moveTo(-10, -19); ctx.lineTo(-15, -22);
+      ctx.moveTo(8, -14); ctx.lineTo(12, -24); ctx.moveTo(10, -19); ctx.lineTo(15, -22);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(160,230,255,0.6)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(0, 0, 24 + Math.sin(frameCount * 0.1) * 2, 0, Math.PI*2); ctx.stroke();
+      break;
+  }
 }
 
 // -------------------- GATOS --------------------
@@ -47,6 +275,8 @@ function drawCat(c) {
     ctx.ellipse(14, -8, 4, 3, 0, 0, Math.PI*2);
     ctx.fill();
   }
+  // v44: marcas de evolución DETRÁS del cuerpo
+  if (isEvolved(c)) drawEvolvedBack(c);
   const grad = ctx.createRadialGradient(-6, -6, 4, 0, 0, 20);
   grad.addColorStop(0, c.color);
   grad.addColorStop(1, c.color2);
@@ -93,7 +323,7 @@ function drawCat(c) {
     ctx.beginPath();
     ctx.arc(0, 0, 18, 0, Math.PI*2);
     ctx.fill();
-    // ...orejas DELANTE de la bola (rellenan la frente)
+    // ...y orejas DELANTE de la bola (rellenan la frente)
     ctx.fillStyle = c.color;
     ctx.beginPath();
     ctx.moveTo(-13, -12); ctx.lineTo(-11, -29); ctx.lineTo(-1, -17); ctx.closePath();
@@ -187,28 +417,8 @@ function drawCat(c) {
     ctx.arc(-7, 19 + legAnimH, 2, 0, Math.PI*2);
     ctx.arc(7, 19 + legAnim2H, 2, 0, Math.PI*2);
     ctx.fill();
-    // sin orejas ni bigotes: no tiene cabeza
-    ctx.fillStyle = 'rgba(170,255,194,0.55)';
-    ctx.shadowBlur = 12;
-    ctx.shadowColor = '#88ffaa';
-    for (let i = 0; i < 4; i++) {
-      const fy = -14 - i * 5 - Math.abs(Math.sin(frameCount * 0.08 + i)) * 4;
-      ctx.beginPath();
-      ctx.arc(-3 + i * 2.5, fy, 2.2 - i * 0.35, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#00331a';
-    ctx.beginPath();
-    ctx.ellipse(0, -7, 6.5, 2.4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#ee2222';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(-4, -7); ctx.lineTo(-3, -3.5);
-    ctx.moveTo(0, -8); ctx.lineTo(1, -3.5);
-    ctx.moveTo(4, -7); ctx.lineTo(3, -4);
-    ctx.stroke();
+    // v44: evolución DELANTE también para el Sin Cabeza
+    if (isEvolved(c)) drawEvolvedFront(c);
     ctx.shadowBlur = 10;
     ctx.shadowColor = '#ffaa00';
     ctx.fillStyle = '#ff8800';
@@ -299,7 +509,7 @@ function drawCat(c) {
   ctx.beginPath();
   ctx.arc(-18, -10, 2.5, 0, Math.PI*2);
   ctx.fill();
-  // --- accesorios ---
+  // --- accesorios base ---
   if (c.visual === 'king') {
     const crownGrad = ctx.createLinearGradient(0, -36, 0, -20);
     crownGrad.addColorStop(0, '#fff200');
@@ -319,7 +529,7 @@ function drawCat(c) {
     ctx.beginPath(); ctx.arc(-7, -23, 1.4, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = '#0066ff';
     ctx.beginPath(); ctx.arc(7, -23, 1.4, 0, Math.PI*2); ctx.fill();
-    // hacha con el filo hacia el FRENTE
+    // hacha con el filo hacia el frente
     ctx.strokeStyle = '#6b4423'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(14, 14); ctx.lineTo(22, -12); ctx.stroke();
     ctx.fillStyle = '#c0c0c0';
@@ -386,7 +596,7 @@ function drawCat(c) {
     ctx.fillStyle = '#ffd700';
     ctx.fillRect(23, -1, 2, 2);
   } else if (c.visual === 'gatoclaus') {
-    // bola única: barba, gorro y bola de nieve (sin saco/pipa)
+    // bola única: barba, gorro y bola de nieve
     ctx.fillStyle = '#f4f4f4';
     ctx.beginPath();
     ctx.moveTo(-11, 8);
@@ -479,6 +689,8 @@ function drawCat(c) {
     ctx.beginPath(); ctx.arc(-6, -23, 1, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(6, -23, 1, 0, Math.PI*2); ctx.fill();
   }
+  // v44: marcas de evolución ENCIMA (para todos menos Sin Cabeza, que ya las tuvo)
+  if (isEvolved(c)) drawEvolvedFront(c);
   if (c.level > 1) {
     ctx.fillStyle = '#ffd700';
     ctx.strokeStyle = '#000';
@@ -499,7 +711,7 @@ function drawCat(c) {
   ctx.fillRect(c.x-barW/2, barY, barW, 4);
   ctx.fillStyle = '#0f0';
   ctx.fillRect(c.x-barW/2, barY, barW*(c.hp/c.maxHp), 4);
-  if (c.attackAnim > 0) c.attackAnim--;
+  if(c.attackAnim > 0) c.attackAnim--;
   c.walkCycle += c.speed * 0.1;
 }
 
@@ -1054,7 +1266,6 @@ function draw() {
   drawBase(50, baseHP, 1500, '#4488ff', false);
   drawBase(ENEMY_BASE_X, enemyBaseHP, enemyBaseMaxHP, enemyBaseColor, true);
 
-  // indicador de rango del cañón
   const cannonRange = getCannonRange();
   const rangeRight = Math.min(900, MY_BASE_X + cannonRange);
   const pulseAlpha = 0.10 + Math.sin(frameCount * 0.08) * 0.04;
