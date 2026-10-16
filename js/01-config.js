@@ -44,19 +44,19 @@ const UNIT_EMOJI = ['🐱','💪','⚡','','🔮','💚','👑','','🤖','','�
 // UNIDADES JUGABLES
 // ------------------------------------------------------------
 const CAT_BASE = [
-  { name:'Básico',       cost:55,   hp:80,   dmg:20,  speed:1.2, range:40,  cooldown:60,  color:'#ffcc66', color2:'#ff9933', type:'melee',  spawnCd:2 },
-  { name:'Tanque',       cost:115,  hp:450,  dmg:10,  speed:0.7, range:35,  cooldown:90,  color:'#99ccff', color2:'#3366cc', type:'melee',  spawnCd:3 },
-  { name:'Rápido',       cost:175,  hp:60,   dmg:70,  speed:2.2, range:30,  cooldown:30,  color:'#ff9999', color2:'#cc3333', type:'melee',  spawnCd:4 },
-  { name:'Arquero',      cost:150,  hp:70,   dmg:45,  speed:0.9, range:300, cooldown:75,  color:'#cc99ff', color2:'#6633cc', type:'ranged', projSpeed:6, spawnCd:3 },
+  { name:'Básico',       cost:50,   hp:80,   dmg:25,  speed:1.2, range:40,  cooldown:60,  color:'#ffcc66', color2:'#ff9933', type:'melee',  spawnCd:2 },
+  { name:'Tanque',       cost:110,  hp:450,  dmg:12,  speed:0.8, range:30,  cooldown:90,  color:'#99ccff', color2:'#3366cc', type:'melee',  spawnCd:3 },
+  { name:'Rápido',       cost:170,  hp:75,   dmg:100,  speed:2.2, range:35,  cooldown:100,  color:'#ff9999', color2:'#cc3333', type:'melee',  spawnCd:5 },
+  { name:'Arquero',      cost:140,  hp:70,   dmg:50,  speed:0.9, range:300, cooldown:75,  color:'#cc99ff', color2:'#6633cc', type:'ranged', projSpeed:6, spawnCd:3 },
   { name:'Mago',         cost:450,  hp:90,   dmg:50,  speed:0.8, range:180, cooldown:110, color:'#99ff99', color2:'#339933', type:'aoe', aoeRadius:90, projSpeed:5, spawnCd:6 },
   { name:'Sanador',      cost:300,  hp:100,  dmg:0,   speed:0.9, range:120, cooldown:80,  color:'#ff99cc', color2:'#cc3399', type:'healer', healAmt:50, spawnCd:8 },
-  { name:'Gigante',      cost:1000, hp:1200, dmg:55,  speed:0.4, range:50,  cooldown:120, color:'#ff6600', color2:'#993300', type:'melee', scale:1.8, spawnCd:12 },
+  { name:'Gigante',      cost:1000, hp:1200, dmg:55,  speed:0.4, range:40,  cooldown:120, color:'#ff6600', color2:'#993300', type:'melee', scale:1.8, spawnCd:12 },
   { name:'Robo-Espada',  cost:660,  hp:275,  dmg:38,  speed:1.0, range:45,  cooldown:70,  color:'#aabbcc', color2:'#667788', type:'melee', spawnCd:5, visual:'robosword', upMult:1.20 },
-  { name:'Robo-Pistola', cost:400,  hp:90,   dmg:30,  speed:1.0, range:220, cooldown:22,  color:'#8899aa', color2:'#556677', type:'roboRanged', projSpeed:9, spawnCd:4, visual:'robogun' },
-  { name:'Rey Gatontito',cost:5500, hp:4200, dmg:200, speed:0.5, range:50,  cooldown:100, color:'#ffd700', color2:'#b8860b', type:'melee', scale:2.4, spawnCd:60, visual:'king', aoeRadius:45 },
-  { name:'Gato Demoníaco',cost:2700,hp:1500, dmg:80,  speed:0.9, range:45,  cooldown:70,  color:'#dd1111', color2:'#770000', type:'melee', spawnCd:25, visual:'demon' },
+  { name:'Robo-Pistola', cost:400,  hp:90,   dmg:33,  speed:1.0, range:240, cooldown:20,  color:'#8899aa', color2:'#556677', type:'roboRanged', projSpeed:9, spawnCd:4, visual:'robogun' },
+  { name:'Rey Gatontito',cost:5500, hp:4200, dmg:170, speed:0.6, range:50,  cooldown:100, color:'#ffd700', color2:'#b8860b', type:'melee', scale:2.4, spawnCd:60, visual:'king', aoeRadius:45 },
+  { name:'Gato Demoníaco',cost:2700,hp:1500, dmg:80,  speed:1.5, range:45,  cooldown:70,  color:'#dd1111', color2:'#770000', type:'melee', spawnCd:25, visual:'demon' },
   { name:'Gato Sin Cabeza',cost:900,hp:400,  dmg:37,  speed:1.5, range:45,  cooldown:60,  color:'#baffc2', color2:'#00331a', type:'melee', spawnCd:10, visual:'headless', scale:1.15 },
-  { name:'Gatoclaus',    cost:3200, hp:1300, dmg:88,  speed:1,   range:260, cooldown:150, color:'#ee2222', color2:'#8a0f0f', type:'aoe', aoeRadius:100, projSpeed:7, spawnCd:30, scale:1.6, visual:'gatoclaus' },
+  { name:'Gatoclaus',    cost:3100, hp:750, dmg:90,  speed:1,   range:260, cooldown:150, color:'#ee2222', color2:'#8a0f0f', type:'aoe', aoeRadius:100, projSpeed:7, spawnCd:30, scale:1.6, visual:'gatoclaus' },
 ];
 
 // Cómo se desbloquea cada unidad (historia o evento)
