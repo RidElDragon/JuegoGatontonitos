@@ -1,11 +1,12 @@
 // ============================================================
-// 10-bestiary.js — v46: BESTIARIO con retratos EN VIVO
-// (nuestra arquitectura: sin sceneCanvas, usa un canvas aparte
-//  mediante setRenderContext/resetRenderContext de 07-main).
-// · Registra cada enemigo que aparece en batalla (fuera de sandbox).
-// · Galería deslizable con pestañas ✅ Descubiertos / 📚 Todos.
-// · Retratos animados de tropas y enemigos con el mismo código
-//   de dibujo del juego (drawCat / drawEnemy con hideHud).
+// 10-bestiary.js — v50: BESTIARIO con retratos EN VIVO (2 formas)
+// · v50 FIX: las miniaturas de TROPAS salían vacías porque se usaba
+//   `innerHTML +=` DESPUÉS de appendChild(canvas): eso re-crea los hijos
+//   y deja el canvas referenciado HUÉRFANO (se dibujaba en un fantasma).
+//   Ahora las leyendas se crean con createElement y el canvas sobrevive.
+// · Compatible con ambos pipelines (sceneCanvas pixel-art O setRenderContext).
+// · Cada tropa muestra 🐱 Normal (stats Nv.1) y ✨ Evolucionada (Nv.10).
+// · Registra enemigos vistos fuera de sandbox · pestañas ✅/📚.
 // ============================================================
 (function () {
   const B_KEY = 'catBattleBestiary';
@@ -111,33 +112,89 @@
   })();
 
   // ============================================================
-  // RETRATOS EN VIVO (canvas aparte, ventana fija)
+  // RETRATOS EN VIVO — compatibles con ambos pipelines
   // ============================================================
-  const PORT_LOGICAL = 110;      // ventana lógica del retrato
-  const PORT_S = 2;              // resolución interna (nitidez)
-  const BACK = PORT_LOGICAL * PORT_S;
-  const portCanvas = document.createElement('canvas');
-  portCanvas.width = BACK; portCanvas.height = BACK;
-  const portCtx = portCanvas.getContext('2d');
+  const THUMB = 100;
+  const PSCALE = (typeof RENDER_SCALE === 'number' && RENDER_SCALE > 1) ? Math.min(RENDER_SCALE, 4) : 2;
+  const BACK = Math.round(THUMB * PSCALE);
+  const WIN = 220;
+  const WIN_CX = 450, WIN_CY = 200;
+  const PAD = 10;
+  const FIG_R = 54;
+  const PORT_LOGICAL = 110, PORT_S = 2;
+  let portCanvas = null, portCtx = null;
   let galleryFrame = 0;
   let jobs = [];
+  const srcCache = {};
+
+  function useScenePipeline() {
+    return (typeof sceneCanvas !== 'undefined' && !!sceneCanvas);
+  }
+
+  function measureFigure() {
+    let data = null;
+    const ox = WIN_CX * PSCALE - WIN * PSCALE / 2, oy = WIN_CY * PSCALE - WIN * PSCALE / 2;
+    const win = Math.round(WIN * PSCALE);
+    try { data = ctx.getImageData(ox, oy, win, win).data; } catch (e) { data = null; }
+    let minx = 1e9, miny = 1e9, maxx = -1, maxy = -1;
+    if (data && data.length >= win * win * 4) {
+      for (let y = 0; y < win; y++) {
+        for (let x = 0; x < win; x++) {
+          if (data[(y * win + x) * 4 + 3] > 24) {
+            if (x < minx) minx = x; if (x > maxx) maxx = x;
+            if (y < miny) miny = y; if (y > maxy) maxy = y;
+          }
+        }
+      }
+    }
+    if (maxx < 0) return [WIN_CX * PSCALE - FIG_R * PSCALE, WIN_CY * PSCALE - FIG_R * PSCALE, FIG_R * 2 * PSCALE, FIG_R * 2 * PSCALE];
+    const cx = ox + (minx + maxx) / 2, cy = oy + (miny + maxy) / 2;
+    const side = Math.max(maxx - minx, maxy - miny) + PAD * 2 * PSCALE;
+    return [cx - side / 2, cy - side / 2, side, side];
+  }
 
   function drawFigure(job) {
     const prevF = frameCount;
-    frameCount = galleryFrame; // anima el retrato sin tocar la batalla
-    setRenderContext(portCtx);
-    portCtx.setTransform(PORT_S, 0, 0, PORT_S, 0, 0);
-    portCtx.clearRect(0, 0, PORT_LOGICAL, PORT_LOGICAL);
-    try { job.draw(); } catch (e) {}
-    frameCount = prevF;
-    resetRenderContext();
+    frameCount = galleryFrame;
     const tc = job.tctx;
-    if (!tc) return;
-    tc.setTransform(1, 0, 0, 1, 0, 0);
-    tc.clearRect(0, 0, job.w, job.h);
-    tc.imageSmoothingEnabled = true;
-    tc.drawImage(portCanvas, 0, 0, BACK, BACK, 0, 0, job.w, job.h);
+    if (useScenePipeline()) {
+      ctx.save();
+      ctx.setTransform(PSCALE, 0, 0, PSCALE, 0, 0);
+      ctx.clearRect(0, 0, LOGIC_W, LOGIC_H);
+      try { job.draw(WIN_CX, WIN_CY); } catch (e) {}
+      ctx.restore();
+      frameCount = prevF;
+      if (!job.src) job.src = srcCache[job.key] || (srcCache[job.key] = measureFigure());
+      if (!tc) return;
+      try {
+        tc.setTransform(1, 0, 0, 1, 0, 0);
+        tc.clearRect(0, 0, job.w, job.h);
+        if ('imageSmoothingEnabled' in tc) tc.imageSmoothingEnabled = true;
+        tc.drawImage(sceneCanvas, job.src[0], job.src[1], job.src[2], job.src[3], 0, 0, job.w, job.h);
+      } catch (e) {}
+    } else if (typeof setRenderContext === 'function') {
+      if (!portCanvas) {
+        portCanvas = document.createElement('canvas');
+        portCanvas.width = PORT_LOGICAL * PORT_S;
+        portCanvas.height = PORT_LOGICAL * PORT_S;
+        portCtx = portCanvas.getContext('2d');
+      }
+      setRenderContext(portCtx);
+      portCtx.setTransform(PORT_S, 0, 0, PORT_S, 0, 0);
+      portCtx.clearRect(0, 0, PORT_LOGICAL, PORT_LOGICAL);
+      try { job.draw(PORT_LOGICAL / 2, 78); } catch (e) {}
+      frameCount = prevF;
+      resetRenderContext();
+      if (!tc) return;
+      tc.setTransform(1, 0, 0, 1, 0, 0);
+      tc.clearRect(0, 0, job.w, job.h);
+      tc.imageSmoothingEnabled = true;
+      tc.drawImage(portCanvas, 0, 0, portCanvas.width, portCanvas.height, 0, 0, job.w, job.h);
+    } else {
+      frameCount = prevF;
+    }
   }
+
   function refreshGallery() {
     const vh = window.innerHeight || 800;
     for (let i = 0; i < jobs.length; i++) {
@@ -145,7 +202,7 @@
       const cv = job.tctx && job.tctx.canvas;
       if (cv && cv.getBoundingClientRect) {
         const r = cv.getBoundingClientRect();
-        if (r.bottom < -40 || r.top > vh + 40) continue; // fuera de pantalla
+        if (r.bottom < -40 || r.top > vh + 40) continue;
       }
       drawFigure(job);
     }
@@ -159,17 +216,16 @@
   function portraitJob(key, draw, cv) {
     let tctx = null;
     try { tctx = cv.getContext('2d'); } catch (e) {}
-    return { key: key, draw: draw, tctx: tctx, w: BACK, h: BACK };
+    return { key: key, draw: draw, tctx: tctx, w: BACK, h: BACK, src: null };
   }
-  function catPortrait(idx, cv) {
+  function catPortrait(idx, cv, level, evo) {
     const u = CAT_BASE[idx];
-    const lvl = Math.max(1, unitLevels[idx] || 1);
-    return portraitJob('c' + idx, function () {
+    return portraitJob('c' + idx + (evo ? 'e' : 'n'), function (x, y) {
       drawCat({
-        x: PORT_LOGICAL / 2, y: 78, type: idx, level: lvl, scale: 1,
+        x: x, y: y, type: idx, level: level, evo: evo, scale: 1,
         hp: 1, maxHp: 1, color: u.color, color2: u.color2,
         visual: u.visual || null, unitType: u.type,
-        walkCycle: 0.9, attackAnim: 0, poisonTimer: 0
+        walkCycle: 0.9, attackAnim: 0, spawnAnim: 0, hurtFlash: 0, poisonTimer: 0
       }, { hideHud: true });
     }, cv);
   }
@@ -179,15 +235,22 @@
     let type;
     if (id.startsWith('ee:') || id.startsWith('eb:')) type = id.slice(3);
     else type = +id.slice(1);
-    return portraitJob('e' + id, function () {
+    return portraitJob('e' + id, function (x, y) {
       drawEnemy({
-        x: PORT_LOGICAL / 2, y: 78, type: type, scale: 1,
+        x: x, y: y, type: type, scale: 1,
         hp: 1, maxHp: 1, color: t.color, color2: t.color2,
         unitType: t.type, isBoss: isBoss, bossStyle: t.bossStyle || null,
         desertStyle: t.desertStyle || null, xmasStyle: t.xmasStyle || null,
-        name: t.name, walkCycle: 0.9, attackAnim: 0, poisonTimer: 0
+        name: t.name, walkCycle: 0.9, attackAnim: 0, spawnAnim: 0, hurtFlash: 0, poisonTimer: 0
       }, { hideHud: true });
     }, cv);
+  }
+  function formStatsLine(idx, lvl) {
+    const u = CAT_BASE[idx];
+    const s = unitStatsAt(idx, lvl);
+    let line = u.healAmt ? `HP:${s.hp} · Cura:${s.heal}` : `HP:${s.hp} · DMG:${s.dmg}`;
+    line += ` · SPD:${u.speed}`;
+    return line;
   }
 
   // ---------------- Pantalla ----------------
@@ -260,6 +323,23 @@
     list.appendChild(h);
     entries.forEach(e => list.appendChild(e));
   }
+  // v50: leyendas con createElement (NADA de innerHTML += sobre el contenedor del canvas)
+  function makeFormColumn(cv, label, labelColor, statsText) {
+    const col = document.createElement('div');
+    col.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px';
+    const lab = document.createElement('span');
+    lab.className = 'sb-info';
+    lab.style.fontWeight = 'bold';
+    if (labelColor) lab.style.color = labelColor;
+    lab.textContent = label;
+    const st = document.createElement('span');
+    st.className = 'sb-info';
+    st.textContent = statsText;
+    col.appendChild(cv);
+    col.appendChild(lab);
+    col.appendChild(st);
+    return col;
+  }
   function troopEntry(idx) {
     const unlocked = isUnitUnlocked(idx);
     if (!unlocked && mode === 'seen') return null;
@@ -270,20 +350,26 @@
     body.className = 'best-body';
     if (unlocked) {
       const r = rarityOf(idx);
-      const cv = makeThumb();
-      node.appendChild(cv);
-      jobs.push(catPortrait(idx, cv));
+      const cvN = makeThumb();
+      const cvE = makeThumb();
+      const duo = document.createElement('div');
+      duo.style.cssText = 'display:flex;gap:10px;align-items:flex-start;flex:0 0 auto';
+      duo.appendChild(makeFormColumn(cvN, '🐱 Normal', null, formStatsLine(idx, 1)));
+      duo.appendChild(makeFormColumn(cvE, '✨ Evolucionada', '#88ffcc', formStatsLine(idx, EVOLVE_LEVEL)));
+      node.appendChild(duo);
+      jobs.push(catPortrait(idx, cvN, 1, false));
+      jobs.push(catPortrait(idx, cvE, EVOLVE_LEVEL, true));
       body.innerHTML =
         `<div class="best-name">${UNIT_EMOJI[idx]} ${u.name} <span class="best-tag" style="border-color:${r.color};color:${r.color}">${r.name}</span>${unitLevels[idx] >= EVOLVE_LEVEL ? ' <span class="best-tag">✨</span>' : ''}</div>` +
         `<div class="sb-info">${troopStatsLine(u)}</div>` +
         `<div class="sb-info" style="font-style:italic;opacity:.8">"${TROOP_LORE[idx] || ''}"</div>` +
-        `<div class="sb-info">Nivel actual: ${unitLevels[idx]}/${unitLevelCap()}</div>`;
+        `<div class="sb-info">Nivel actual: ${unitLevels[idx]}/${unitLevelCap()} · Forma en uso: ${formIsEvo(idx) ? '✨ Evolucionada' : '🐱 Normal'}</div>`;
     } else {
       node.appendChild(lockedThumb());
       body.innerHTML =
         `<div class="best-name locked">🔒 ???</div>` +
         `<div class="sb-info locked">${unlockLabel(idx)}</div>` +
-        `<div class="sb-info locked">Desbloquéala para ver su ficha</div>`;
+        `<div class="sb-info locked">Desbloquéala para ver sus dos formas</div>`;
     }
     node.appendChild(body);
     return node;
@@ -317,7 +403,7 @@
   }
   function render() {
     const info = document.getElementById('bestInfo');
-    if (info) info.innerHTML = `Enemigos: <b style="color:#88ccee">${seenCount()}/${allEnemyIds().length}</b> · Tropas: <b style="color:#88ff88">${troopCount()}/${NUM_UNITS}</b> · <span style="font-size:11px">Retratos dibujados en vivo. Se registra al aparecer en batalla (no en 🧪 sandbox).</span>`;
+    if (info) info.innerHTML = `Enemigos: <b style="color:#88ccee">${seenCount()}/${allEnemyIds().length}</b> · Tropas: <b style="color:#88ff88">${troopCount()}/${NUM_UNITS}</b> · <span style="font-size:11px">Cada tropa muestra su forma 🐱 Normal y ✨ Evolucionada con sus stats. Se registra al aparecer en batalla (no en 🧪 sandbox).</span>`;
     if (bScreen) {
       bScreen.querySelectorAll('.best-tab').forEach(t => {
         t.classList.toggle('active', (t.dataset.mode || 'seen') === mode);
@@ -361,7 +447,6 @@
   }
   wrap('hideScreens', () => { if (bScreen) bScreen.style.display = 'none'; });
   wrap('showMenu', () => { refreshButton(); });
-  // Anima los retratos solo mientras el bestiario está abierto (~30 fps)
   wrap('draw', () => {
     if (screen !== 'bestiary') return;
     galleryFrame++;

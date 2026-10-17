@@ -1,6 +1,9 @@
 // ============================================================
 // 04-ui.js — Pantallas, menús, grids y refresco de interfaz
-// v44: indicadores ✨ de evolución (Nv.10+) en HUD, mejoras y tropas
+// v48: · Selección de Tropas: cada tarjeta permite elegir FORMA
+//        (🐱 normal / ✨ evolucionada). El toggle se habilita solo
+//        con la tropa a Nv.10+.
+//      · Los indicadores ✨ del HUD reflejan la forma ACTIVA.
 // ============================================================
 
 // -------------------- RAREZAS --------------------
@@ -265,7 +268,7 @@ function showEventLevels(eventId) {
   document.getElementById('eventMenuBtn').style.display = 'none';
 }
 
-// --- Selección de tropas ---
+// --- Selección de tropas (v48: con selector de FORMA) ---
 function showTroops() {
   leaveTestIfNeeded();
   screen = 'troops'; playing = false;
@@ -291,19 +294,50 @@ function buildTroopGrid() {
   CAT_BASE.forEach((u, idx) => {
     const unlocked = isUnitUnlocked(idx);
     const sel = tempLoadout.includes(idx);
-    const b = document.createElement('button');
-    b.className = 'troop-card' + (sel ? ' selected' : '') + (unlocked ? '' : ' lockedcard');
-    b.disabled = !unlocked;
-    applyRarityStyle(b, idx);
+    const canEvo = unitLevels[idx] >= EVOLVE_LEVEL;
+    const evoActive = formIsEvo(idx);
+
+    // v48: la tarjeta ahora es un contenedor con DOS botones:
+    //  · seleccionar/añadir al escuadrón
+    //  · alternar forma (normal / evolucionada)
+    const card = document.createElement('div');
+    card.className = 'troop-card' + (sel ? ' selected' : '') + (unlocked ? '' : ' lockedcard');
+    if (unlocked) applyRarityStyle(card, idx);
+
     let line = troopStatsLine(u);
-    if (unitLevels[idx] >= EVOLVE_LEVEL) line += ' · ✨ Evolución (+10%)';
-    if (unlocked) {
-      b.innerHTML = `${UNIT_EMOJI[idx]} ${u.name}${rarityTag(idx)}<span class="sb-info">${line}</span><span class="sb-info">${sel ? '✅ En el escuadrón' : '➕ Añadir'}</span>`;
+    if (canEvo) line += evoActive ? ' · ✨ Evolución activa' : ' · 🐱 Forma normal';
+
+    const selectBtn = document.createElement('button');
+    selectBtn.style.cssText = 'display:block;width:100%;background:transparent;border:none;box-shadow:none;color:inherit;padding:0;font-size:12px;cursor:pointer;text-align:center;';
+    selectBtn.disabled = !unlocked;
+    selectBtn.innerHTML = unlocked
+      ? `${UNIT_EMOJI[idx]} ${u.name}${rarityTag(idx)}<span class="sb-info">${line}</span><span class="sb-info">${sel ? '✅ En el escuadrón' : '➕ Añadir'}</span>`
+      : `🔒 ${u.name}${rarityTag(idx)}<span class="sb-info">${line}</span><span class="sb-info locked">${unlockLabel(idx)}</span>`;
+    selectBtn.onclick = () => toggleTroop(idx);
+    card.appendChild(selectBtn);
+
+    const formBtn = document.createElement('button');
+    formBtn.style.cssText = 'margin-top:6px;width:100%;font-size:10px;padding:4px 6px;';
+    if (!unlocked) {
+      formBtn.disabled = true;
+      formBtn.style.background = 'linear-gradient(135deg,#333,#222)';
+      formBtn.textContent = '🔒 Formas: desbloquea la tropa';
+    } else if (!canEvo) {
+      formBtn.disabled = true;
+      formBtn.style.background = 'linear-gradient(135deg,#333,#222)';
+      formBtn.textContent = '🔒 Forma evolucionada: se activa al Nv.10';
     } else {
-      b.innerHTML = `🔒 ${u.name}${rarityTag(idx)}<span class="sb-info">${line}</span><span class="sb-info locked">${unlockLabel(idx)}</span>`;
+      formBtn.style.background = evoActive ? 'linear-gradient(135deg,#ffd700,#aa7700)' : 'linear-gradient(135deg,#8899aa,#556677)';
+      formBtn.style.color = evoActive ? '#221100' : '#fff';
+      formBtn.textContent = evoActive ? '✨ Usar forma evolucionada' : '🐱 Usar forma normal';
+      formBtn.onclick = () => {
+        unitFormPref[idx] = evoActive ? 'normal' : 'evo';
+        saveForms();
+        buildTroopGrid();
+      };
     }
-    b.onclick = () => toggleTroop(idx);
-    grid.appendChild(b);
+    card.appendChild(formBtn);
+    grid.appendChild(card);
   });
   document.getElementById('troopCount').textContent = `Seleccionadas: ${tempLoadout.length}/${MAX_LOADOUT}`;
 }
@@ -327,7 +361,7 @@ function buildMetaInfoPanel() {
   let html = '';
   activeUnitList().forEach(idx => {
     const r = rarityOf(idx);
-    html += `${UNIT_EMOJI[idx]} <span style="color:${r.color}">${CAT_BASE[idx].name}</span>: <b>Nv.${unitLevels[idx]}/${unitLevelCap()}</b>${unitLevels[idx] >= EVOLVE_LEVEL ? ' ✨' : ''}<br>`;
+    html += `${UNIT_EMOJI[idx]} <span style="color:${r.color}">${CAT_BASE[idx].name}</span>: <b>Nv.${unitLevels[idx]}/${unitLevelCap()}</b>${formIsEvo(idx) ? ' ✨' : ''}<br>`;
   });
   html += `<hr style="border-color:#444">💵 Income: <b>Nv.${incomeLevel}/${MAX_INCOME_LEVEL}</b><br>`;
   html += `💣 Cañón: <b>D${cannonDmgLevel} R${cannonRangeLevel} C${cannonCdLevel}</b>`;
@@ -395,13 +429,13 @@ function updateUI() {
       const displayDmg = Math.min(Math.floor(stats.dmg * waveBonus), MAX_STATS);
       const displayHeal = Math.min(Math.floor(stats.healAmt * waveBonus), MAX_STATS);
       let statsText = i === 5 ? `HP:${displayHp} Heal:${displayHeal} RNG:${stats.range}`
-        : i === 4 ? `HP:${displayHp} DMG:${displayDmg} AOE:${stats.oeRadius || stats.aoeRadius} RNG:${stats.range}`
+        : i === 4 ? `HP:${displayHp} DMG:${displayDmg} AOE:${stats.aoeRadius} RNG:${stats.range}`
         : (i === 3 || i === 8) ? `HP:${displayHp} DMG:${displayDmg} RNG:${stats.range}`
         : i === 9 ? `HP:${displayHp} DMG:${displayDmg} AOE:${stats.aoeRadius}`
         : i === 12 ? `HP:${displayHp} DMG:${displayDmg} AOE:${stats.aoeRadius} RNG:${stats.range}`
         : `HP:${displayHp} DMG:${displayDmg} SPD:${stats.speed.toFixed(1)}`;
       if (hasProj(CAT_BASE[i])) statsText += ` PRJ:${projRangeOf(CAT_BASE[i])}`;
-      if (unitLevels[i] >= EVOLVE_LEVEL) statsText = '✨ ' + statsText;
+      if (formIsEvo(i)) statsText = '✨ ' + statsText;
       statsEl.textContent = statsText;
     }
   }

@@ -47,7 +47,7 @@ const CAT_BASE = [
   { name:'Básico',       cost:50,   hp:80,   dmg:25,  speed:1.2, range:40,  cooldown:60,  color:'#ffcc66', color2:'#ff9933', type:'melee',  spawnCd:2 },
   { name:'Tanque',       cost:110,  hp:450,  dmg:12,  speed:0.8, range:30,  cooldown:90,  color:'#99ccff', color2:'#3366cc', type:'melee',  spawnCd:3 },
   { name:'Rápido',       cost:170,  hp:75,   dmg:100,  speed:2.2, range:35,  cooldown:100,  color:'#ff9999', color2:'#cc3333', type:'melee',  spawnCd:5 },
-  { name:'Arquero',      cost:140,  hp:70,   dmg:50,  speed:0.9, range:300, cooldown:75,  color:'#cc99ff', color2:'#6633cc', type:'ranged', projSpeed:6, spawnCd:3 },
+  { name:'Arquero',      cost:140,  hp:70,   dmg:50, speed:0.9, range:300, cooldown:75,  color:'#cc99ff', color2:'#6633cc', type:'ranged', projSpeed:6, spawnCd:3, projRange:400 },
   { name:'Mago',         cost:450,  hp:90,   dmg:50,  speed:0.8, range:180, cooldown:110, color:'#99ff99', color2:'#339933', type:'aoe', aoeRadius:90, projSpeed:5, spawnCd:6 },
   { name:'Sanador',      cost:300,  hp:100,  dmg:0,   speed:0.9, range:120, cooldown:80,  color:'#ff99cc', color2:'#cc3399', type:'healer', healAmt:50, spawnCd:8 },
   { name:'Gigante',      cost:1000, hp:1200, dmg:55,  speed:0.4, range:40,  cooldown:120, color:'#ff6600', color2:'#993300', type:'melee', scale:1.8, spawnCd:12 },

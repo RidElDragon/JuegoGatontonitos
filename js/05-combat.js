@@ -1,6 +1,9 @@
 // ============================================================
 // 05-combat.js — Lógica de batalla: spawns, update, modos, cañón
-// v41: · Mago/Gatoclaus SÍ asedian la base cuando no hay enemigos
+// v47: · FLECHAS PERFORANTES: el Arquero (tipo 3) al Nv.10+
+//        (evolucionado) lanza flechas que atraviesan hasta
+//        ARCHER_PIERCE_COUNT enemigos antes de desaparecer.
+//      · Mago/Gatoclaus SÍ asedian la base cuando no hay enemigos
 //        delante (su tiro viaja hasta la base y explota con splash).
 //      · SFX de golpe melee ('melee') y de recibir impacto ('cat_hurt').
 // ============================================================
@@ -8,12 +11,17 @@
 // Puente seguro con el módulo de audio (si no existe, no petardea)
 function sfxNow(name) { if (window.sfx) window.sfx(name); }
 
+// v47: cuántos enemigos puede atravesar una flecha del Arquero evolucionado
+const ARCHER_PIERCE_COUNT = 5;
+
 // v37: helpers de rango de proyectil
 function hasProj(u) {
   const t = u.type || u.unitType;
   return t === 'ranged' || t === 'roboRanged' || t === 'aoe';
 }
 function projRangeOf(u) {
+  // v48: override por unidad (el Arquero tiene projRange:400 en la config)
+  if (u.projRange) return u.projRange;
   const t = u.type || u.unitType;
   const r = u.range || 0;
   return (t === 'ranged' || t === 'roboRanged') ? r + 60 : r;
@@ -83,7 +91,8 @@ function spawnCat(type) {
     healAmt: Math.min(Math.floor(stats.healAmt * waveBonus), MAX_STATS),
     visual: stats.visual || null,
     poison: 0, poisonTimer: 0, walkCycle: Math.random() * Math.PI * 2,
-    level: unitLevels[type]
+    level: unitLevels[type],
+    evo: formIsEvo(type)   // v48: forma elegida en Selección de Tropas
   });
   if (CAT_BASE[type].visual === 'king')      { addFloatingText(120, 120, '👑 ¡El Rey Gatontito ha llegado! 👑', '#ffd700'); addParticle(80, GROUND_Y, 'rgb(255,215,0)', 20, 5); }
   if (CAT_BASE[type].visual === 'demon')      { addFloatingText(120, 120, '😈 ¡El Gato Demoníaco acecha! 😈', '#ff2222'); addParticle(80, GROUND_Y, 'rgb(255,0,0)', 20, 5); }
@@ -510,7 +519,10 @@ function update() {
             aoeRadius: 0,
             projRange: projRangeOf(c),
             traveled: 0,
-            canHitBase: true
+            canHitBase: true,
+            // v47: Arquero evolucionado (Nv.10+) = flechas perforantes
+            pierce: (c.type === 3 && isEvolved(c)) ? ARCHER_PIERCE_COUNT : 0,
+            hitSet: null
           });
         } else if (c.unitType === 'aoe') {
           // v41: si hay enemigo delante → tiro recto que expira a su rango.
@@ -608,6 +620,8 @@ function update() {
       let hit = null;
       for (let j = 0; j < enemies.length; j++) {
         const e = enemies[j];
+        // v47: una flecha perforante no golpea dos veces al mismo enemigo
+        if (p.hitSet && p.hitSet.has(e)) continue;
         const r = 14 * (e.scale || 1) + 4;
         if (p.x >= e.x - r && p.x <= e.x + r) { hit = e; break; }
       }
@@ -618,11 +632,21 @@ function update() {
             const t = enemies[j];
             if (Math.abs(t.x - p.x) <= p.aoeRadius) { t.hp -= p.dmg; addParticle(t.x, t.y, 'rgb(255,0,255)', 3, 3); }
           }
+          p.dead = true;
         } else {
           hit.hp -= p.dmg;
           addParticle(hit.x, hit.y, 'rgb(255,200,100)', 3, 2);
+          // v47: FLECHA PERFORANTE — atraviesa hasta ARCHER_PIERCE_COUNT enemigos
+          if (p.pierce > 0) {
+            p.pierce--;
+            if (!p.hitSet) p.hitSet = new Set();
+            p.hitSet.add(hit);
+            addParticle(hit.x, hit.y, 'rgb(200,160,255)', 2, 2); // chispa de atravesar
+            if (p.pierce <= 0) p.dead = true; // llegó a su límite: cae
+          } else {
+            p.dead = true;
+          }
         }
-        p.dead = true;
       } else if (p.canHitBase && p.x >= ENEMY_BASE_X - 24) {
         enemyBaseHP -= p.dmg;
         addParticle(ENEMY_BASE_X, 170, 'rgb(255,100,100)', 4, 3);

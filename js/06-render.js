@@ -1022,8 +1022,18 @@ function draw() {
   ctx.font = 'bold 12px Arial';
   ctx.fillText('▼', rangeRight, 40);
 
-  for (let i=0; i<cats.length; i++) drawCat(cats[i]);
-  for (let i=0; i<enemies.length; i++) drawEnemy(enemies[i]);
+  // v51: ORDEN DE DIBUJO POR TAMAÑO (painter's algorithm):
+  // las unidades GRANDES se pintan primero (quedan DETRÁS) y las pequeñas
+  // encima, para que un jefe o un Gigante no tapen al escuadrón.
+  // Desempate a igual tamaño: gatos detrás, enemigos delante (como hasta ahora).
+  const drawList = [];
+  for (let i = 0; i < cats.length; i++)    drawList.push({ s: cats[i].scale || 1,    f: 0, i: i, o: cats[i] });
+  for (let i = 0; i < enemies.length; i++) drawList.push({ s: enemies[i].scale || 1, f: 1, i: i, o: enemies[i] });
+  drawList.sort((a, b) => (b.s - a.s) || (a.f - b.f) || (a.i - b.i));
+  for (let k = 0; k < drawList.length; k++) {
+    const d = drawList[k];
+    if (d.f === 0) drawCat(d.o); else drawEnemy(d.o);
+  }
   for (let i=0; i<projectiles.length; i++) drawProjectile(projectiles[i]);
   drawParticles();
 

@@ -1,7 +1,9 @@
 // ============================================================
 // 02-state.js — Estado mutable global + cálculos/getters
-// v44: EVOLUCIÓN — al Nv.10 las unidades ganan +10% de stats
-//      y marcan isEvolved() para su apariencia mejorada.
+// v48: FORMAS DE UNIDAD — cada tropa Nv.10+ puede usarse en forma
+//      normal o evolucionada (preferencia persistida y separada
+//      por unidad). La evolución sigue dando +10% de stats SOLO
+//      si la forma activa es la evolucionada.
 // ============================================================
 
 // --- Progreso persistente (se rellena en 07-main.js al iniciar) ---
@@ -65,7 +67,37 @@ let fpsTickCount = 0;
 // ------------------------------------------------------------
 const EVOLVE_LEVEL = 10;   // nivel al que evoluciona una tropa
 const EVOLVE_MULT = 1.10;  // +10% de estadísticas
-function isEvolved(c) { return !!c && (c.level || 1) >= EVOLVE_LEVEL; }
+
+// v48: si el objeto trae `evo` definido (instancia en batalla o retrato),
+// manda ese flag; si no, se deduce del nivel (comportamiento clásico).
+function isEvolved(c) {
+  if (!c) return false;
+  if (c.evo !== undefined) return !!c.evo;
+  return (c.level || 1) >= EVOLVE_LEVEL;
+}
+
+// ------------------------------------------------------------
+// v48: FORMA PREFERIDA POR UNIDAD ('evo' | 'normal')
+// ------------------------------------------------------------
+function loadForms() {
+  try {
+    const o = JSON.parse(localStorage.getItem('catBattleForms'));
+    if (Array.isArray(o)) {
+      const out = new Array(NUM_UNITS).fill('evo');
+      for (let i = 0; i < NUM_UNITS; i++) if (o[i] === 'normal') out[i] = 'normal';
+      return out;
+    }
+  } catch (e) {}
+  return new Array(NUM_UNITS).fill('evo');
+}
+function saveForms() {
+  try { localStorage.setItem('catBattleForms', JSON.stringify(unitFormPref)); } catch (e) {}
+}
+let unitFormPref = loadForms();
+// La forma evolucionada solo está disponible con la tropa a Nv.10+
+function formIsEvo(idx) {
+  return unitFormPref[idx] !== 'normal' && unitLevels[idx] >= EVOLVE_LEVEL;
+}
 
 // ------------------------------------------------------------
 // Utilidades y consultas de modo
@@ -117,7 +149,6 @@ function leaveTestIfNeeded() {
 // ------------------------------------------------------------
 // Income
 // ------------------------------------------------------------
-function getIncomeIncrement(level) { return level * 10; }
 function getIncomeAt(l) { return BASE_INCOME + 10 * (l * (l + 1) / 2); }
 function getIncome() { return getIncomeAt(incomeLevel); }
 function getIncomeCoinCost() { const l = incomeLevel; return 8000 + 5000 * l * (l - 1); }
@@ -139,7 +170,10 @@ function getCannonRangeCoinCost() { const l = cannonRangeLevel; return 12000 + 8
 function getCannonCdCoinCost()    { const l = cannonCdLevel;    return 15000 + 10000 * l * (l - 1); }
 
 // ------------------------------------------------------------
-// Stats de unidades y multiplicadores (v44: incluyen evolución)
+// Stats de unidades y multiplicadores
+// v48: getCatStats respeta la FORMA elegida (el +10% solo si está
+//      activa la forma evolucionada). unitStatsAt sigue mostrando el
+//      potencial máximo (para previews del menú de mejoras y bestiario).
 // ------------------------------------------------------------
 function unitStatsAt(idx, lvl) {
   const base = CAT_BASE[idx];
@@ -153,7 +187,7 @@ function unitStatsAt(idx, lvl) {
 function getCatStats(type) {
   const base = CAT_BASE[type];
   const lvl = unitLevels[type];
-  const mult = Math.pow(base.upMult || 1.15, lvl - 1) * (lvl >= EVOLVE_LEVEL ? EVOLVE_MULT : 1);
+  const mult = Math.pow(base.upMult || 1.15, lvl - 1) * (formIsEvo(type) ? EVOLVE_MULT : 1);
   return {
     ...base,
     hp:  Math.min(Math.floor(base.hp * mult), MAX_STATS),
