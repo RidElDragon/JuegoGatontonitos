@@ -290,20 +290,44 @@ function drawEnemyAnkh(o){ o.line='#6b5a2a'; o.eyeColor='#ff3a3a'; o.pupil='#000
       ctx.strokeStyle='#6b5a2a'; ctx.lineWidth=1;
       for(let i=-3;i<=3;i+=2){ ctx.beginPath(); ctx.moveTo(i,o.headY+6); ctx.lineTo(i,o.headY+10); ctx.stroke(); } } }); }
 // ---------- JEFES ----------
-function drawBossDragon(o){ o.bodyRx=16; o.bodyRy=13; o.bodyY=4; o.headR=12; o.headY=-16; o.eyeColor='#ffe14d'; o.pupil='#3a0a00';
-  const flap=Math.sin(frameCount*0.18)*9;
-  drawCreatureBase(o,{ bodyColor:o.color, bodyColor2:o.color2, headColor:o.color,
-    back:function(){ monBatWing(-1,-2,-2,30,flap,'#b02020'); monBatWing(1,2,-2,30,-flap,'#b02020');
-      ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(12,10); ctx.quadraticCurveTo(26,16,30,2+flap*0.3);
-      ctx.strokeStyle=CAT_LINE; ctx.lineWidth=8; ctx.stroke(); ctx.strokeStyle=o.color; ctx.lineWidth=5; ctx.stroke(); ctx.lineCap='butt'; },
-    extra:function(){ monHorn(1,7,o.headY-6,12,'#e8d9a0',2); monHorn(-1,-7,o.headY-6,12,'#e8d9a0',-2);
-      flatPoly([[2,o.headY+1],[14,o.headY+3],[12,o.headY+8],[2,o.headY+8]],o.color2,CAT_LINE,2);
-      ctx.fillStyle='#3a0000'; ctx.beginPath(); ctx.arc(8,o.headY+3,1.2,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='#fff';
-      for(let i=0;i<3;i++) flatPoly([[2+i*3.4,o.headY+7],[3.6+i*3.4,o.headY+11],[5.2+i*3.4,o.headY+7]],'#fff');
-      if(o.attack>4){ ctx.fillStyle='rgba(255,150,0,0.85)'; ctx.beginPath(); ctx.moveTo(-14,o.headY+3); ctx.lineTo(-30,o.headY); ctx.lineTo(-30,o.headY+9); ctx.closePath(); ctx.fill();
-        ctx.fillStyle='rgba(255,230,90,0.9)'; ctx.beginPath(); ctx.moveTo(-14,o.headY+4); ctx.lineTo(-24,o.headY+2); ctx.lineTo(-24,o.headY+7); ctx.closePath(); ctx.fill(); }
-      for(let i=0;i<3;i++) flatPoly([[-3+i*4,o.bodyY-13],[-1+i*4,o.bodyY-20],[1+i*4,o.bodyY-13]],'#e8d9a0',CAT_LINE,1.2); } }); }
+// JEFE DRAGÓN — hocico y dientes mirando al FRENTE (izquierda), ojos visibles.
+// JEFE DRAGÓN — hocico al frente, cuernos, alas, cola y aliento de fuego (SIN dientes)
+// JEFE DRAGÓN — v47: limpio sin hocico raro, sin dientes y sin fuego (por ahora).
+// Solo cuernos, alas, cola y crestas dorsales.
+// JEFE DRAGÓN — v47: limpio sin hocico raro, sin dientes y sin fuego (por ahora).
+// Solo cuernos, alas, cola y crestas dorsales.
+// JEFE DRAGÓN — v48: cara limpia (sin dientes) y crestas en el lomo, DETRÁS de la cabeza.
+// JEFE DRAGÓN — v49: SIN crestas dorsales (eran los "dientes" fantasma),
+// sin hocico, sin dientes y sin fuego. Solo cuernos, alas, cola y cara limpia.
+function drawBossDragon(o) {
+  o.bodyRx = 16; o.bodyRy = 13; o.bodyY = 4;
+  o.headR = 12; o.headY = -16;
+  o.eyeX = 5; o.eyeY = -17; o.eyeRx = 3.4; o.eyeRy = 4.4;
+  o.eyeColor = '#ffe14d'; o.pupil = '#3a0a00';
+  const flap = Math.sin(frameCount * 0.18) * 9;
+  drawCreatureBase(o, {
+    bodyColor: o.color, bodyColor2: o.color2, headColor: o.color,
+    mouth: false, // sin boca ni colmillos: cara limpia
+    back: function () {
+      // alas de murciélago
+      monBatWing(-1, -2, -4, 30, flap, '#b02020');
+      monBatWing(1, 2, -4, 30, -flap, '#b02020');
+      // cola (detrás, a la derecha)
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(12, 10);
+      ctx.quadraticCurveTo(26, 16, 30, 2 + flap * 0.3);
+      ctx.strokeStyle = CAT_LINE; ctx.lineWidth = 8; ctx.stroke();
+      ctx.strokeStyle = o.color; ctx.lineWidth = 5; ctx.stroke();
+      ctx.lineCap = 'butt';
+    },
+    extra: function () {
+      // cuernos crema (lo único que queda en la cabeza)
+      monHorn(1, 7, o.headY - 6, 12, '#e8d9a0', 2);
+      monHorn(-1, -7, o.headY - 6, 12, '#e8d9a0', -2);
+    }
+  });
+}
 function drawBossTitan(o){ o.line='#0a4a66';
   drawCreatureBase(o,{ bodyColor:o.color, bodyColor2:o.color2, headColor:'#8fe0ff', line:'#0a4a66',
     back:function(){ for(const s of [1,-1]) flatPoly([[s*12,-6],[s*26,-16],[s*22,2],[s*12,6]],'#7fd6ff','#0a4a66',2); },
