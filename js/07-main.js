@@ -1,9 +1,15 @@
 // ============================================================
 // 07-main.js — Arranque: canvas, listeners e inicialización
+// v46: ctx intercambiable (setRenderContext) para que el
+//      bestiario pueda dibujar retratos en un canvas aparte.
 // ============================================================
 
 const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
+let ctx = canvas.getContext('2d');
+
+// Permite redirigir TODO el dibujo (drawCat/drawEnemy/...) a otro contexto.
+function setRenderContext(c) { ctx = c; }
+function resetRenderContext() { ctx = canvas.getContext('2d'); }
 
 // Click en el canvas: retirar tropa propia
 canvas.addEventListener('click', (ev) => {
