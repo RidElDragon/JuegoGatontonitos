@@ -1,12 +1,16 @@
 // ============================================================
-// 06-render-scene.js — Escena: fondo, temas, bases, proyectiles,
-// partículas y draw() completo (v53: separado de los gatos).
-// Incluye: tema 'kingdom' (Parte 2, Nv.16-30) con árboles grandes
-// y suelo más oscuro + orden de dibujo por TAMAÑO (v51).
+// 06-render-scene.js — Escena completa (v55): fondo, temas, bases,
+// proyectiles, partículas y draw().
+// · Tema 'kingdom' (Historia Parte 2, Nv.16-30): bosque DENSO con
+//   árboles grandes, troncos marrones con ramas/raíces, sotobosque
+//   que elimina el cielo inferior y fila lejana muy poblada.
+// · Orden de dibujo por TAMAÑO: unidades grandes detrás, pequeñas
+//   delante (un jefe ya no tapa al escuadrón).
+// · Los gatos viven en 06-render-cats.js y el bucle en 06-render-loop.js.
 // ============================================================
 
-// v52: árbol de fondo redondeado (tronco + 3 capas de copa).
-// `far` = fila lejana (más pequeña y oscura, da profundidad).
+// -------------------- helpers --------------------
+// v52: árbol redondeado clásico (se mantiene por compatibilidad).
 function drawTree(x, y, s, far) {
   const trunk = far ? '#3a2210' : '#5a3a1e';
   const leaf1 = far ? '#164a1e' : '#1c5f26';
@@ -21,6 +25,84 @@ function drawTree(x, y, s, far) {
   ctx.beginPath(); ctx.ellipse(x + 7*s, y - 32*s, 10*s, 8*s, 0, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = leaf3;
   ctx.beginPath(); ctx.ellipse(x, y - 40*s, 8*s, 7*s, 0, 0, Math.PI*2); ctx.fill();
+}
+
+// v54: BOSQUE DENSO de la Parte 2.
+// · Fila 1: muro de copas lejano (tapando casi todo el cielo).
+// · Sotobosque: franja oscura continua hasta la hierba (adiós cielo inferior).
+// · Fila 2: troncos marrones finos + copas medias.
+// · Fila 3: árboles GIGANTES con tronco grueso, ramas, raíces y brillo de copa.
+function drawKingdomForest() {
+  // ---- fila 1 (lejanísima): muro de copas muy denso ----
+  ctx.fillStyle = '#0c260f';
+  for (let x = -40; x <= 940; x += 42) {
+    ctx.beginPath();
+    ctx.ellipse(x, 88, 44, 38, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + 22, 66, 30, 25, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // ---- sotobosque: franja oscura hasta la hierba ----
+  ctx.fillStyle = '#0e2c12';
+  ctx.fillRect(0, 118, 900, 96);
+  ctx.fillStyle = '#123818';
+  for (let x = -25; x <= 925; x += 55) {
+    ctx.beginPath();
+    ctx.ellipse(x, 126, 32, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // ---- fila 2 (media): troncos marrones finos + copas ----
+  for (let x = -15; x <= 925; x += 75) {
+    ctx.fillStyle = '#33200e';
+    ctx.fillRect(x - 4, 128, 8, 92);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(x - 4, 128, 3, 92);
+    ctx.fillStyle = '#17461c';
+    ctx.beginPath();
+    ctx.ellipse(x, 118, 40, 30, 0, 0, Math.PI * 2);
+    ctx.ellipse(x - 20, 100, 26, 20, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + 22, 102, 24, 19, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(120,200,120,0.10)';
+    ctx.beginPath();
+    ctx.ellipse(x - 10, 108, 16, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // ---- fila 3 (cerca): troncos gruesos con ramas, raíces y copas grandes ----
+  for (let x = 45; x <= 905; x += 120) {
+    // tronco con sombra y luz lateral
+    ctx.fillStyle = '#4a2c12';
+    ctx.fillRect(x - 7, 150, 14, 70);
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.fillRect(x - 7, 150, 5, 70);
+    ctx.fillStyle = 'rgba(255,220,160,0.10)';
+    ctx.fillRect(x + 3, 150, 3, 70);
+    // raíces que se abren en el suelo
+    ctx.fillStyle = '#4a2c12';
+    ctx.beginPath();
+    ctx.moveTo(x - 7, 212); ctx.lineTo(x - 13, 220); ctx.lineTo(x - 7, 220); ctx.closePath();
+    ctx.moveTo(x + 7, 212); ctx.lineTo(x + 13, 220); ctx.lineTo(x + 7, 220); ctx.closePath();
+    ctx.fill();
+    // ramas marrones bajo la copa
+    ctx.strokeStyle = '#4a2c12';
+    ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x - 3, 184); ctx.lineTo(x - 20, 168);
+    ctx.moveTo(x + 3, 180); ctx.lineTo(x + 20, 166);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+    // copa grande en 3 lóbulos
+    ctx.fillStyle = '#1d5423';
+    ctx.beginPath();
+    ctx.ellipse(x, 138, 52, 38, 0, 0, Math.PI * 2);
+    ctx.ellipse(x - 30, 116, 32, 25, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + 30, 118, 30, 24, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // brillo de copa (luz filtrada)
+    ctx.fillStyle = 'rgba(140,220,140,0.14)';
+    ctx.beginPath();
+    ctx.ellipse(x - 14, 126, 20, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 // -------------------- BASES --------------------
@@ -230,43 +312,8 @@ function draw() {
   ctx.fillStyle = flower;
   for (let i=0; i<8; i++) { const x = (i * 115 + 30) % 900; ctx.beginPath(); ctx.arc(x, 218, 2.5, 0, Math.PI*2); ctx.fill(); }
 
-  // v53: PARTE 2 — BOSQUE DENSO GIGANTE: el cielo solo asoma por una franja arriba
-  if (theme === 'kingdom') {
-    // Fila 1: silueta lejana (la más alta, tapa casi todo el cielo)
-    ctx.fillStyle = '#0d2a10';
-    for (let x = -30; x <= 930; x += 70) {
-      ctx.beginPath();
-      ctx.ellipse(x, 95, 55, 45, 0, 0, Math.PI * 2);
-      ctx.ellipse(x + 30, 70, 38, 30, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    // Fila 2: copa media oscura + troncos finos
-    for (let x = -10; x <= 920; x += 90) {
-      ctx.fillStyle = '#123417';
-      ctx.fillRect(x - 5, 120, 10, 94);
-      ctx.fillStyle = '#153d18';
-      ctx.beginPath();
-      ctx.ellipse(x, 120, 60, 48, 0, 0, Math.PI * 2);
-      ctx.ellipse(x + 34, 92, 40, 32, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    // Fila 3: árboles cercanos GIGANTES (tronco grueso + copa más clara)
-    for (let x = 60; x <= 900; x += 150) {
-      ctx.fillStyle = '#3a2210';
-      ctx.fillRect(x - 9, 150, 18, 64);
-      ctx.fillStyle = '#1d5222';
-      ctx.beginPath();
-      ctx.ellipse(x, 150, 64, 50, 0, 0, Math.PI * 2);
-      ctx.ellipse(x - 40, 118, 42, 34, 0, 0, Math.PI * 2);
-      ctx.ellipse(x + 40, 120, 40, 32, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // brillo sutil de copa (luz filtrada)
-      ctx.fillStyle = 'rgba(140,220,140,0.15)';
-      ctx.beginPath();
-      ctx.ellipse(x - 18, 132, 26, 18, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
+  // v54: bosque denso de la Parte 2 (detrás de bases y unidades)
+  if (theme === 'kingdom') drawKingdomForest();
 
   drawBase(50, baseHP, 1500, '#4488ff', false);
   drawBase(ENEMY_BASE_X, enemyBaseHP, enemyBaseMaxHP, enemyBaseColor, true);
