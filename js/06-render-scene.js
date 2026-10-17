@@ -230,18 +230,42 @@ function draw() {
   ctx.fillStyle = flower;
   for (let i=0; i<8; i++) { const x = (i * 115 + 30) % 900; ctx.beginPath(); ctx.arc(x, 218, 2.5, 0, Math.PI*2); ctx.fill(); }
 
-  // v52: PARTE 2 — árboles grandes al fondo (detrás de bases y unidades)
+  // v53: PARTE 2 — BOSQUE DENSO GIGANTE: el cielo solo asoma por una franja arriba
   if (theme === 'kingdom') {
-    // fila lejana (más oscura y pequeña = profundidad)
-    drawTree(70, 210, 0.8, true);
-    drawTree(290, 209, 0.7, true);
-    drawTree(510, 210, 0.85, true);
-    drawTree(730, 209, 0.75, true);
-    // fila cercana (grande)
-    drawTree(170, 216, 1.3, false);
-    drawTree(400, 217, 1.15, false);
-    drawTree(630, 216, 1.4, false);
-    drawTree(860, 217, 1.1, false);
+    // Fila 1: silueta lejana (la más alta, tapa casi todo el cielo)
+    ctx.fillStyle = '#0d2a10';
+    for (let x = -30; x <= 930; x += 70) {
+      ctx.beginPath();
+      ctx.ellipse(x, 95, 55, 45, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + 30, 70, 38, 30, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Fila 2: copa media oscura + troncos finos
+    for (let x = -10; x <= 920; x += 90) {
+      ctx.fillStyle = '#123417';
+      ctx.fillRect(x - 5, 120, 10, 94);
+      ctx.fillStyle = '#153d18';
+      ctx.beginPath();
+      ctx.ellipse(x, 120, 60, 48, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + 34, 92, 40, 32, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Fila 3: árboles cercanos GIGANTES (tronco grueso + copa más clara)
+    for (let x = 60; x <= 900; x += 150) {
+      ctx.fillStyle = '#3a2210';
+      ctx.fillRect(x - 9, 150, 18, 64);
+      ctx.fillStyle = '#1d5222';
+      ctx.beginPath();
+      ctx.ellipse(x, 150, 64, 50, 0, 0, Math.PI * 2);
+      ctx.ellipse(x - 40, 118, 42, 34, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + 40, 120, 40, 32, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // brillo sutil de copa (luz filtrada)
+      ctx.fillStyle = 'rgba(140,220,140,0.15)';
+      ctx.beginPath();
+      ctx.ellipse(x - 18, 132, 26, 18, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   drawBase(50, baseHP, 1500, '#4488ff', false);
