@@ -1,39 +1,106 @@
 // ============================================================
-// 03-save.js — Persistencia en localStorage
-// 🔧 El modo desarrollador bloquea TODOS los guardados.
+// 03-save.js — Persistencia en localStorage (v62)
+// · v62 FIX ANTI-PÉRDIDA: saveMeta() VALIDA los datos antes de
+//   escribir y mantiene una COPIA DE SEGURIDAD ('catBattleMetaBak')
+//   con el último valor bueno. Si al cargar el guardado principal
+//   está vacío o corrupto, se restaura desde la copia solo.
+// · El modo desarrollador y el sandbox siguen sin guardar NADA.
 // ============================================================
 let memorySave = null;
 let localStorageOK = true;
+const META_KEY = 'catBattleMeta';
+const META_BAK_KEY = 'catBattleMetaBak';
+
+// ---------------- Validación de meta ----------------
+function metaObjIsValid(m) {
+  if (!m || typeof m !== 'object') return false;
+  if (typeof m.coins !== 'number' || !isFinite(m.coins) || m.coins < 0) return false;
+  if (!Array.isArray(m.unitLevels) || m.unitLevels.length !== NUM_UNITS) return false;
+  for (let i = 0; i < NUM_UNITS; i++) {
+    const v = m.unitLevels[i];
+    if (typeof v !== 'number' || !isFinite(v) || v < 1) return false;
+  }
+  const nums = ['incomeLevel', 'cannonDmgLevel', 'cannonRangeLevel', 'cannonCdLevel', 'coinBonusLevel'];
+  for (const k of nums) {
+    if (typeof m[k] !== 'number' || !isFinite(m[k]) || m[k] < 0) return false;
+  }
+  return true;
+}
+function readMetaObj() {
+  try {
+    const raw = localStorage.getItem(META_KEY);
+    if (!raw) return null;
+    const m = JSON.parse(raw);
+    return metaObjIsValid(m) ? m : null;
+  } catch (e) { return null; }
+}
+function readMetaBackupObj() {
+  try {
+    const raw = localStorage.getItem(META_BAK_KEY);
+    if (!raw) return null;
+    const m = JSON.parse(raw);
+    return metaObjIsValid(m) ? m : null;
+  } catch (e) { return null; }
+}
+function applyMetaObj(m) {
+  coins = m.coins;
+  const padded = padUnitArray(m.unitLevels);
+  for (let i = 0; i < NUM_UNITS; i++) unitLevels[i] = clamp(padded[i] || 1, 1, MAX_STATS);
+  incomeLevel      = clamp(m.incomeLevel, 1, MAX_INCOME_LEVEL);
+  cannonDmgLevel   = clamp(m.cannonDmgLevel, 1, CANNON_DMG_MAX);
+  cannonRangeLevel = clamp(m.cannonRangeLevel, 1, CANNON_RANGE_MAX);
+  cannonCdLevel    = clamp(m.cannonCdLevel, 1, CANNON_CD_MAX);
+  coinBonusLevel   = clamp(m.coinBonusLevel || 0, 0, COIN_BONUS_MAX);
+}
 
 // --- Meta (coins + mejoras permanentes) ---
 function saveMeta() {
   if (isTest()) return;
   if (isDevMode()) return;  // 🔧 NO guardar en modo desarrollador
+  const obj = {
+    coins, unitLevels: unitLevels.slice(), incomeLevel,
+    cannonDmgLevel, cannonRangeLevel, cannonCdLevel, coinBonusLevel
+  };
+  // v62: NUNCA sobrescribir el guardado con datos inválidos
+  if (!metaObjIsValid(obj)) {
+    setStatus('⚠️ Guardado de mejoras omitido (datos inválidos)', '#ffaa00');
+    return;
+  }
   baseMeta = snapshotMeta();
   try {
-    localStorage.setItem('catBattleMeta', JSON.stringify({
-      coins, unitLevels: unitLevels.slice(), incomeLevel,
-      cannonDmgLevel, cannonRangeLevel, cannonCdLevel, coinBonusLevel
-    }));
+    // rotar copia: el valor bueno actual pasa a ser el backup
+    const currentRaw = localStorage.getItem(META_KEY);
+    if (currentRaw) {
+      try {
+        const cur = JSON.parse(currentRaw);
+        if (metaObjIsValid(cur)) localStorage.setItem(META_BAK_KEY, currentRaw);
+      } catch (e) {}
+    }
+    localStorage.setItem(META_KEY, JSON.stringify(obj));
   } catch (e) {}
 }
 function loadMeta() {
-  try {
-    const m = JSON.parse(localStorage.getItem('catBattleMeta'));
-    if (m && typeof m.coins === 'number') {
-      coins = m.coins;
-      if (Array.isArray(m.unitLevels)) {
-        const padded = padUnitArray(m.unitLevels);
-        for (let i = 0; i < NUM_UNITS; i++) unitLevels[i] = clamp(padded[i] || 1, 1, MAX_STATS);
-      }
-      incomeLevel      = clamp(m.incomeLevel || 1, 1, MAX_INCOME_LEVEL);
-      cannonDmgLevel   = clamp(m.cannonDmgLevel || 1, 1, CANNON_DMG_MAX);
-      cannonRangeLevel = clamp(m.cannonRangeLevel || 1, 1, CANNON_RANGE_MAX);
-      cannonCdLevel    = clamp(m.cannonCdLevel || 1, 1, CANNON_CD_MAX);
-      coinBonusLevel   = clamp(m.coinBonusLevel || 0, 0, COIN_BONUS_MAX);
-    }
-  } catch (e) {}
+  const m = readMetaObj();
+  if (m) { applyMetaObj(m); return; }
+  // principal vacío/corrupto → intentar la copia de seguridad
+  const bak = readMetaBackupObj();
+  if (bak) {
+    applyMetaObj(bak);
+    try { localStorage.setItem(META_KEY, JSON.stringify(bak)); } catch (e) {}
+    setTimeout(() => setStatus('🩹 Mejoras restauradas desde la copia de seguridad', '#88ccff'), 400);
+    return;
+  }
+  // sin datos válidos en ningún sitio: se quedan los valores por defecto
 }
+// Utilidad de consola por si algún día quieres forzar la restauración:
+//   restoreMetaBackup()
+window.restoreMetaBackup = function () {
+  const bak = readMetaBackupObj();
+  if (!bak) { setStatus('❌ Sin copia de seguridad válida', '#ff6666'); return; }
+  applyMetaObj(bak);
+  saveMeta();
+  setStatus('🩹 Copia de seguridad aplicada', '#88ff88');
+};
 
 // --- Guardado de batalla (solo modo infinito) ---
 function buildSaveData() {
@@ -151,9 +218,9 @@ function saveLoadout() {
 // --- Reinicio total ---
 function resetAllProgress() {
   const msg = '⚠️ ¿Seguro? Se borrará TODO el progreso:\n' +
-    '· 🐾 Gatontito Coins y todas las mejoras\n' +
+    '· 🐾 Gatontito Coins y todas las mejoras (y su copia de seguridad)\n' +
     '· 📖 Progreso de Historia\n' +
-    '· 🎃🛸🔥 Progreso de Eventos y tropas desbloqueadas\n' +
+    '· 🎃🛸🔥🎄 Progreso de Eventos y tropas desbloqueadas\n' +
     '· 🌟 Progreso de Etapas de Leyenda\n' +
     '· 💾 Guardado de la partida infinita\n' +
     '· 🎖 Escuadrón seleccionado\n' +
@@ -163,7 +230,8 @@ function resetAllProgress() {
   playing = false; gameOver = false;
   metaSnapshot = null; memorySave = null; baseMeta = null;
   try {
-    localStorage.removeItem('catBattleMeta');
+    localStorage.removeItem(META_KEY);
+    localStorage.removeItem(META_BAK_KEY);
     localStorage.removeItem('catBattleStory');
     localStorage.removeItem('catBattleEvents');
     localStorage.removeItem('catBattleLegend');
@@ -188,7 +256,7 @@ function resetAllProgress() {
 }
 
 // --- Guardado automático al cerrar/ocultar la pestaña ---
-// 🔧 FIX: ahora verifican isDevMode() antes de guardar
+// 🔧 verifican isDevMode() antes de guardar
 window.addEventListener('beforeunload', () => {
   if (!isDevMode()) {
     saveMeta();
