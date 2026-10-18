@@ -187,6 +187,7 @@ const AudioSys = (function () {
   wrap('startStory',      () => setMusic('battle'));
   wrap('startTest',       () => setMusic('battle'));
   wrap('startEvent',      () => setMusic(currentEventId || 'battle'));
+  wrap('startLegend',     () => setMusic('battle'));
   wrap('spawnCat',        () => sfx('spawn'));
   wrap('fireCannon',      () => sfx('cannon'));
 ['buyUnitUpgrade','buyCannonDmg','buyCannonRange','buyCannonCd','buyIncome','buyCoinBonus'].forEach(f => wrap(f, () => sfx('upgrade')));

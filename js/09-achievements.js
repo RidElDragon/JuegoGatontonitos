@@ -45,6 +45,7 @@ const ACH = [
   { id:'boss10',     emoji:'💀', name:'Cazajefes',               desc:'Derrota 10 jefes (acumulado, cualquier modo).' },
   { id:'coins_rich', emoji:'🐾', name:'Acaparador de Gatontitos',desc:'Ten 100.000  a la vez.' },
   { id:'max_unit',   emoji:'⬆️', name:'Maestro Gato',            desc:'Sube cualquier tropa al Nv.15.' },
+  { id:'legend30',   emoji:'🌟', name:'Leyenda Viviente',        desc:'Completa las 30 Etapas de Leyenda.' },
 ];
 // ---------------- Registro de la batalla en curso (para retos) ----------------
 let track = resetTrack();
@@ -95,6 +96,7 @@ function checkPassive() {
   if (coins >= 100000) tryUnlock('coins_rich');
   if (unitLevels.some(l => l >= 15)) tryUnlock('max_unit');
   if ((data.stats.bossKills || 0) >= 10) tryUnlock('boss10');
+  if (legendProgress >= 30) tryUnlock('legend30');
 }
 function checkStoryChallenges() {
   if (isTest() || isDevMode() || gameMode !== 'story') return;  // 🔧
@@ -170,6 +172,7 @@ function wrap(name, after) {
 wrap('hideScreens',    () => { if (achScreen) achScreen.style.display = 'none'; });
 wrap('startStory',     () => { track = resetTrack(); });
 wrap('startEvent',     () => { track = resetTrack(); });
+wrap('startLegend',    () => { track = resetTrack(); });
 wrap('startInfinite',  () => { track = resetTrack(); });
 wrap('continueInfinite',() => { track = resetTrack(); });
 wrap('spawnCat',       (t) => { if (!isTest() && !isDevMode()) track.types.add(t); });

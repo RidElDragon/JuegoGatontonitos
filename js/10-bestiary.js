@@ -22,9 +22,13 @@ function idOf(t) {
   i = BOSS_TYPES.indexOf(t); if (i >= 0) return 'b' + i;
   for (const k in EVENT_ENEMY_TYPES) if (EVENT_ENEMY_TYPES[k] === t) return 'ee:' + k;
   for (const k in EVENT_BOSS_TYPES) if (EVENT_BOSS_TYPES[k] === t) return 'eb:' + k;
+  for (const k in LEGEND_ENEMY_TYPES) if (LEGEND_ENEMY_TYPES[k] === t) return 'le:' + k;
+  for (const k in LEGEND_BOSS_TYPES) if (LEGEND_BOSS_TYPES[k] === t) return 'lb:' + k;
   return null;
 }
 function objById(id) {
+  if (id.startsWith('le:')) return LEGEND_ENEMY_TYPES[id.slice(3)];
+  if (id.startsWith('lb:')) return LEGEND_BOSS_TYPES[id.slice(3)];
   if (id.startsWith('ee:')) return EVENT_ENEMY_TYPES[id.slice(3)];
   if (id.startsWith('eb:')) return EVENT_BOSS_TYPES[id.slice(3)];
   if (id[0] === 'b') return BOSS_TYPES[+id.slice(1)];
@@ -36,6 +40,8 @@ function allEnemyIds() {
   for (const k in EVENT_ENEMY_TYPES) ids.push('ee:' + k);
   for (let i = 0; i < BOSS_TYPES.length; i++) ids.push('b' + i);
   for (const k in EVENT_BOSS_TYPES) ids.push('eb:' + k);
+  for (const k in LEGEND_ENEMY_TYPES) ids.push('le:' + k);
+  for (const k in LEGEND_BOSS_TYPES) ids.push('lb:' + k);
   return ids;
 }
 function contextNow() {
@@ -61,6 +67,13 @@ function record(t) {
 
 // ---------------- Pistas de aparición ----------------
 function enemyHint(id) {
+    if (id.startsWith('le:') || id.startsWith('lb:')) {
+    const k = id.slice(3);
+    for (const L of LEGEND_STAGES) {
+      if (L.pool.includes(k) || L.boss === k) return 'Etapas de Leyenda · ' + L.name;
+    }
+    return 'Etapas de Leyenda';
+  }
   if (id.startsWith('ee:')) {
     const k = id.slice(3);
     for (const ev of Object.values(EVENTS)) for (const L of ev.levels) if (L.pool.includes(k)) return ev.name + ' · ' + L.name;

@@ -1,5 +1,6 @@
 // ============================================================
 // 02-state.js — Estado mutable global + cálculos/getters
+// v59: · Estado de Etapas de Leyenda (legendProgress, etc.)
 // v58: · Mago evolucionado: radio de área 90 → 130 (getCatStats)
 // v57: · coinBonusLevel + getters del bonus de 🐾 y coinRewardFor()
 //      · Modo desarrollador con snapshot/restauración (snapshotMeta)
@@ -18,6 +19,7 @@ let cannonCdLevel = 1;
 let coinBonusLevel = 0;   // 0 = sin bonus · Nv.N = +N×10% de 🐾 por nivel superado
 let storyProgress = 0;
 let eventProgress = {};
+let legendProgress = 0;   // v59: etapas de leyenda superadas (0-30)
 let loadout = [0];
 let tempLoadout = [0];
 // --- Respaldos para el sandbox ---
@@ -51,6 +53,8 @@ let gameMode = 'infinite';
 let storyLevelIdx = 0;
 let eventLevelIdx = 0;
 let currentEventId = '';
+let legendLevelIdx = 0;        // v59
+let pendingLegendBoss = '';    // v59
 let storyBossSpawned = false;
 let storyBossTimer = 0;
 let pendingEventBoss = '';
@@ -71,11 +75,9 @@ function isDevMode() { return devMode; }
 
 function toggleDevMode() {
   if (!devMode) {
-    // Activando: guardar snapshot del estado actual
     devSnapshot = snapshotMeta();
     setStatus('🔧 Modo desarrollador ACTIVADO - NADA se guarda', '#ff88ff');
   } else {
-    // Desactivando: restaurar snapshot
     if (devSnapshot) {
       restoreMeta(devSnapshot);
       devSnapshot = null;
@@ -87,6 +89,7 @@ function toggleDevMode() {
   if (screen === 'events') buildEventGrid();
   if (screen === 'troops') buildTroopGrid();
   if (screen === 'upgrades') buildUpgradeScreen();
+  if (screen === 'legend') buildLegendGrid();
   if (screen === 'bestiary' && window.showBestiary) window.showBestiary();
   updateDevModeButton();
 }
@@ -218,15 +221,13 @@ function getCannonCdCoinCost()    { const l = cannonCdLevel;    return 15000 + 1
 
 // ------------------------------------------------------------
 // v57: BONUS DE 🐾 GATONTITO COINS (mejora permanente)
-// Nv.N = +N×10% de coins al superar niveles de Historia/Eventos
 // ------------------------------------------------------------
 function getCoinBonusPercentAt(l) { return l * COIN_BONUS_PER_LVL; }
 function getCoinBonusPercent() { return getCoinBonusPercentAt(coinBonusLevel); }
 function getCoinBonusCost() { return COIN_BONUS_BASE_COST + COIN_BONUS_COST_STEP * coinBonusLevel; }
 
 // Recompensa REAL de 🐾 al superar un nivel (mitad en repetición + bonus).
-// Única fuente de verdad: la usan las grids Y las victorias, para que
-// el número del botón sea exactamente el que cobras.
+// Única fuente de verdad: la usan las grids Y las victorias.
 function coinRewardFor(baseCoins, firstClear) {
   const baseEarned = firstClear ? baseCoins : Math.floor(baseCoins / 2);
   return Math.floor(baseEarned * (1 + getCoinBonusPercent()));
@@ -235,7 +236,7 @@ function coinRewardFor(baseCoins, firstClear) {
 // ------------------------------------------------------------
 // Stats de unidades y multiplicadores
 // v58: getCatStats aplica el radio de área ampliado del Mago
-//      evolucionado (90 → 130). El resto igual que v48.
+//      evolucionado (90 → 130).
 // ------------------------------------------------------------
 function unitStatsAt(idx, lvl) {
   const base = CAT_BASE[idx];
@@ -271,6 +272,7 @@ function getWaveMult() {
 function getEnemyMult() {
   if (gameMode === 'story') return STORY_LEVELS[storyLevelIdx].mult;
   if (gameMode === 'event') return EVENTS[currentEventId].levels[eventLevelIdx].mult;
+  if (gameMode === 'legend') return LEGEND_STAGES[legendLevelIdx].mult;
   return getWaveMult();
 }
 
@@ -283,5 +285,6 @@ function getBossForWave() {
 }
 function currentBossName() {
   if (gameMode === 'event') return EVENT_BOSS_TYPES[pendingEventBoss] ? EVENT_BOSS_TYPES[pendingEventBoss].name : '';
+  if (gameMode === 'legend') { const t = legendBossObj(pendingLegendBoss); return t ? t.name : ''; }
   return BOSS_TYPES[pendingBoss] ? BOSS_TYPES[pendingBoss].name : '';
 }

@@ -1,12 +1,12 @@
 // ============================================================
 // 04-ui.js — Pantallas, menús, grids y refresco de interfaz
-// v57: · Bonus de 🐾 Coins: tarjeta nueva (buyCoinBonus) y líneas
-//        de recompensa REAL en Historia/Eventos vía coinRewardFor().
-//      · Líneas largas de innerHTML partidas para legibilidad.
-// v48: · Selección de Tropas: cada tarjeta permite elegir FORMA
-//        (🐱 normal /  evolucionada). El toggle se habilita solo
-//        con la tropa a Nv.10+.
-//      · Los indicadores ✨ del HUD reflejan la forma ACTIVA.
+// v59: · Pantalla y grid de ETAPAS DE LEYENDA (showLegend).
+//      · hideScreens/showMenu/updateUI/isUnitUnlocked conscientes
+//        del modo leyenda.
+// v57: · Tarjeta de mejora 🐾 Bonus de Coins (buyCoinBonus).
+// v56: · troopStatsLine(idx) muestra stats REALES (nivel + forma).
+// v55: · Modo desarrollador: grids y compras conscientes de dev.
+// v48: · Selección de Tropas con selector de FORMA (🐱/✨).
 // ============================================================
 // -------------------- RAREZAS --------------------
 const RARITIES = {
@@ -49,6 +49,7 @@ function hideScreens() {
   document.getElementById('upgradeScreen').style.display = 'none';
   document.getElementById('storyScreen').style.display = 'none';
   document.getElementById('eventScreen').style.display = 'none';
+  document.getElementById('legendScreen').style.display = 'none';
   document.getElementById('troopScreen').style.display = 'none';
   document.getElementById('resultOverlay').style.display = 'none';
   document.getElementById('gameWrap').style.display = 'none';
@@ -67,6 +68,7 @@ function showMenu() {
   document.getElementById('evA').textContent = (eventProgress['alien'] || 0);
   document.getElementById('evI').textContent = (eventProgress['infernal'] || 0);
   document.getElementById('evX').textContent = (eventProgress['xmas'] || 0);
+  document.getElementById('evL').textContent = legendProgress;
   updateDevModeButton();
 }
 function showGame() {
@@ -87,12 +89,14 @@ function isUnitUnlocked(idx) {
   if (!u || u.type === 'always') return true;
   if (u.type === 'story') return storyProgress >= u.lvl;
   if (u.type === 'event') return (eventProgress[u.id] || 0) >= u.lvl;
+  if (u.type === 'legend') return legendProgress >= u.lvl;
   return true;
 }
 function unlockLabel(idx) {
   const u = UNIT_UNLOCK[idx];
   if (!u || u.type === 'always') return '';
   if (u.type === 'story') return `🔒 Se desbloquea: Historia Nv.${u.lvl}`;
+  if (u.type === 'legend') return `🔒 Se desbloquea: Leyenda Etapa ${u.lvl}`;
   const ev = EVENTS[u.id];
   return `🔒 Se desbloquea: ${ev ? ev.name : u.id} Nv.${u.lvl}`;
 }
@@ -117,6 +121,7 @@ function showUpgrades() {
   buildUpgradeScreen();
   document.getElementById('upgradeScreen').style.display = 'flex';
 }
+// 🔧 MODO DEV: subir mejoras sin gastar coins ni guardar
 function buyUnitUpgrade(idx) {
   if (!isUnitUnlocked(idx)) return;
   if (unitLevels[idx] >= unitLevelCap()) return;
@@ -182,10 +187,7 @@ function buildUpgradeScreen() {
     if (!unlocked) {
       b.className = 'upg-card lockedcard';
       b.disabled = true;
-      b.innerHTML =
-        `🔒 ${u.name}${rarityTag(idx)}` +
-        `<span class="sb-info locked">${unlockLabel(idx)}</span>` +
-        `<span class="sb-info locked">Desbloquéala para mejorarla</span>`;
+      b.innerHTML = `🔒 ${u.name}${rarityTag(idx)}<span class="sb-info locked">${unlockLabel(idx)}</span><span class="sb-info locked">Desbloquéala para mejorarla</span>`;
     } else {
       const cur = unitStatsAt(idx, lvl);
       const nxt = unitStatsAt(idx, lvl + 1);
@@ -199,7 +201,7 @@ function buildUpgradeScreen() {
         `<span class="sb-info">Nivel ${lvl}/${unitLevelCap()}${evo ? ' · ✨ EVOLUCIONADA' : ''}</span>` +
         `<span class="sb-info">${maxed ? '' : preview}</span>` +
         (evo ? '<span class="sb-info" style="color:#88ffcc">✨ +10% stats por evolución</span>' : '') +
-        `<span class="sb-info">${maxed ? '🏆 MAX' : (isDevMode() ? `➡ Nv.${lvl + 1}: GRATIS [DEV]` : `➡ Nv.${lvl + 1}: ${cost} ${COIN}`)}</span>` +
+        `<span class="sb-info">${maxed ? '🏆 MAX' : (isDevMode() ? `➡ Nv.${lvl+1}: GRATIS [DEV]` : `➡ Nv.${lvl+1}: ${cost} ${COIN}`)}</span>` +
         (isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '');
       b.onclick = () => buyUnitUpgrade(idx);
     }
@@ -213,47 +215,16 @@ function buildUpgradeScreen() {
   const cdIfDmg = cannonCdSecAt(cannonDmgLevel + 1, cannonCdLevel);
   const cdIfCd = cannonCdSecAt(cannonDmgLevel, cannonCdLevel + 1);
   const misc = [
-    {
-      label: '💣 Cañón: Daño',
-      info: `Nv ${cannonDmgLevel}/${CANNON_DMG_MAX}`,
-      max: cannonDmgLevel >= CANNON_DMG_MAX,
-      cost: getCannonDmgCoinCost(),
-      fn: 'buyCannonDmg()',
-      preview: `Daño ${curDmgPct}%→<span class="up">${nxtDmgPct}%</span> · CD ${curCd}s→<span class="down">${cdIfDmg}s</span>`
-    },
-    {
-      label: '💣 Cañón: Rango',
-      info: `Nv ${cannonRangeLevel}/${CANNON_RANGE_MAX}`,
-      max: cannonRangeLevel >= CANNON_RANGE_MAX,
-      cost: getCannonRangeCoinCost(),
-      fn: 'buyCannonRange()',
-      preview: `Rango ${getCannonRangeAt(cannonRangeLevel)}px→<span class="up">${getCannonRangeAt(cannonRangeLevel + 1)}px</span>`
-    },
-    {
-      label: '💣 Cañón: Cooldown',
-      info: `Nv ${cannonCdLevel}/${CANNON_CD_MAX}`,
-      max: cannonCdLevel >= CANNON_CD_MAX,
-      cost: getCannonCdCoinCost(),
-      fn: 'buyCannonCd()',
-      preview: `CD ${curCd}s→<span class="up">${cdIfCd}s</span>`
-    },
-    {
-      label: '💵 Income base',
-      info: `Nv ${incomeLevel}/${MAX_INCOME_LEVEL}`,
-      max: incomeLevel >= MAX_INCOME_LEVEL,
-      cost: getIncomeCoinCost(),
-      fn: 'buyIncome()',
-      preview: `${getIncomeAt(incomeLevel).toFixed(0)}/s→<span class="up">${getIncomeAt(incomeLevel + 1).toFixed(0)}/s</span>`
-    },
-    {
-      label: '🐾 Bonus de Coins',
-      info: `Nv ${coinBonusLevel}/${COIN_BONUS_MAX}`,
-      max: coinBonusLevel >= COIN_BONUS_MAX,
-      cost: getCoinBonusCost(),
-      fn: 'buyCoinBonus()',
-      preview: `Ganas +${Math.round(getCoinBonusPercentAt(coinBonusLevel) * 100)}% → ` +
-               `<span class="up">+${Math.round(getCoinBonusPercentAt(coinBonusLevel + 1) * 100)}%</span> de 🐾 por nivel superado`
-    },
+    { label:'💣 Cañón: Daño', info:`Nv ${cannonDmgLevel}/${CANNON_DMG_MAX}`, max:cannonDmgLevel >= CANNON_DMG_MAX, cost:getCannonDmgCoinCost(), fn:'buyCannonDmg()',
+      preview:`Daño ${curDmgPct}%→<span class="up">${nxtDmgPct}%</span> · CD ${curCd}s→<span class="down">${cdIfDmg}s</span>` },
+    { label:'💣 Cañón: Rango', info:`Nv ${cannonRangeLevel}/${CANNON_RANGE_MAX}`, max:cannonRangeLevel >= CANNON_RANGE_MAX, cost:getCannonRangeCoinCost(), fn:'buyCannonRange()',
+      preview:`Rango ${getCannonRangeAt(cannonRangeLevel)}px→<span class="up">${getCannonRangeAt(cannonRangeLevel+1)}px</span>` },
+    { label:'💣 Cañón: Cooldown', info:`Nv ${cannonCdLevel}/${CANNON_CD_MAX}`, max:cannonCdLevel >= CANNON_CD_MAX, cost:getCannonCdCoinCost(), fn:'buyCannonCd()',
+      preview:`CD ${curCd}s→<span class="up">${cdIfCd}s</span>` },
+    { label:'💵 Income base', info:`Nv ${incomeLevel}/${MAX_INCOME_LEVEL}`, max:incomeLevel >= MAX_INCOME_LEVEL, cost:getIncomeCoinCost(), fn:'buyIncome()',
+      preview:`${getIncomeAt(incomeLevel).toFixed(0)}/s→<span class="up">${getIncomeAt(incomeLevel+1).toFixed(0)}/s</span>` },
+    { label:'🐾 Bonus de Coins', info:`Nv ${coinBonusLevel}/${COIN_BONUS_MAX}`, max:coinBonusLevel >= COIN_BONUS_MAX, cost:getCoinBonusCost(), fn:'buyCoinBonus()',
+      preview:`Ganas +${Math.round(getCoinBonusPercentAt(coinBonusLevel)*100)}% → <span class="up">+${Math.round(getCoinBonusPercentAt(coinBonusLevel+1)*100)}%</span> de 🐾 por nivel superado` },
   ];
   misc.forEach(m => {
     const b = document.createElement('button');
@@ -300,18 +271,12 @@ function buildStoryGrid() {
     const b = document.createElement('button');
     b.className = 'story-btn';
     b.disabled = !unlocked;
-    // v57: recompensa REAL con el bonus de 🐾 aplicado
-    const rewardInfo =
-      `<span class="sb-info">${COIN} 1ª:${coinRewardFor(L.coins, true)} / rep:${coinRewardFor(L.coins, false)}` +
-      (coinBonusLevel > 0 ? ` <span class="up">(+${Math.round(getCoinBonusPercent() * 100)}%)</span>` : '') +
-      `</span>`;
-    const devTag = isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '';
     b.innerHTML =
       `${done ? '✅' : unlocked ? '▶' : '🔒'} ${L.name}${L.boss >= 0 ? ' 👑' : ''}` +
       `<span class="sb-info">Base: ${L.enemyBaseHP} HP · ×${L.mult.toFixed(2)}</span>` +
-      rewardInfo +
+      `<span class="sb-info">${COIN} 1ª:${coinRewardFor(L.coins, true)} / rep:${coinRewardFor(L.coins, false)}</span>` +
       (unlock ? `<span class="sb-info unlock">Desbloquea: ${unlock}</span>` : '') +
-      devTag;
+      (isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '');
     if (unlocked) b.onclick = () => startStory(idx);
     grid.appendChild(b);
   });
@@ -337,9 +302,7 @@ function buildEventGrid() {
     const progress = isDevMode() ? ev.levels.length : (eventProgress[ev.id] || 0);
     const b = document.createElement('button');
     b.className = `event-btn ${ev.theme}`;
-    b.innerHTML =
-      `${ev.name}<span class="sb-info">${ev.description}</span>` +
-      `<span class="sb-info">Progreso: ${progress}/${ev.levels.length}</span>`;
+    b.innerHTML = `${ev.name}<span class="sb-info">${ev.description}</span><span class="sb-info">Progreso: ${progress}/${ev.levels.length}</span>`;
     b.onclick = () => showEventLevels(ev.id);
     grid.appendChild(b);
   });
@@ -358,23 +321,59 @@ function showEventLevels(eventId) {
     const b = document.createElement('button');
     b.className = `event-btn ${ev.theme}`;
     b.disabled = !unlocked;
-    // v57: recompensa REAL con el bonus de 🐾 aplicado
-    const rewardInfo =
-      `<span class="sb-info">${COIN} 1ª:${coinRewardFor(L.coins, true)} / rep:${coinRewardFor(L.coins, false)}` +
-      (coinBonusLevel > 0 ? ` <span class="up">(+${Math.round(getCoinBonusPercent() * 100)}%)</span>` : '') +
-      `</span>`;
-    const devTag = isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '';
     b.innerHTML =
       `${done ? '✅' : unlocked ? '▶' : '🔒'} ${L.name}${L.boss ? ' 👑' : ''}` +
       `<span class="sb-info">Base: ${L.enemyBaseHP} HP · ×${L.mult.toFixed(1)}</span>` +
-      rewardInfo +
+      `<span class="sb-info">${COIN} 1ª:${coinRewardFor(L.coins, true)} / rep:${coinRewardFor(L.coins, false)}</span>` +
       (uk ? `<span class="sb-info unlock">${uk}</span>` : '') +
-      devTag;
+      (isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '');
     if (unlocked) b.onclick = () => startEvent(eventId, idx);
     grid.appendChild(b);
   });
   document.getElementById('eventBackBtn').style.display = 'inline-block';
   document.getElementById('eventMenuBtn').style.display = 'none';
+}
+
+// --- v59: Etapas de Leyenda ---
+function legendUnlocked() { return isDevMode() || storyProgress >= STORY_MAX_LEVEL; }
+function showLegend() {
+  leaveTestIfNeeded();
+  screen = 'legend'; playing = false;
+  hideScreens();
+  buildLegendGrid();
+  document.getElementById('legendScreen').style.display = 'flex';
+}
+function buildLegendGrid() {
+  const grid = document.getElementById('legendGrid');
+  grid.innerHTML = '';
+  const info = document.getElementById('legendInfo');
+  if (info) {
+    info.innerHTML = legendUnlocked()
+      ? 'Endgame definitivo: 6 zonas × 5 etapas, jefes únicos y tropas enemigas de élite. Recompensas de ' + COIN + ' (mitad al repetir). Progreso: <b>' + legendProgress + '/' + LEGEND_STAGES.length + '</b>' + (isDevMode() ? ' 🔧 [MODO DEV]' : '')
+      : '🔒 Se desbloquea al completar la Historia Nivel 45 (Desierto Prohibido).';
+  }
+  let lastZone = -1;
+  LEGEND_STAGES.forEach((L, idx) => {
+    if (L.zone !== lastZone) {
+      lastZone = L.zone;
+      const h = document.createElement('div');
+      h.className = 'grid-header';
+      h.textContent = LEGEND_ZONE_TITLES[L.zone];
+      grid.appendChild(h);
+    }
+    const unlocked = isDevMode() || (legendUnlocked() && idx <= legendProgress);
+    const done = idx < legendProgress;
+    const b = document.createElement('button');
+    b.className = 'story-btn';
+    b.disabled = !unlocked;
+    b.innerHTML =
+      `${done ? '✅' : unlocked ? '▶' : '🔒'} ${L.name}${L.boss ? ' 👑' : ''}` +
+      `<span class="sb-info">Base: ${L.enemyBaseHP} HP · ×${L.mult.toFixed(1)}</span>` +
+      `<span class="sb-info">${COIN} 1ª:${coinRewardFor(L.coins, true)} / rep:${coinRewardFor(L.coins, false)}</span>` +
+      (isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '');
+    if (unlocked) b.onclick = () => startLegend(idx);
+    grid.appendChild(b);
+  });
 }
 
 // --- Selección de tropas (v48: con selector de FORMA) ---
@@ -386,7 +385,7 @@ function showTroops() {
   buildTroopGrid();
   document.getElementById('troopScreen').style.display = 'flex';
 }
-// v57: firma por ÍNDICE — muestra stats REALES (nivel + forma activa)
+// v56: stats REALES según nivel y forma activa (firma por ÍNDICE)
 function troopStatsLine(idx) {
   const u = CAT_BASE[idx];
   const stats = getCatStats(idx);
@@ -487,12 +486,7 @@ function buildUnitButtons() {
     b.id = 'btn' + idx;
     b.onclick = () => spawnCat(idx);
     applyRarityStyle(b, idx);
-    b.innerHTML =
-      `${UNIT_EMOJI[idx]} ${u.name} (${u.cost}💰)` +
-      `<span class="level-badge" id="lvl${idx}">${unitLevels[idx]}</span>` +
-      rarityTag(idx) +
-      `<span class="stats" id="stats${idx}"></span>` +
-      `<span class="cd" id="cd${idx}">CD: ${u.spawnCd}s</span>`;
+    b.innerHTML = `${UNIT_EMOJI[idx]} ${u.name} (${u.cost}💰)<span class="level-badge" id="lvl${idx}">${unitLevels[idx]}</span>${rarityTag(idx)}<span class="stats" id="stats${idx}"></span><span class="cd" id="cd${idx}">CD: ${u.spawnCd}s</span>`;
     uc.appendChild(b);
   });
   buildMetaInfoPanel();
@@ -509,8 +503,8 @@ function updateUI() {
   document.getElementById('money').textContent = isTest() ? '∞' : Math.floor(money);
   document.getElementById('baseHP').textContent = isTest() ? '∞' : Math.floor(baseHP);
   document.getElementById('enemyHP').textContent = Math.floor(enemyBaseHP);
-  document.getElementById('waveLabel').textContent = gameMode === 'story' ? '📖 Nivel:' : (isTest() ? '🧪 Oleada:' : (isEvent() ? '🎃 Nivel:' : '🌊 Oleada:'));
-  document.getElementById('wave').textContent = gameMode === 'story' ? (storyLevelIdx + 1) : (isEvent() ? (eventLevelIdx + 1) : wave);
+  document.getElementById('waveLabel').textContent = gameMode === 'story' ? '📖 Nivel:' : (isTest() ? '🧪 Oleada:' : (isEvent() ? '🎃 Nivel:' : (gameMode === 'legend' ? '🌟 Etapa:' : '🌊 Oleada:')));
+  document.getElementById('wave').textContent = gameMode === 'story' ? (storyLevelIdx + 1) : (isEvent() ? (eventLevelIdx + 1) : (gameMode === 'legend' ? (legendLevelIdx + 1) : wave));
   document.getElementById('catCount').textContent = cats.length;
   document.getElementById('enemyCount').textContent = enemies.length;
   document.getElementById('income').textContent = isTest() ? '∞' : getIncome().toFixed(1);

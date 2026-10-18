@@ -1,12 +1,12 @@
 // ============================================================
 // 05-combat.js — Lógica de batalla: spawns, update, modos, cañón
-// v58: · Todo nivel (historia/eventos/futuros) empieza con
-//        LEVEL_START_MONEY (450) en vez de L.startMoney.
+// v59: · Modo ETAPAS DE LEYENDA: startLegend, spawnLegendEnemy,
+//        legendVictory/legendDefeat y ramas de update()/spawns.
+// v58: · Todo nivel empieza con LEVEL_START_MONEY (450).
 //      · El daño masivo (proyectil aoe y melee aoe) salpica a la
-//        base enemiga si la explosión la alcanza, aunque el golpe
-//        no sea directo contra ella.
+//        base enemiga si la explosión la alcanza.
 //      · Sanador: SIEMPRE detrás de la tropa no-sanadora más
-//        avanzada; si no hay ninguna, retrocede a la base aliada.
+//        avanzada; sin tropas, retrocede a la base aliada.
 // v57: · storyVictory/eventVictory usan coinRewardFor() (bonus 🐾)
 //        y respetan el modo desarrollador (nada se guarda).
 // v47: · FLECHAS PERFORANTES del Arquero evolucionado.
@@ -131,7 +131,22 @@ function spawnEventEnemy(key, isBoss) {
   if (!t) return;
   pushEnemy(t, key, !!isBoss);
 }
+// v59: enemigos/jefes de Etapas de Leyenda (propios → eventos reutilizados)
+function spawnLegendEnemy(key, isBoss) {
+  if (enemies.length >= MAX_ENEMIES) return;
+  const t = isBoss ? legendBossObj(key) : (LEGEND_ENEMY_TYPES[key] || EVENT_ENEMY_TYPES[key]);
+  if (!t) return;
+  pushEnemy(t, key, !!isBoss);
+}
 function spawnWaveEnemy() {
+  // v59: pools de leyenda (mezclan claves de leyenda/evento e índices normales)
+  if (gameMode === 'legend') {
+    const L = LEGEND_STAGES[legendLevelIdx];
+    const key = L.pool[Math.floor(Math.random() * L.pool.length)];
+    if (typeof key === 'number') spawnEnemy(key, -1);
+    else spawnLegendEnemy(key, false);
+    return;
+  }
   if (gameMode === 'event') {
     const L = EVENTS[currentEventId].levels[eventLevelIdx];
     spawnEventEnemy(L.pool[Math.floor(Math.random() * L.pool.length)], false);
@@ -230,7 +245,7 @@ function clearBattle() {
   spawnTimers = new Array(NUM_UNITS).fill(0);
   gameOver = false; frameCount = 0; waveTimer = 0;
   cannonCooldown = 0; bossWarningTimer = 0; bossSpawnedThisWave = false; pendingBoss = 0;
-  pendingEventBoss = ''; storyBossSpawned = false; storyBossTimer = 0;
+  pendingEventBoss = ''; pendingLegendBoss = ''; storyBossSpawned = false; storyBossTimer = 0;
   autoSaveTimer = 0;
 }
 function startInfinite(fresh) {
@@ -299,6 +314,27 @@ function startEvent(eventId, levelIdx) {
   setStatus('🎃 Evento: ' + L.name, '#ff6600');
   updateUI();
 }
+// v59: Etapas de Leyenda
+function startLegend(idx) {
+  leaveTestIfNeeded();
+  gameMode = 'legend';
+  legendLevelIdx = idx;
+  const L = LEGEND_STAGES[idx];
+  money = LEVEL_START_MONEY;   // v58: 450 como todo nivel
+  baseHP = 1500;
+  enemyBaseHP = L.enemyBaseHP;
+  enemyBaseMaxHP = L.enemyBaseHP;
+  wave = 1;
+  clearBattle();
+  enemySpawnTimer = 90;
+  storyBossTimer = 300;
+  buildUnitButtons();
+  showGame();
+  setTestControlsVisible(false);
+  playing = true;
+  setStatus('🌟 Leyenda: ' + L.name, '#ffcc00');
+  updateUI();
+}
 function startTest() {
   if (gameMode !== 'test') metaSnapshot = snapshotMeta();
   gameMode = 'test';
@@ -318,6 +354,7 @@ function startTest() {
 function reset() {
   if (gameMode === 'story') { startStory(storyLevelIdx); return; }
   if (gameMode === 'event') { startEvent(currentEventId, eventLevelIdx); return; }
+  if (gameMode === 'legend') { startLegend(legendLevelIdx); return; }
   if (gameMode === 'test') { startTest(); return; }
   startInfinite(true);
 }
@@ -350,6 +387,7 @@ function testMaxUpgrades() {
 function retryLevel() {
   if (gameMode === 'story') startStory(storyLevelIdx);
   else if (gameMode === 'event') startEvent(currentEventId, eventLevelIdx);
+  else if (gameMode === 'legend') startLegend(legendLevelIdx);
   else startInfinite(true);
 }
 function nextLevel() {
@@ -361,6 +399,9 @@ function nextLevel() {
     const prog = eventProgress[currentEventId] || 0;
     if (eventLevelIdx + 1 < ev.levels.length && eventLevelIdx + 1 <= prog) startEvent(currentEventId, eventLevelIdx + 1);
     else showEvents();
+  } else if (gameMode === 'legend') {
+    if (legendLevelIdx + 1 < LEGEND_STAGES.length && legendLevelIdx + 1 <= legendProgress) startLegend(legendLevelIdx + 1);
+    else showLegend();
   }
 }
 
@@ -437,6 +478,38 @@ function eventDefeat() {
   showResult(false, `Tu base cayó en ${L.name}. ¡Ajusta tu escuadrón y reintenta!`);
 }
 
+// v59: victoria/derrota de Etapas de Leyenda
+function legendVictory() {
+  playing = false;
+  const L = LEGEND_STAGES[legendLevelIdx];
+  if (!isDevMode()) {
+    const prog = legendProgress;
+    const firstClear = legendLevelIdx === prog;
+    const earned = coinRewardFor(L.coins, firstClear);
+    coins += earned;
+    let unlockText = '';
+    if (firstClear) {
+      legendProgress = prog + 1;
+      saveLegendProgress();
+      if (L.unlocks && L.unlocks.length) {
+        unlockText = ` 🎉 ¡Nueva tropa: ${L.unlocks.map(i => `${UNIT_EMOJI[i] || '🐱'} ${CAT_BASE[i].name}`).join(', ')}!`;
+      }
+    }
+    saveMeta();
+    const last = legendLevelIdx === LEGEND_STAGES.length - 1;
+    const bonusTxt = coinBonusLevel > 0 ? ` (🐾 +${Math.round(getCoinBonusPercent() * 100)}%)` : '';
+    showResult(true,
+      `¡${L.name} superada! ¡+${earned} ${COIN}!${bonusTxt}${firstClear ? '' : ' (repetición)'}` +
+      `${unlockText}${last ? ' 🌟 ¡LEYENDA COMPLETADA!' : ' 📖 Siguiente etapa desbloqueada.'}`);
+  } else {
+    showResult(true, `¡${L.name} superada! [DEV: nada guardado]`);
+  }
+}
+function legendDefeat() {
+  playing = false;
+  showResult(false, `Tu base cayó en ${LEGEND_STAGES[legendLevelIdx].name}. ¡Ajusta tu escuadrón y reintenta!`);
+}
+
 // ============================================================
 // BUCLE DE LÓGICA (1 tick = 1/60s)
 // ============================================================
@@ -465,6 +538,13 @@ function update() {
       storyBossTimer--;
       if (storyBossTimer <= 0) { storyBossSpawned = true; pendingEventBoss = L.boss; bossWarningTimer = 90; }
     }
+  } else if (gameMode === 'legend') {
+    // v59: jefe de la etapa de leyenda
+    const L = LEGEND_STAGES[legendLevelIdx];
+    if (L.boss && !storyBossSpawned) {
+      storyBossTimer--;
+      if (storyBossTimer <= 0) { storyBossSpawned = true; pendingLegendBoss = L.boss; bossWarningTimer = 90; }
+    }
   }
   if (cannonCooldown > 0) cannonCooldown--;
   if (bossWarningTimer > 0) {
@@ -472,6 +552,7 @@ function update() {
     if (bossWarningTimer === 30 && !bossSpawnedThisWave) {
       if (enemies.length < MAX_ENEMIES) {
         if (gameMode === 'event') spawnEventEnemy(pendingEventBoss, true);
+        else if (gameMode === 'legend') spawnLegendEnemy(pendingLegendBoss, true);
         else spawnEnemy(0, pendingBoss);
         bossSpawnedThisWave = true;
         addFloatingText(450, 150, '¡' + currentBossName() + ' ha aparecido!', '#ff0000');
@@ -483,6 +564,7 @@ function update() {
     spawnWaveEnemy();
     if (gameMode === 'story') enemySpawnTimer = STORY_LEVELS[storyLevelIdx].spawnInterval + Math.random()*40;
     else if (gameMode === 'event') enemySpawnTimer = EVENTS[currentEventId].levels[eventLevelIdx].spawnInterval + Math.random()*40;
+    else if (gameMode === 'legend') enemySpawnTimer = LEGEND_STAGES[legendLevelIdx].spawnInterval + Math.random()*40;
     else enemySpawnTimer = Math.max(35, 150 - wave*5) + Math.random()*80;
   }
   // ---------------- UNIDADES PROPIAS ----------------
@@ -491,7 +573,7 @@ function update() {
     c.cdTimer--;
     if (c.poisonTimer > 0) { c.poisonTimer--; if (frameCount % 30 === 0) c.hp -= c.poison; }
     if (c.unitType === 'healer') {
-      // --- Curación (sin cambios) ---
+      // --- Curación ---
       let hurtAlly = null; let minHP = Infinity;
       for (let j = 0; j < cats.length; j++) {
         const ally = cats[j];
@@ -669,7 +751,7 @@ function update() {
         } else {
           hit.hp -= p.dmg;
           addParticle(hit.x, hit.y, 'rgb(255,200,100)', 3, 2);
-          // v47: FLECHA PERFORANTE — atraviesan hasta ARCHER_PIERCE_COUNT enemigos
+          // v47: FLECHA PERFORANTE — atraviesa hasta ARCHER_PIERCE_COUNT enemigos
           if (p.pierce > 0) {
             p.pierce--;
             if (!p.hitSet) p.hitSet = new Set();
@@ -737,11 +819,13 @@ function update() {
   if (baseHP <= 0 && !isTest()) {
     if (gameMode === 'story') { storyDefeat(); return; }
     if (gameMode === 'event') { eventDefeat(); return; }
+    if (gameMode === 'legend') { legendDefeat(); return; }
     gameOver = true;
   }
   if (enemyBaseHP <= 0) {
     if (gameMode === 'story') { storyVictory(); return; }
     if (gameMode === 'event') { eventVictory(); return; }
+    if (gameMode === 'legend') { legendVictory(); return; }
     wave++;
     if (!isTest()) {
       const bonus = 600 + wave * 120;
