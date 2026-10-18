@@ -189,7 +189,7 @@ const AudioSys = (function () {
   wrap('startEvent',      () => setMusic(currentEventId || 'battle'));
   wrap('spawnCat',        () => sfx('spawn'));
   wrap('fireCannon',      () => sfx('cannon'));
-  ['buyUnitUpgrade','buyCannonDmg','buyCannonRange','buyCannonCd','buyIncome'].forEach(f => wrap(f, () => sfx('upgrade')));
+['buyUnitUpgrade','buyCannonDmg','buyCannonRange','buyCannonCd','buyIncome','buyCoinBonus'].forEach(f => wrap(f, () => sfx('upgrade')));
   wrap('showResult', (v) => sfx(v ? 'victory' : 'defeat'));
   wrap('addFloatingText', (x, y, txt) => {
     if (typeof txt !== 'string') return;

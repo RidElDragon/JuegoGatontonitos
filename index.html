@@ -7,121 +7,115 @@
 </head>
 <body>
 <div id="fps">FPS: 60</div>
-
 <div id="menuScreen" class="screen">
-  <h1 style="font-size:40px">🐱 CAT BATTLE 🐱</h1>
-  <div class="coin-info">🐾 Gatontito Coins: <span id="menuCoins">0</span></div>
-  <button class="menu-btn upgrades" onclick="showUpgrades()">⬆ Menú de Mejoras</button>
-  <button class="menu-btn story" onclick="showStory()">📖 Modo Historia</button>
-  <button class="menu-btn infinite" onclick="startInfinite(true)">∞ Modo Infinito</button>
-  <button class="menu-btn events" onclick="showEvents()">🎃 Eventos Especiales</button>
-  <button class="menu-btn test" onclick="startTest()">🧪 Modo Pruebas (sandbox)</button>
-  <button class="menu-btn troops" onclick="showTroops()">🎖 Selección de Tropas</button>
-  <button class="menu-btn continue" id="continueBtn" onclick="continueInfinite()" style="display:none">▶ Continuar partida infinita</button>
-  <button class="menu-btn reset-all" onclick="resetAllProgress()">🗑️ Reiniciar TODO el progreso</button>
-  <div class="menu-info">Escuadrón: <span id="menuLoadoutCount">6</span>/6 · Historia: <span id="menuStoryProgress">0</span>/30</div>
-  <div class="menu-info">🎃 <span id="evH">0</span>/3 · 🛸 <span id="evA">0</span>/3 · 🔥 <span id="evI">0</span>/3 · 🎄 <span id="evX">0</span>/3</div>
+<h1 style="font-size:40px">🐱 CAT BATTLE 🐱</h1>
+<div class="coin-info">🐾 Gatontito Coins: <span id="menuCoins">0</span></div>
+<button class="menu-btn upgrades" onclick="showUpgrades()">⬆ Menú de Mejoras</button>
+<button class="menu-btn story" onclick="showStory()">📖 Modo Historia</button>
+<button class="menu-btn infinite" onclick="startInfinite(true)">∞ Modo Infinito</button>
+<button class="menu-btn events" onclick="showEvents()">🎃 Eventos Especiales</button>
+<button class="menu-btn test" onclick="startTest()">🧪 Modo Pruebas (sandbox)</button>
+<button class="menu-btn troops" onclick="showTroops()">🎖 Selección de Tropas</button>
+<button class="menu-btn continue" id="continueBtn" onclick="continueInfinite()" style="display:none">▶ Continuar partida infinita</button>
+<button class="menu-btn reset-all" onclick="resetAllProgress()">🗑️ Reiniciar TODO el progreso</button>
+<button class="menu-btn" onclick="resetAchievements()" style="background:linear-gradient(135deg, #ff8844, #884400); color:#fff; font-size:14px; padding:10px 20px;">🏆 Reiniciar Logros</button>
+<button class="menu-btn" onclick="toggleDevMode()" id="devModeBtn" style="background:linear-gradient(135deg, #888, #444); color:#fff; font-size:14px; padding:10px 20px;"> Modo Desarrollador: OFF</button>
+<div class="menu-info">Escuadrón: <span id="menuLoadoutCount">6</span>/6 · Historia: <span id="menuStoryProgress">0</span>/30</div>
+<div class="menu-info">🎃 <span id="evH">0</span>/3 · 🛸 <span id="evA">0</span>/3 · 🔥 <span id="evI">0</span>/3 · 🎄 <span id="evX">0</span>/3</div>
 </div>
-
 <div id="upgradeScreen" class="screen" style="display:none">
-  <h2>⬆ MENÚ DE MEJORAS</h2>
-  <div class="coin-info">🐾 Gatontito Coins: <span id="upgCoins">0</span></div>
-  <div class="menu-info">Mejoras PERMANENTES para todos los modos. <span class="up">Verde = sube</span> · <span class="down">Rojo = baja/penalización</span>. Gana 🐾 en Historia y Eventos (mitad al repetir).</div>
-  <div class="panel-title" style="margin-top:8px">🐱 UNIDADES (máx Nv.10 · Nv.15 al pasar el Niv.15 de la Historia)</div>
-  <div id="upgradeUnitGrid" class="upgrade-grid"></div>
-  <div class="panel-title" style="margin-top:8px">💣 CAÑÓN Y 💵 INCOME</div>
-  <div id="upgradeMiscGrid" class="upgrade-grid"></div>
-  <button class="back" onclick="showMenu()">⬅ Volver al menú</button>
+<h2>⬆ MENÚ DE MEJORAS</h2>
+<div class="coin-info">🐾 Gatontito Coins: <span id="upgCoins">0</span></div>
+<div class="menu-info">Mejoras PERMANENTES para todos los modos. <span class="up">Verde = sube</span> · <span class="down">Rojo = baja/penalización</span>. Gana 🐾 en Historia y Eventos (mitad al repetir).</div>
+<div class="panel-title" style="margin-top:8px">🐱 UNIDADES (máx Nv.10 · Nv.15 al pasar el Niv.15 de la Historia)</div>
+<div id="upgradeUnitGrid" class="upgrade-grid"></div>
+<div class="panel-title" style="margin-top:8px">💣 CAÑÓN, 💵 INCOME Y 🐾 BONUS</div>
+<div id="upgradeMiscGrid" class="upgrade-grid"></div>
+<button class="back" onclick="showMenu()">⬅ Volver al menú</button>
 </div>
-
 <div id="storyScreen" class="screen" style="display:none">
-  <h2>📖 MODO HISTORIA</h2>
-  <div class="menu-info">Parte 1 (Nv.1-15), Parte 2 (Nv.16-30) y Parte 3 🏜️ Desierto Prohibido (Nv.31-45, jefes de momias y arena). Al completar el Nivel 30 desbloqueas al 👑 Rey Gatontito y al pasar el Nv.15 las unidades pueden subir hasta <b>Nv.15</b>. Cada 5 niveles hay un JEFE.</div>
-  <div id="storyGrid" class="story-grid"></div>
-  <button class="back" onclick="showMenu()">⬅ Volver al menú</button>
+<h2>📖 MODO HISTORIA</h2>
+<div class="menu-info">Parte 1 (Nv.1-15), Parte 2 (Nv.16-30) y Parte 3 🏜️ Desierto Prohibido (Nv.31-45, jefes de momias y arena). Al completar el Nivel 30 desbloqueas al 👑 Rey Gatontito y al pasar el Nv.15 las unidades pueden subir hasta <b>Nv.15</b>. Cada 5 niveles hay un JEFE.</div>
+<div id="storyGrid" class="story-grid"></div>
+<button class="back" onclick="showMenu()">⬅ Volver al menú</button>
 </div>
-
 <div id="eventScreen" class="screen" style="display:none">
-  <h2>🎃 EVENTOS ESPECIALES</h2>
-  <div class="menu-info" id="eventInfo">Eventos temáticos con recompensas de 🐾 y tropas exclusivas.</div>
-  <div id="eventGrid" class="event-grid"></div>
-  <button class="back" id="eventBackBtn" onclick="showEvents()" style="display:none">⬅ Volver a eventos</button>
-  <button class="back" id="eventMenuBtn" onclick="showMenu()">⬅ Volver al menú</button>
+<h2>🎃 EVENTOS ESPECIALES</h2>
+<div class="menu-info" id="eventInfo">Eventos temáticos con recompensas de 🐾 y tropas exclusivas.</div>
+<div id="eventGrid" class="event-grid"></div>
+<button class="back" id="eventBackBtn" onclick="showEvents()" style="display:none">⬅ Volver a eventos</button>
+<button class="back" id="eventMenuBtn" onclick="showMenu()"> Volver al menú</button>
 </div>
-
 <div id="troopScreen" class="screen" style="display:none">
-  <h2>🎖 SELECCIÓN DE TROPAS</h2>
-  <div class="menu-info">Elige hasta 6 tropas desbloqueadas (mínimo 1). Las tropas 🔒 se desbloquean en Historia o Eventos.</div>
-  <div id="troopGrid" class="troop-grid"></div>
-  <div id="troopCount" class="menu-info"></div>
-  <button class="back" onclick="saveLoadoutAndBack()">✅ Guardar y volver</button>
+<h2>🎖 SELECCIÓN DE TROPAS</h2>
+<div class="menu-info">Elige hasta 6 tropas desbloqueadas (mínimo 1). Las tropas 🔒 se desbloquean en Historia o Eventos.</div>
+<div id="troopGrid" class="troop-grid"></div>
+<div id="troopCount" class="menu-info"></div>
+<button class="back" onclick="saveLoadoutAndBack()">✅ Guardar y volver</button>
 </div>
-
 <div id="gameWrap" style="display:none">
-  <h1 id="gameTitle">🐱 Cat Battle</h1>
-  <div id="info">
-    💰 <span id="money">400</span> |
-    💵 Income: <span id="income">10.0</span>/s (Nv.<span id="incomeLevel">1</span>/10) |
-    ❤️ Base: <span id="baseHP">1500</span> |
-    💀 Enemigo: <span id="enemyHP">2000</span> |
-    <span id="waveLabel">🌊 Oleada:</span> <span id="wave">1</span> |
-    🐱 <span id="catCount">0</span>/30 |
-    👹 <span id="enemyCount">0</span>/30 |
-    💾 <span id="saveStatus" class="save-status"></span>
-  </div>
-  <div id="layout">
-    <div id="leftPanel">
-      <div class="panel-title" id="unitPanelTitle">🐱 UNIDADES (escuadrón)</div>
-      <div id="unitButtons" style="display:contents"></div>
-    </div>
-    <div id="centerPanel">
-      <canvas id="game" width="900" height="320"></canvas>
-      <div class="hint" id="gameHint">💡 Click en una tropa propia para retirarla · Las mejoras se compran en el menú principal con 🐾</div>
-      <div class="row" id="testControls" style="display:none">
-        <button class="test-btn" onclick="testAddWave(1)">🌊 +1 Oleada</button>
-        <button class="test-btn" onclick="testAddWave(10)">🌊 +10 Oleadas</button>
-        <button class="test-btn" onclick="testSpawnBoss()">👑 Invocar Jefe</button>
-        <button class="test-btn" onclick="testClearEnemies()">🧹 Limpiar enemigos</button>
-        <button class="test-btn" onclick="testMaxUpgrades()">⬆️ Maxear mejoras</button>
-      </div>
-      <div class="row">
-        <button class="cannon-btn cannon-container" onclick="fireCannon()" id="cannonBtn">
-          💣 Cañón Especial
-          <span class="price" id="cannonCooldown">Listo</span>
-          <span class="cannon-stats" id="cannonStats">5% HP | Rango: 250px | CD: 25s</span>
-          <div class="cannon-bar" id="cannonBar" style="width:100%"></div>
-        </button>
-      </div>
-      <div class="row">
-        <button class="retreat-btn" onclick="retreatAll()">🔙 Retirar TODO</button>
-        <button class="save-btn" onclick="saveGame(false)">💾 Guardar</button>
-        <button class="save-btn" onclick="loadGame()">📂 Cargar</button>
-        <button class="save-btn" onclick="showSaveInfo()" style="background:linear-gradient(135deg,#888,#444)">🔍 Ver</button>
-        <button class="save-btn" onclick="deleteSave()" style="background:linear-gradient(135deg,#ff4444,#aa0000)">🗑️ Borrar</button>
-        <button class="save-btn" onclick="goMenu()" style="background:linear-gradient(135deg,#aa66cc,#552288)">🏠 Menú</button>
-        <button class="reset" onclick="reset()" style="font-size:11px; padding:5px 8px;">🔄 Reiniciar</button>
-      </div>
-    </div>
-    <div id="rightPanel">
-      <div class="panel-title">⬆ NIVELES DE MEJORA</div>
-      <div id="metaInfo" class="meta-info"></div>
-      <div class="menu-info" style="font-size:10px">Compra mejoras permanentes en el menú principal con 🐾 Gatontito Coins</div>
-    </div>
-  </div>
+<h1 id="gameTitle">🐱 Cat Battle</h1>
+<div id="info">
+💰 <span id="money">400</span> |
+💵 Income: <span id="income">10.0</span>/s (Nv.<span id="incomeLevel">1</span>/10) |
+❤️ Base: <span id="baseHP">1500</span> |
+💀 Enemigo: <span id="enemyHP">2000</span> |
+<span id="waveLabel">🌊 Oleada:</span> <span id="wave">1</span> |
+ <span id="catCount">0</span>/30 |
+👹 <span id="enemyCount">0</span>/30 |
+💾 <span id="saveStatus" class="save-status"></span>
 </div>
-
+<div id="layout">
+<div id="leftPanel">
+<div class="panel-title" id="unitPanelTitle">🐱 UNIDADES (escuadrón)</div>
+<div id="unitButtons" style="display:contents"></div>
+</div>
+<div id="centerPanel">
+<canvas id="game" width="900" height="320"></canvas>
+<div class="hint" id="gameHint">💡 Click en una tropa propia para retirarla · Las mejoras se compran en el menú principal con 🐾</div>
+<div class="row" id="testControls" style="display:none">
+<button class="test-btn" onclick="testAddWave(1)">🌊 +1 Oleada</button>
+<button class="test-btn" onclick="testAddWave(10)">🌊 +10 Oleadas</button>
+<button class="test-btn" onclick="testSpawnBoss()">👑 Invocar Jefe</button>
+<button class="test-btn" onclick="testClearEnemies()">🧹 Limpiar enemigos</button>
+<button class="test-btn" onclick="testMaxUpgrades()">⬆️ Maxear mejoras</button>
+</div>
+<div class="row">
+<button class="cannon-btn cannon-container" onclick="fireCannon()" id="cannonBtn">
+💣 Cañón Especial
+<span class="price" id="cannonCooldown">Listo</span>
+<span class="cannon-stats" id="cannonStats">5% HP | Rango: 250px | CD: 25s</span>
+<div class="cannon-bar" id="cannonBar" style="width:100%"></div>
+</button>
+</div>
+<div class="row">
+<button class="retreat-btn" onclick="retreatAll()">🔙 Retirar TODO</button>
+<button class="save-btn" onclick="saveGame(false)">💾 Guardar</button>
+<button class="save-btn" onclick="loadGame()">📂 Cargar</button>
+<button class="save-btn" onclick="showSaveInfo()" style="background:linear-gradient(135deg,#888,#444)">🔍 Ver</button>
+<button class="save-btn" onclick="deleteSave()" style="background:linear-gradient(135deg,#ff4444,#aa0000)">🗑️ Borrar</button>
+<button class="save-btn" onclick="goMenu()" style="background:linear-gradient(135deg,#aa66cc,#552288)">🏠 Menú</button>
+<button class="reset" onclick="reset()" style="font-size:11px; padding:5px 8px;">🔄 Reiniciar</button>
+</div>
+</div>
+<div id="rightPanel">
+<div class="panel-title">⬆ NIVELES DE MEJORA</div>
+<div id="metaInfo" class="meta-info"></div>
+<div class="menu-info" style="font-size:10px">Compra mejoras permanentes en el menú principal con  Gatontito Coins</div>
+</div>
+</div>
+</div>
 <div id="resultOverlay" style="display:none">
-  <div class="result-box">
-    <h2 id="resultTitle">🎉 ¡VICTORIA!</h2>
-    <p id="resultText"></p>
-    <div>
-      <button id="retryBtn" class="save-btn" onclick="retryLevel()">🔄 Reintentar</button>
-      <button id="nextBtn" class="save-btn" style="background:linear-gradient(135deg,#88ff88,#228822)" onclick="nextLevel()">➡ Siguiente</button>
-      <button class="save-btn" onclick="goMenu()">🏠 Menú</button>
-    </div>
-  </div>
+<div class="result-box">
+<h2 id="resultTitle">🎉 ¡VICTORIA!</h2>
+<p id="resultText"></p>
+<div>
+<button id="retryBtn" class="save-btn" onclick="retryLevel()">🔄 Reintentar</button>
+<button id="nextBtn" class="save-btn" style="background:linear-gradient(135deg,#88ff88,#228822)" onclick="nextLevel()">➡ Siguiente</button>
+<button class="save-btn" onclick="goMenu()">🏠 Menú</button>
 </div>
-
+</div>
+</div>
 <!-- ORDEN DE CARGA (no cambiar) -->
 <script src="js/01-config.js"></script>
 <script src="js/02-state.js"></script>

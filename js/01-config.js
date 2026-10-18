@@ -36,6 +36,11 @@ const CANNON_BASE_COOLDOWN = 1500; // 25s
 const CANNON_MIN_COOLDOWN = 1200;  // 20s
 const CANNON_BOSS_LIMIT = 0.5;     // el cañón nunca baja a un jefe del 50%
 
+const COIN_BONUS_MAX = 10;          // niveles máximos del bonus de 🐾
+const COIN_BONUS_PER_LVL = 0.10;    // +10% de coins por nivel
+const COIN_BONUS_BASE_COST = 4000;  // coste del Nv.1
+const COIN_BONUS_COST_STEP = 4000;  // suma lineal de 4000 en 4000
+
 const STORY_MAX_LEVEL = 45;
 
 const UNIT_EMOJI = ['🐱','💪','⚡','','🔮','💚','👑','','🤖','','😈','','🎅'];

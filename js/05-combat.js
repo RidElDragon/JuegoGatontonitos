@@ -1,5 +1,8 @@
 // ============================================================
 // 05-combat.js — Lógica de batalla: spawns, update, modos, cañón
+// v57: · storyVictory/eventVictory usan coinRewardFor() (bonus 🐾)
+//        y respetan el modo desarrollador (nada se guarda).
+//      · testMaxUpgrades() también maxea el bonus de 🐾.
 // v47: · FLECHAS PERFORANTES: el Arquero (tipo 3) al Nv.10+
 //        (evolucionado) lanza flechas que atraviesan hasta
 //        ARCHER_PIERCE_COUNT enemigos antes de desaparecer.
@@ -7,13 +10,10 @@
 //        delante (su tiro viaja hasta la base y explota con splash).
 //      · SFX de golpe melee ('melee') y de recibir impacto ('cat_hurt').
 // ============================================================
-
 // Puente seguro con el módulo de audio (si no existe, no petardea)
 function sfxNow(name) { if (window.sfx) window.sfx(name); }
-
 // v47: cuántos enemigos puede atravesar una flecha del Arquero evolucionado
 const ARCHER_PIERCE_COUNT = 5;
-
 // v37: helpers de rango de proyectil
 function hasProj(u) {
   const t = u.type || u.unitType;
@@ -26,7 +26,6 @@ function projRangeOf(u) {
   const r = u.range || 0;
   return (t === 'ranged' || t === 'roboRanged') ? r + 60 : r;
 }
-
 function addFloatingText(x, y, text, color) {
   if (floatingTexts.length >= MAX_FLOATING_TEXTS) floatingTexts.shift();
   floatingTexts.push({ x, y, text, color, life: 60, maxLife: 60 });
@@ -340,6 +339,7 @@ function testMaxUpgrades() {
   cannonDmgLevel = CANNON_DMG_MAX;
   cannonRangeLevel = CANNON_RANGE_MAX;
   cannonCdLevel = CANNON_CD_MAX;
+  coinBonusLevel = COIN_BONUS_MAX;   // v57
   addFloatingText(450, 140, '⬆️ ¡Todo al máximo! (solo en pruebas)', '#ffd700');
   buildMetaInfoPanel();
   updateUI();
@@ -362,52 +362,74 @@ function nextLevel() {
     else showEvents();
   }
 }
+
+// v57: victoria de historia con bonus de 🐾 y respeto al modo dev
 function storyVictory() {
   playing = false;
   const L = STORY_LEVELS[storyLevelIdx];
-  const before = storyProgress;
-  const firstClear = storyLevelIdx === storyProgress;
-  const earned = firstClear ? L.coins : Math.floor(L.coins / 2);
-  coins += earned;
-  let unlockText = '';
-  if (firstClear) {
-    storyProgress++;
-    saveStoryProgress();
-    const newUnlocks = [];
-    for (let i = 0; i < NUM_UNITS; i++) {
-      const u = UNIT_UNLOCK[i];
-      if (u && u.type === 'story' && u.lvl > before && u.lvl <= storyProgress) newUnlocks.push(`${UNIT_EMOJI[i] || '🐱'} ${CAT_BASE[i].name}`);
+  if (!isDevMode()) {
+    const before = storyProgress;
+    const firstClear = storyLevelIdx === storyProgress;
+    const earned = coinRewardFor(L.coins, firstClear);
+    coins += earned;
+    let unlockText = '';
+    if (firstClear) {
+      storyProgress++;
+      saveStoryProgress();
+      const newUnlocks = [];
+      for (let i = 0; i < NUM_UNITS; i++) {
+        const u = UNIT_UNLOCK[i];
+        if (u && u.type === 'story' && u.lvl > before && u.lvl <= storyProgress) {
+          newUnlocks.push(`${UNIT_EMOJI[i] || '🐱'} ${CAT_BASE[i].name}`);
+        }
+      }
+      if (newUnlocks.length) unlockText = ` 🎉 ¡Nueva tropa: ${newUnlocks.join(', ')}! (añádela en 🎖)`;
     }
-    if (newUnlocks.length) unlockText = ` 🎉 ¡Nueva tropa: ${newUnlocks.join(', ')}! (añádela en 🎖)`;
+    saveMeta();
+    const last = storyLevelIdx === STORY_LEVELS.length - 1;
+    const bonusTxt = coinBonusLevel > 0 ? ` (🐾 +${Math.round(getCoinBonusPercent() * 100)}%)` : '';
+    showResult(true,
+      `Completaste ${L.name}. ¡+${earned} ${COIN}!${bonusTxt}${firstClear ? '' : ' (repetición)'}` +
+      `${unlockText}${last ? ' 🏆 ¡HISTORIA COMPLETADA!' : ' 📖 Siguiente nivel desbloqueado.'}`);
+  } else {
+    showResult(true, `Completaste ${L.name}. [DEV: nada guardado]`);
   }
-  saveMeta();
-  const last = storyLevelIdx === STORY_LEVELS.length - 1;
-  showResult(true, `Completaste ${L.name}. ¡+${earned} ${COIN}!${firstClear ? '' : ' (repetición)'}${unlockText}${last ? ' 🏆 ¡HISTORIA COMPLETADA!' : ' 📖 Siguiente nivel desbloqueado.'}`);
 }
+
 function storyDefeat() {
   playing = false;
   showResult(false, `Tu base cayó en ${STORY_LEVELS[storyLevelIdx].name}. ¡Ajusta tu escuadrón y reintenta!`);
 }
+
+// v57: victoria de evento con bonus de 🐾 y respeto al modo dev
 function eventVictory() {
   playing = false;
   const ev = EVENTS[currentEventId];
   const L = ev.levels[eventLevelIdx];
-  const prog = eventProgress[currentEventId] || 0;
-  const firstClear = eventLevelIdx === prog;
-  const earned = firstClear ? L.coins : Math.floor(L.coins / 2);
-  coins += earned;
-  let unlockText = '';
-  if (firstClear) {
-    eventProgress[currentEventId] = prog + 1;
-    saveEventProgress();
-    if (L.unlocks && L.unlocks.length) {
-      unlockText = ` 🎉 ¡Nueva tropa: ${L.unlocks.map(i => `${UNIT_EMOJI[i] || '🐱'} ${CAT_BASE[i].name}`).join(', ')}! (añádela en 🎖)`;
+  if (!isDevMode()) {
+    const prog = eventProgress[currentEventId] || 0;
+    const firstClear = eventLevelIdx === prog;
+    const earned = coinRewardFor(L.coins, firstClear);
+    coins += earned;
+    let unlockText = '';
+    if (firstClear) {
+      eventProgress[currentEventId] = prog + 1;
+      saveEventProgress();
+      if (L.unlocks && L.unlocks.length) {
+        unlockText = ` 🎉 ¡Nueva tropa: ${L.unlocks.map(i => `${UNIT_EMOJI[i] || '🐱'} ${CAT_BASE[i].name}`).join(', ')}! (añádela en 🎖)`;
+      }
     }
+    saveMeta();
+    const last = eventLevelIdx === ev.levels.length - 1;
+    const bonusTxt = coinBonusLevel > 0 ? ` (🐾 +${Math.round(getCoinBonusPercent() * 100)}%)` : '';
+    showResult(true,
+      `¡${L.name} completado! ¡+${earned} ${COIN}!${bonusTxt}${firstClear ? '' : ' (repetición)'}` +
+      `${unlockText}${last ? ` ${ev.name} ¡COMPLETADO!` : ' 📖 Siguiente nivel desbloqueado.'}`);
+  } else {
+    showResult(true, `¡${L.name} completado! [DEV: nada guardado]`);
   }
-  saveMeta();
-  const last = eventLevelIdx === ev.levels.length - 1;
-  showResult(true, `¡${L.name} completado! ¡+${earned} ${COIN}!${firstClear ? '' : ' (repetición)'}${unlockText}${last ? ` ${ev.name} ¡COMPLETADO!` : ' 📖 Siguiente nivel desbloqueado.'}`);
 }
+
 function eventDefeat() {
   playing = false;
   const L = EVENTS[currentEventId].levels[eventLevelIdx];
@@ -421,9 +443,7 @@ function update() {
   if (gameOver || !playing) return;
   frameCount++;
   if (!isTest()) money += getIncome() / 60;
-
   for (let i = 0; i < NUM_UNITS; i++) if (spawnTimers[i] > 0) spawnTimers[i]--;
-
   if (gameMode === 'infinite') {
     autoSaveTimer++;
     if (autoSaveTimer >= 1800) { autoSaveTimer = 0; saveGame(true); }
@@ -445,9 +465,7 @@ function update() {
       if (storyBossTimer <= 0) { storyBossSpawned = true; pendingEventBoss = L.boss; bossWarningTimer = 90; }
     }
   }
-
   if (cannonCooldown > 0) cannonCooldown--;
-
   if (bossWarningTimer > 0) {
     bossWarningTimer--;
     if (bossWarningTimer === 30 && !bossSpawnedThisWave) {
@@ -459,7 +477,6 @@ function update() {
       }
     }
   }
-
   enemySpawnTimer--;
   if (enemySpawnTimer <= 0) {
     spawnWaveEnemy();
@@ -467,13 +484,11 @@ function update() {
     else if (gameMode === 'event') enemySpawnTimer = EVENTS[currentEventId].levels[eventLevelIdx].spawnInterval + Math.random()*40;
     else enemySpawnTimer = Math.max(35, 150 - wave*5) + Math.random()*80;
   }
-
   // ---------------- UNIDADES PROPIAS ----------------
   for (let i = 0; i < cats.length; i++) {
     const c = cats[i];
     c.cdTimer--;
     if (c.poisonTimer > 0) { c.poisonTimer--; if (frameCount % 30 === 0) c.hp -= c.poison; }
-
     if (c.unitType === 'healer') {
       let hurtAlly = null; let minHP = Infinity;
       for (let j = 0; j < cats.length; j++) {
@@ -502,10 +517,8 @@ function update() {
       }
       continue;
     }
-
     const front = findFrontEnemy(c, c.range);
     const baseInRange = (ENEMY_BASE_X - c.x) <= c.range;
-
     if (front || baseInRange) {
       if (c.cdTimer <= 0) {
         if (isRanged(c)) {
@@ -570,7 +583,6 @@ function update() {
       c.x += c.speed;
     }
   }
-
   // ---------------- ENEMIGOS ----------------
   for (let i = 0; i < enemies.length; i++) {
     const e = enemies[i];
@@ -580,7 +592,13 @@ function update() {
     if (frontCat) {
       if (e.cdTimer <= 0) {
         if (e.unitType === 'ranged') {
-          projectiles.push({ x: e.x - 12, y: e.y - 4, vx: -(e.projSpeed || 4), dmg: e.dmg, type: 'magic', owner: 'enemy', speed: e.projSpeed || 4, aoeRadius: 0, projRange: projRangeOf(e), traveled: 0, canHitBase: false });
+          projectiles.push({
+            x: e.x - 12, y: e.y - 4,
+            vx: -(e.projSpeed || 4),
+            dmg: e.dmg, type: 'magic', owner: 'enemy',
+            speed: e.projSpeed || 4, aoeRadius: 0,
+            projRange: projRangeOf(e), traveled: 0, canHitBase: false
+          });
         } else if (e.unitType === 'poison') {
           frontCat.hp -= e.dmg; frontCat.poison = e.poisonDmg; frontCat.poisonTimer = e.poisonDur;
           addParticle(frontCat.x, frontCat.y, 'rgb(0,255,0)', 2, 2);
@@ -601,11 +619,9 @@ function update() {
       }
     }
   }
-
   // ---------------- PROYECTILES ----------------
   for (let i = 0; i < projectiles.length; i++) {
     const p = projectiles[i];
-
     if (p.isHeal) {
       if (!p.target || p.target.hp <= 0) { p.dead = true; continue; }
       const dx = p.target.x - p.x, dy = p.target.y - p.y, dist = Math.sqrt(dx*dx + dy*dy);
@@ -613,7 +629,6 @@ function update() {
       else { p.x += (dx/dist) * p.speed; p.y += (dy/dist) * p.speed; }
       continue;
     }
-
     if (p.owner === 'cat') {
       p.x += p.speed;
       p.traveled += p.speed;
@@ -683,13 +698,11 @@ function update() {
     }
   }
   projectiles = projectiles.filter(p => !p.dead);
-
   // ---------------- PARTÍCULAS / TEXTOS ----------------
   for (let i = 0; i < particles.length; i++) { const p = particles[i]; if (p.ring) p.radius += (p.maxRadius - p.radius) * 0.2; else { p.x += p.vx; p.y += p.vy; p.vy += 0.2; } p.life--; }
   particles = particles.filter(p => p.life > 0);
   for (let i = 0; i < floatingTexts.length; i++) { floatingTexts[i].y -= 1; floatingTexts[i].life--; }
   floatingTexts = floatingTexts.filter(t => t.life > 0);
-
   // ---------------- MUERTES ----------------
   enemies = enemies.filter(e => {
     if (e.hp <= 0) {
@@ -702,7 +715,6 @@ function update() {
     return true;
   });
   cats = cats.filter(c => { if (c.hp <= 0) { addParticle(c.x, c.y, 'rgb(255,200,100)', 5, 3); return false; } return true; });
-
   // ---------------- FIN DE PARTIDA ----------------
   if (baseHP <= 0 && !isTest()) {
     if (gameMode === 'story') { storyDefeat(); return; }

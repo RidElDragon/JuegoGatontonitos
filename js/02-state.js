@@ -1,11 +1,12 @@
 // ============================================================
 // 02-state.js — Estado mutable global + cálculos/getters
+// v57: · coinBonusLevel + getters del bonus de 🐾 y coinRewardFor()
+//      · Modo desarrollador con snapshot/restauración (snapshotMeta)
 // v48: FORMAS DE UNIDAD — cada tropa Nv.10+ puede usarse en forma
 //      normal o evolucionada (preferencia persistida y separada
 //      por unidad). La evolución sigue dando +10% de stats SOLO
 //      si la forma activa es la evolucionada.
 // ============================================================
-
 // --- Progreso persistente (se rellena en 07-main.js al iniciar) ---
 let coins = 0;
 const unitLevels = new Array(NUM_UNITS).fill(1);
@@ -13,15 +14,14 @@ let incomeLevel = 1;
 let cannonDmgLevel = 1;
 let cannonRangeLevel = 1;
 let cannonCdLevel = 1;
+let coinBonusLevel = 0;   // 0 = sin bonus · Nv.N = +N×10% de 🐾 por nivel superado
 let storyProgress = 0;
 let eventProgress = {};
 let loadout = [0];
 let tempLoadout = [0];
-
 // --- Respaldos para el sandbox ---
 let metaSnapshot = null;
 let baseMeta = null;
-
 // --- Estado de batalla ---
 let spawnTimers = new Array(NUM_UNITS).fill(0);
 let money = 400;
@@ -43,7 +43,6 @@ let autoSaveTimer = 0;
 let bossWarningTimer = 0;
 let bossSpawnedThisWave = false;
 let pendingBoss = 0;
-
 // --- Pantalla / modo ---
 let screen = 'menu';
 let playing = false;
@@ -54,13 +53,52 @@ let currentEventId = '';
 let storyBossSpawned = false;
 let storyBossTimer = 0;
 let pendingEventBoss = '';
-
 // --- Bucle / FPS ---
 let lastTime = performance.now();
 let fps = 60;
 let frameAccumulator = 0;
 let fpsSampleTimer = 0;
 let fpsTickCount = 0;
+
+// ============================================================
+// MODO DESARROLLADOR
+// ============================================================
+let devMode = false;
+let devSnapshot = null;
+
+function isDevMode() { return devMode; }
+
+function toggleDevMode() {
+  if (!devMode) {
+    // Activando: guardar snapshot del estado actual
+    devSnapshot = snapshotMeta();
+    setStatus('🔧 Modo desarrollador ACTIVADO - NADA se guarda', '#ff88ff');
+  } else {
+    // Desactivando: restaurar snapshot
+    if (devSnapshot) {
+      restoreMeta(devSnapshot);
+      devSnapshot = null;
+      setStatus('🔧 Modo desarrollador DESACTIVADO - Estado restaurado', '#888888');
+    }
+  }
+  devMode = !devMode;
+  if (screen === 'story') buildStoryGrid();
+  if (screen === 'events') buildEventGrid();
+  if (screen === 'troops') buildTroopGrid();
+  if (screen === 'upgrades') buildUpgradeScreen();
+  if (screen === 'bestiary' && window.showBestiary) window.showBestiary();
+  updateDevModeButton();
+}
+
+function updateDevModeButton() {
+  const btn = document.getElementById('devModeBtn');
+  if (btn) {
+    btn.textContent = `🔧 Modo Desarrollador: ${devMode ? 'ON' : 'OFF'}`;
+    btn.style.background = devMode
+      ? 'linear-gradient(135deg, #ff88ff, #880088)'
+      : 'linear-gradient(135deg, #888, #444)';
+  }
+}
 
 // ------------------------------------------------------------
 // v44: EVOLUCIÓN DE UNIDADES
@@ -94,6 +132,7 @@ function saveForms() {
   try { localStorage.setItem('catBattleForms', JSON.stringify(unitFormPref)); } catch (e) {}
 }
 let unitFormPref = loadForms();
+
 // La forma evolucionada solo está disponible con la tropa a Nv.10+
 function formIsEvo(idx) {
   return unitFormPref[idx] !== 'normal' && unitLevels[idx] >= EVOLVE_LEVEL;
@@ -105,9 +144,9 @@ function formIsEvo(idx) {
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 function isTest()  { return gameMode === 'test'; }
 function isEvent() { return gameMode === 'event'; }
-
 function unitLevelCap() {
   if (isTest()) return MAX_STATS;
+  if (isDevMode()) return MAX_STATS;  // 🔧 en modo dev: sin límite de progreso
   if (storyProgress >= 30) return 30;
   if (storyProgress >= 15) return 15;
   return MAX_UNIT_LEVEL;
@@ -118,15 +157,21 @@ function activeUnitList() {
   if (isTest()) { const all = []; for (let i = 0; i < NUM_UNITS; i++) all.push(i); return all; }
   return loadout;
 }
-
 function padUnitArray(arr) {
   const out = [];
   for (let i = 0; i < NUM_UNITS; i++) out.push(Array.isArray(arr) && arr[i] ? arr[i] : 1);
   return out;
 }
-
 function snapshotMeta() {
-  return { coins, unitLevels: unitLevels.slice(), incomeLevel, cannonDmgLevel, cannonRangeLevel, cannonCdLevel };
+  return {
+    coins,
+    unitLevels: unitLevels.slice(),
+    incomeLevel,
+    cannonDmgLevel,
+    cannonRangeLevel,
+    cannonCdLevel,
+    coinBonusLevel
+  };
 }
 function restoreMeta(s) {
   if (!s) return;
@@ -136,6 +181,7 @@ function restoreMeta(s) {
   cannonDmgLevel = s.cannonDmgLevel;
   cannonRangeLevel = s.cannonRangeLevel;
   cannonCdLevel = s.cannonCdLevel;
+  coinBonusLevel = s.coinBonusLevel || 0;
 }
 function leaveTestIfNeeded() {
   if (gameMode === 'test') {
@@ -168,6 +214,22 @@ function cannonCdSecAt(dmgL, cdL) { return Math.ceil(getCannonCooldownFramesFor(
 function getCannonDmgCoinCost()   { const l = cannonDmgLevel;   return 20000 + 15000 * l * (l - 1); }
 function getCannonRangeCoinCost() { const l = cannonRangeLevel; return 12000 + 8000  * l * (l - 1); }
 function getCannonCdCoinCost()    { const l = cannonCdLevel;    return 15000 + 10000 * l * (l - 1); }
+
+// ------------------------------------------------------------
+// v57: BONUS DE 🐾 GATONTITO COINS (mejora permanente)
+// Nv.N = +N×10% de coins al superar niveles de Historia/Eventos
+// ------------------------------------------------------------
+function getCoinBonusPercentAt(l) { return l * COIN_BONUS_PER_LVL; }
+function getCoinBonusPercent() { return getCoinBonusPercentAt(coinBonusLevel); }
+function getCoinBonusCost() { return COIN_BONUS_BASE_COST + COIN_BONUS_COST_STEP * coinBonusLevel; }
+
+// Recompensa REAL de 🐾 al superar un nivel (mitad en repetición + bonus).
+// Única fuente de verdad: la usan las grids Y las victorias, para que
+// el número del botón sea exactamente el que cobras.
+function coinRewardFor(baseCoins, firstClear) {
+  const baseEarned = firstClear ? baseCoins : Math.floor(baseCoins / 2);
+  return Math.floor(baseEarned * (1 + getCoinBonusPercent()));
+}
 
 // ------------------------------------------------------------
 // Stats de unidades y multiplicadores
