@@ -1,5 +1,6 @@
 // ============================================================
 // 02-state.js — Estado mutable global + cálculos/getters
+// v58: · Mago evolucionado: radio de área 90 → 130 (getCatStats)
 // v57: · coinBonusLevel + getters del bonus de 🐾 y coinRewardFor()
 //      · Modo desarrollador con snapshot/restauración (snapshotMeta)
 // v48: FORMAS DE UNIDAD — cada tropa Nv.10+ puede usarse en forma
@@ -233,9 +234,8 @@ function coinRewardFor(baseCoins, firstClear) {
 
 // ------------------------------------------------------------
 // Stats de unidades y multiplicadores
-// v48: getCatStats respeta la FORMA elegida (el +10% solo si está
-//      activa la forma evolucionada). unitStatsAt sigue mostrando el
-//      potencial máximo (para previews del menú de mejoras y bestiario).
+// v58: getCatStats aplica el radio de área ampliado del Mago
+//      evolucionado (90 → 130). El resto igual que v48.
 // ------------------------------------------------------------
 function unitStatsAt(idx, lvl) {
   const base = CAT_BASE[idx];
@@ -250,12 +250,15 @@ function getCatStats(type) {
   const base = CAT_BASE[type];
   const lvl = unitLevels[type];
   const mult = Math.pow(base.upMult || 1.15, lvl - 1) * (formIsEvo(type) ? EVOLVE_MULT : 1);
-  return {
+  const stats = {
     ...base,
     hp:  Math.min(Math.floor(base.hp * mult), MAX_STATS),
     dmg: Math.min(Math.floor(base.dmg * mult), MAX_STATS),
     healAmt: base.healAmt ? Math.min(Math.floor(base.healAmt * mult), MAX_STATS) : 0
   };
+  // v58: Mago evolucionado amplía su radio de daño en área
+  if (type === MAGE_UNIT_IDX && formIsEvo(type)) stats.aoeRadius = MAGE_EVO_AOE;
+  return stats;
 }
 function getUnitCoinCost(idx) { const l = unitLevels[idx]; return UNIT_COIN_BASE[idx] + UNIT_COIN_STEP[idx] * l * (l - 1); }
 function getWaveBonus() { return 1 + (wave - 1) * 0.03; }

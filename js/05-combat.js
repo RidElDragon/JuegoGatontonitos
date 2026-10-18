@@ -1,14 +1,15 @@
 // ============================================================
 // 05-combat.js — Lógica de batalla: spawns, update, modos, cañón
+// v58: · Todo nivel (historia/eventos/futuros) empieza con
+//        LEVEL_START_MONEY (450) en vez de L.startMoney.
+//      · El daño masivo (proyectil aoe y melee aoe) salpica a la
+//        base enemiga si la explosión la alcanza, aunque el golpe
+//        no sea directo contra ella.
+//      · Sanador: SIEMPRE detrás de la tropa no-sanadora más
+//        avanzada; si no hay ninguna, retrocede a la base aliada.
 // v57: · storyVictory/eventVictory usan coinRewardFor() (bonus 🐾)
 //        y respetan el modo desarrollador (nada se guarda).
-//      · testMaxUpgrades() también maxea el bonus de 🐾.
-// v47: · FLECHAS PERFORANTES: el Arquero (tipo 3) al Nv.10+
-//        (evolucionado) lanza flechas que atraviesan hasta
-//        ARCHER_PIERCE_COUNT enemigos antes de desaparecer.
-//      · Mago/Gatoclaus SÍ asedian la base cuando no hay enemigos
-//        delante (su tiro viaja hasta la base y explota con splash).
-//      · SFX de golpe melee ('melee') y de recibir impacto ('cat_hurt').
+// v47: · FLECHAS PERFORANTES del Arquero evolucionado.
 // ============================================================
 // Puente seguro con el módulo de audio (si no existe, no petardea)
 function sfxNow(name) { if (window.sfx) window.sfx(name); }
@@ -263,7 +264,7 @@ function startStory(idx) {
   gameMode = 'story';
   storyLevelIdx = idx;
   const L = STORY_LEVELS[idx];
-  money = L.startMoney;
+  money = LEVEL_START_MONEY;   // v58: todo nivel empieza con 450
   baseHP = 1500;
   enemyBaseHP = L.enemyBaseHP;
   enemyBaseMaxHP = L.enemyBaseHP;
@@ -283,7 +284,7 @@ function startEvent(eventId, levelIdx) {
   currentEventId = eventId;
   eventLevelIdx = levelIdx;
   const L = EVENTS[eventId].levels[levelIdx];
-  money = L.startMoney;
+  money = LEVEL_START_MONEY;   // v58: todo nivel empieza con 450
   baseHP = 1500;
   enemyBaseHP = L.enemyBaseHP;
   enemyBaseMaxHP = L.enemyBaseHP;
@@ -490,6 +491,7 @@ function update() {
     c.cdTimer--;
     if (c.poisonTimer > 0) { c.poisonTimer--; if (frameCount % 30 === 0) c.hp -= c.poison; }
     if (c.unitType === 'healer') {
+      // --- Curación (sin cambios) ---
       let hurtAlly = null; let minHP = Infinity;
       for (let j = 0; j < cats.length; j++) {
         const ally = cats[j];
@@ -502,19 +504,28 @@ function update() {
         projectiles.push({ x:c.x, y:c.y, target:hurtAlly, dmg:c.healAmt, type:'heal', isHeal:true, owner:'cat', speed:5 });
         c.cdTimer = c.cooldown; c.attackAnim = 8;
       }
-      const { target: enemyTarget, minDist: enemyDist } = findTarget(c, enemies);
-      if (!(enemyTarget && enemyDist < 60)) {
-        let frontX = 80;
-        for (let j = 0; j < cats.length; j++) {
-          const ally = cats[j];
-          if (ally !== c && ally.unitType !== 'healer') frontX = Math.max(frontX, ally.x);
-        }
-        const desired = Math.min(frontX - HEALER_BACK_DIST, ENEMY_BASE_X - HEALER_SAFE_DIST);
-        const gap = desired - c.x;
-        const mult = Math.abs(gap) > HEALER_CATCHUP_GAP ? HEALER_CATCHUP_MULT : 1;
-        if (gap > 0) c.x += c.speed * mult;
-        else if (gap < -100) c.x -= c.speed;
+      // --- v58: POSICIONAMIENTO DEL SANADOR ---
+      // Siempre detrás de la tropa no-sanadora más avanzada.
+      // Si no hay ninguna tropa así, retrocede hasta la base aliada.
+      let frontX = 0;
+      let hasTroop = false;
+      for (let j = 0; j < cats.length; j++) {
+        const ally = cats[j];
+        if (ally === c || ally.unitType === 'healer') continue;
+        hasTroop = true;
+        if (ally.x > frontX) frontX = ally.x;
       }
+      let desired;
+      if (hasTroop) {
+        desired = Math.min(frontX - HEALER_BACK_DIST, ENEMY_BASE_X - HEALER_SAFE_DIST);
+      } else {
+        desired = HEALER_HOME_X;
+      }
+      if (desired < HEALER_HOME_X) desired = HEALER_HOME_X;
+      const gap = desired - c.x;
+      const mult = (hasTroop && Math.abs(gap) > HEALER_CATCHUP_GAP) ? HEALER_CATCHUP_MULT : 1;
+      if (gap > 0) c.x += c.speed * mult;
+      else if (gap < 0) c.x -= c.speed;   // v58: retrocede SIEMPRE que esté adelantado
       continue;
     }
     const front = findFrontEnemy(c, c.range);
@@ -538,9 +549,6 @@ function update() {
             hitSet: null
           });
         } else if (c.unitType === 'aoe') {
-          // v41: si hay enemigo delante → tiro recto que expira a su rango.
-          //      si NO hay enemigo y la base está a tiro → SÍ asedian la base
-          //      (la bola viaja y explota allí con splash).
           projectiles.push({
             x: c.x + 12, y: c.y - 4,
             vx: (c.projSpeed || 5),
@@ -556,18 +564,23 @@ function update() {
         } else if (front) {
           front.hp -= c.dmg;
           addParticle(front.x, front.y, 'rgb(255,100,100)', 2, 2);
-          sfxNow('melee'); // v41
+          sfxNow('melee');
           if (c.aoeRadius) {
             addRing(front.x, front.y, 'rgb(255,215,0)', c.aoeRadius);
             for (let j = 0; j < enemies.length; j++) {
               const t = enemies[j];
               if (t !== front && Math.abs(t.x - front.x) <= c.aoeRadius) { t.hp -= c.dmg; addParticle(t.x, t.y, 'rgb(255,215,0)', 2, 2); }
             }
+            // v58: el golpe masivo salpica a la base si la explosión la alcanza
+            if (Math.abs(ENEMY_BASE_X - front.x) <= c.aoeRadius) {
+              enemyBaseHP -= c.dmg;
+              addParticle(ENEMY_BASE_X, 170, 'rgb(255,215,0)', 4, 3);
+            }
           }
         } else {
           enemyBaseHP -= c.dmg;
           addParticle(ENEMY_BASE_X, 170, 'rgb(255,100,100)', 2, 2);
-          sfxNow('melee'); // v41
+          sfxNow('melee');
           if (c.aoeRadius) {
             addRing(ENEMY_BASE_X, 170, 'rgb(255,215,0)', c.aoeRadius);
             for (let j = 0; j < enemies.length; j++) {
@@ -602,11 +615,11 @@ function update() {
         } else if (e.unitType === 'poison') {
           frontCat.hp -= e.dmg; frontCat.poison = e.poisonDmg; frontCat.poisonTimer = e.poisonDur;
           addParticle(frontCat.x, frontCat.y, 'rgb(0,255,0)', 2, 2);
-          sfxNow('cat_hurt'); // v41
+          sfxNow('cat_hurt');
         } else {
           frontCat.hp -= e.dmg;
           addParticle(frontCat.x, frontCat.y, 'rgb(255,200,100)', 2, 2);
-          sfxNow('cat_hurt'); // v41
+          sfxNow('cat_hurt');
         }
         e.cdTimer = e.cooldown; e.attackAnim = 8;
       }
@@ -647,17 +660,22 @@ function update() {
             const t = enemies[j];
             if (Math.abs(t.x - p.x) <= p.aoeRadius) { t.hp -= p.dmg; addParticle(t.x, t.y, 'rgb(255,0,255)', 3, 3); }
           }
+          // v58: la explosión masiva salpica a la base enemiga si está a tiro
+          if (Math.abs(ENEMY_BASE_X - p.x) <= p.aoeRadius) {
+            enemyBaseHP -= p.dmg;
+            addParticle(ENEMY_BASE_X, 170, 'rgb(255,0,255)', 4, 3);
+          }
           p.dead = true;
         } else {
           hit.hp -= p.dmg;
           addParticle(hit.x, hit.y, 'rgb(255,200,100)', 3, 2);
-          // v47: FLECHA PERFORANTE — atraviesa hasta ARCHER_PIERCE_COUNT enemigos
+          // v47: FLECHA PERFORANTE — atraviesan hasta ARCHER_PIERCE_COUNT enemigos
           if (p.pierce > 0) {
             p.pierce--;
             if (!p.hitSet) p.hitSet = new Set();
             p.hitSet.add(hit);
-            addParticle(hit.x, hit.y, 'rgb(200,160,255)', 2, 2); // chispa de atravesar
-            if (p.pierce <= 0) p.dead = true; // llegó a su límite: cae
+            addParticle(hit.x, hit.y, 'rgb(200,160,255)', 2, 2);
+            if (p.pierce <= 0) p.dead = true;
           } else {
             p.dead = true;
           }
@@ -689,7 +707,7 @@ function update() {
       if (hit) {
         hit.hp -= p.dmg;
         addParticle(hit.x, hit.y, 'rgb(255,100,100)', 3, 2);
-        sfxNow('cat_hurt'); // v41: tu unidad recibe un impacto
+        sfxNow('cat_hurt');
         p.dead = true;
       } else if (p.traveled >= (p.projRange || 0) || p.x < -30) {
         addParticle(p.x, p.y, 'rgb(200,200,200)', 2, 2);

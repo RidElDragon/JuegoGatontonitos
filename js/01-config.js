@@ -35,6 +35,11 @@ const CANNON_CD_MAX = 5;
 const CANNON_BASE_COOLDOWN = 1500; // 25s
 const CANNON_MIN_COOLDOWN = 1200;  // 20s
 const CANNON_BOSS_LIMIT = 0.5;     // el cañón nunca baja a un jefe del 50%
+// v58: nuevas constantes de combate
+const LEVEL_START_MONEY = 450;  // dinero inicial de TODO nivel (historia/eventos/nuevos)
+const MAGE_UNIT_IDX = 4;        // índice del Mago en CAT_BASE
+const MAGE_EVO_AOE = 130;       // radio de área del Mago evolucionado (base: 90)
+const HEALER_HOME_X = 60;       // zona de la base aliada (retroceso del Sanador sin tropas)
 
 const COIN_BONUS_MAX = 10;          // niveles máximos del bonus de 🐾
 const COIN_BONUS_PER_LVL = 0.10;    // +10% de coins por nivel
