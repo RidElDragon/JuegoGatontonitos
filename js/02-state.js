@@ -1,28 +1,34 @@
 // ============================================================
 // 02-state.js — Estado mutable global + cálculos/getters
-// v59: · Estado de Etapas de Leyenda (legendProgress, etc.)
-// v58: · Mago evolucionado: radio de área 90 → 130 (getCatStats)
-// v57: · coinBonusLevel + getters del bonus de 🐾 y coinRewardFor()
-//      · Modo desarrollador con snapshot/restauración (snapshotMeta)
-// v48: FORMAS DE UNIDAD — cada tropa Nv.10+ puede usarse en forma
-//      normal o evolucionada (preferencia persistida y separada
-//      por unidad). La evolución sigue dando +10% de stats SOLO
-//      si la forma activa es la evolucionada.
+// v63: gachaLevels, gachaUnlocked, baseLevel, tickets, getBaseMaxHP
+// v61: Bosque Catedral con troncos marrones
+// v60: Bosque Catedral rediseñado (10 capas)
+// v59: legendProgress, legendLevelIdx, pendingLegendBoss, legendBossObj
+// v58: Mago evolucionado aoeRadius 130, LEVEL_START_MONEY,
+//      splash a base, sanador siempre atrás
+// v57: coinBonusLevel, coinRewardFor, snapshotMeta completo
+// v48: FORMAS DE UNIDAD
 // ============================================================
-// --- Progreso persistente (se rellena en 07-main.js al iniciar) ---
+// --- Progreso persistente ---
 let coins = 0;
 const unitLevels = new Array(NUM_UNITS).fill(1);
 let incomeLevel = 1;
 let cannonDmgLevel = 1;
 let cannonRangeLevel = 1;
 let cannonCdLevel = 1;
-let coinBonusLevel = 0;   // 0 = sin bonus · Nv.N = +N×10% de 🐾 por nivel superado
+let coinBonusLevel = 0;
 let storyProgress = 0;
 let eventProgress = {};
-let legendProgress = 0;   // v59: etapas de leyenda superadas (0-30)
+let legendProgress = 0;
+// v63: gacha
+let ticketsNormal = 3;
+let ticketsRare = 1;
+let baseLevel = 0;
+const gachaLevels = new Array(NUM_UNITS).fill(0);
+const gachaUnlocked = new Array(NUM_UNITS).fill(false);
+// ---
 let loadout = [0];
 let tempLoadout = [0];
-// --- Respaldos para el sandbox ---
 let metaSnapshot = null;
 let baseMeta = null;
 // --- Estado de batalla ---
@@ -53,8 +59,8 @@ let gameMode = 'infinite';
 let storyLevelIdx = 0;
 let eventLevelIdx = 0;
 let currentEventId = '';
-let legendLevelIdx = 0;        // v59
-let pendingLegendBoss = '';    // v59
+let legendLevelIdx = 0;
+let pendingLegendBoss = '';
 let storyBossSpawned = false;
 let storyBossTimer = 0;
 let pendingEventBoss = '';
@@ -81,7 +87,7 @@ function toggleDevMode() {
     if (devSnapshot) {
       restoreMeta(devSnapshot);
       devSnapshot = null;
-      setStatus('🔧 Modo desarrollador DESACTIVADO - Estado restaurado', '#888888');
+      setStatus(' Modo desarrollador DESACTIVADO - Estado restaurado', '#888888');
     }
   }
   devMode = !devMode;
@@ -90,6 +96,9 @@ function toggleDevMode() {
   if (screen === 'troops') buildTroopGrid();
   if (screen === 'upgrades') buildUpgradeScreen();
   if (screen === 'legend') buildLegendGrid();
+  if (screen === 'gacha' && window.renderBanners) window.renderBanners();
+  if (screen === 'storage' && window.renderStorage) window.renderStorage();
+  if (screen === 'missions' && window.renderMissions) window.renderMissions();
   if (screen === 'bestiary' && window.showBestiary) window.showBestiary();
   updateDevModeButton();
 }
@@ -107,11 +116,9 @@ function updateDevModeButton() {
 // ------------------------------------------------------------
 // v44: EVOLUCIÓN DE UNIDADES
 // ------------------------------------------------------------
-const EVOLVE_LEVEL = 10;   // nivel al que evoluciona una tropa
-const EVOLVE_MULT = 1.10;  // +10% de estadísticas
+const EVOLVE_LEVEL = 10;
+const EVOLVE_MULT = 1.10;
 
-// v48: si el objeto trae `evo` definido (instancia en batalla o retrato),
-// manda ese flag; si no, se deduce del nivel (comportamiento clásico).
 function isEvolved(c) {
   if (!c) return false;
   if (c.evo !== undefined) return !!c.evo;
@@ -119,7 +126,7 @@ function isEvolved(c) {
 }
 
 // ------------------------------------------------------------
-// v48: FORMA PREFERIDA POR UNIDAD ('evo' | 'normal')
+// v48: FORMA PREFERIDA POR UNIDAD
 // ------------------------------------------------------------
 function loadForms() {
   try {
@@ -137,7 +144,6 @@ function saveForms() {
 }
 let unitFormPref = loadForms();
 
-// La forma evolucionada solo está disponible con la tropa a Nv.10+
 function formIsEvo(idx) {
   return unitFormPref[idx] !== 'normal' && unitLevels[idx] >= EVOLVE_LEVEL;
 }
@@ -150,13 +156,12 @@ function isTest()  { return gameMode === 'test'; }
 function isEvent() { return gameMode === 'event'; }
 function unitLevelCap() {
   if (isTest()) return MAX_STATS;
-  if (isDevMode()) return MAX_STATS;  // 🔧 en modo dev: sin límite de progreso
+  if (isDevMode()) return MAX_STATS;
   if (storyProgress >= 30) return 30;
   if (storyProgress >= 15) return 15;
   return MAX_UNIT_LEVEL;
 }
 
-// En sandbox se muestran/controlan TODAS las unidades; fuera, solo el escuadrón
 function activeUnitList() {
   if (isTest()) { const all = []; for (let i = 0; i < NUM_UNITS; i++) all.push(i); return all; }
   return loadout;
@@ -174,7 +179,12 @@ function snapshotMeta() {
     cannonDmgLevel,
     cannonRangeLevel,
     cannonCdLevel,
-    coinBonusLevel
+    coinBonusLevel,
+    ticketsNormal,
+    ticketsRare,
+    baseLevel,
+    gachaLevels: gachaLevels.slice(),
+    gachaUnlocked: gachaUnlocked.slice()
   };
 }
 function restoreMeta(s) {
@@ -186,6 +196,11 @@ function restoreMeta(s) {
   cannonRangeLevel = s.cannonRangeLevel;
   cannonCdLevel = s.cannonCdLevel;
   coinBonusLevel = s.coinBonusLevel || 0;
+  ticketsNormal = (typeof s.ticketsNormal === 'number') ? s.ticketsNormal : 3;
+  ticketsRare = (typeof s.ticketsRare === 'number') ? s.ticketsRare : 1;
+  baseLevel = s.baseLevel || 0;
+  if (Array.isArray(s.gachaLevels)) for (let i = 0; i < NUM_UNITS; i++) gachaLevels[i] = s.gachaLevels[i] || 0;
+  if (Array.isArray(s.gachaUnlocked)) for (let i = 0; i < NUM_UNITS; i++) gachaUnlocked[i] = !!s.gachaUnlocked[i];
 }
 function leaveTestIfNeeded() {
   if (gameMode === 'test') {
@@ -220,23 +235,22 @@ function getCannonRangeCoinCost() { const l = cannonRangeLevel; return 12000 + 8
 function getCannonCdCoinCost()    { const l = cannonCdLevel;    return 15000 + 10000 * l * (l - 1); }
 
 // ------------------------------------------------------------
-// v57: BONUS DE 🐾 GATONTITO COINS (mejora permanente)
+// v57: BONUS DE 🐾
 // ------------------------------------------------------------
 function getCoinBonusPercentAt(l) { return l * COIN_BONUS_PER_LVL; }
 function getCoinBonusPercent() { return getCoinBonusPercentAt(coinBonusLevel); }
 function getCoinBonusCost() { return COIN_BONUS_BASE_COST + COIN_BONUS_COST_STEP * coinBonusLevel; }
 
-// Recompensa REAL de 🐾 al superar un nivel (mitad en repetición + bonus).
-// Única fuente de verdad: la usan las grids Y las victorias.
 function coinRewardFor(baseCoins, firstClear) {
   const baseEarned = firstClear ? baseCoins : Math.floor(baseCoins / 2);
   return Math.floor(baseEarned * (1 + getCoinBonusPercent()));
 }
 
+// v63: HP máximo de la base
+function getBaseMaxHP() { return 1500 + baseLevel * BASE_HP_PER_LEVEL; }
+
 // ------------------------------------------------------------
-// Stats de unidades y multiplicadores
-// v58: getCatStats aplica el radio de área ampliado del Mago
-//      evolucionado (90 → 130).
+// Stats de unidades
 // ------------------------------------------------------------
 function unitStatsAt(idx, lvl) {
   const base = CAT_BASE[idx];
@@ -249,7 +263,7 @@ function unitStatsAt(idx, lvl) {
 }
 function getCatStats(type) {
   const base = CAT_BASE[type];
-  const lvl = unitLevels[type];
+  const lvl = unitLevels[type] + (gachaLevels[type] || 0);  // v63: niveles extra del gacha
   const mult = Math.pow(base.upMult || 1.15, lvl - 1) * (formIsEvo(type) ? EVOLVE_MULT : 1);
   const stats = {
     ...base,
@@ -257,7 +271,6 @@ function getCatStats(type) {
     dmg: Math.min(Math.floor(base.dmg * mult), MAX_STATS),
     healAmt: base.healAmt ? Math.min(Math.floor(base.healAmt * mult), MAX_STATS) : 0
   };
-  // v58: Mago evolucionado amplía su radio de daño en área
   if (type === MAGE_UNIT_IDX && formIsEvo(type)) stats.aoeRadius = MAGE_EVO_AOE;
   return stats;
 }
@@ -265,7 +278,6 @@ function getUnitCoinCost(idx) { const l = unitLevels[idx]; return UNIT_COIN_BASE
 function getWaveBonus() { return 1 + (wave - 1) * 0.03; }
 function isRanged(c) { return c.unitType === 'ranged' || c.unitType === 'roboRanged'; }
 
-// Escalado de enemigos en modo infinito (lineal + exponencial suave en late)
 function getWaveMult() {
   return (1 + (wave - 1) * 0.18) * Math.pow(1.03, Math.max(0, wave - 20));
 }
@@ -276,7 +288,6 @@ function getEnemyMult() {
   return getWaveMult();
 }
 
-// Rotación de jefes del infinito
 function getBossForWave() {
   if (wave >= 40) return Math.floor(Math.random() * 3);
   if (wave >= 30) return 2;

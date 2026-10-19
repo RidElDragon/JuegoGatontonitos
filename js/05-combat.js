@@ -1,5 +1,6 @@
 // ============================================================
 // 05-combat.js — Lógica de batalla: spawns, update, modos, cañón
+// v63: · start...() usan getBaseMaxHP() para HP inicial de base
 // v59: · Modo ETAPAS DE LEYENDA: startLegend, spawnLegendEnemy,
 //        legendVictory/legendDefeat y ramas de update()/spawns.
 // v58: · Todo nivel empieza con LEVEL_START_MONEY (450).
@@ -11,17 +12,13 @@
 //        y respetan el modo desarrollador (nada se guarda).
 // v47: · FLECHAS PERFORANTES del Arquero evolucionado.
 // ============================================================
-// Puente seguro con el módulo de audio (si no existe, no petardea)
 function sfxNow(name) { if (window.sfx) window.sfx(name); }
-// v47: cuántos enemigos puede atravesar una flecha del Arquero evolucionado
 const ARCHER_PIERCE_COUNT = 5;
-// v37: helpers de rango de proyectil
 function hasProj(u) {
   const t = u.type || u.unitType;
   return t === 'ranged' || t === 'roboRanged' || t === 'aoe';
 }
 function projRangeOf(u) {
-  // v48: override por unidad (el Arquero tiene projRange:400 en la config)
   if (u.projRange) return u.projRange;
   const t = u.type || u.unitType;
   const r = u.range || 0;
@@ -91,12 +88,12 @@ function spawnCat(type) {
     healAmt: Math.min(Math.floor(stats.healAmt * waveBonus), MAX_STATS),
     visual: stats.visual || null,
     poison: 0, poisonTimer: 0, walkCycle: Math.random() * Math.PI * 2,
-    level: unitLevels[type],
-    evo: formIsEvo(type)   // v48: forma elegida en Selección de Tropas
+    level: unitLevels[type] + (gachaLevels[type] || 0),
+    evo: formIsEvo(type)
   });
   if (CAT_BASE[type].visual === 'king')      { addFloatingText(120, 120, '👑 ¡El Rey Gatontito ha llegado! 👑', '#ffd700'); addParticle(80, GROUND_Y, 'rgb(255,215,0)', 20, 5); }
   if (CAT_BASE[type].visual === 'demon')      { addFloatingText(120, 120, '😈 ¡El Gato Demoníaco acecha! 😈', '#ff2222'); addParticle(80, GROUND_Y, 'rgb(255,0,0)', 20, 5); }
-  if (CAT_BASE[type].visual === 'headless')   { addFloatingText(120, 120, '🎃 ¡El Gato Sin Cabeza cabalga en la noche! 🎃', '#88ffaa'); addParticle(80, GROUND_Y, 'rgb(136,255,170)', 20, 5); }
+  if (CAT_BASE[type].visual === 'headless')   { addFloatingText(120, 120, ' ¡El Gato Sin Cabeza cabalga en la noche! 🎃', '#88ffaa'); addParticle(80, GROUND_Y, 'rgb(136,255,170)', 20, 5); }
   if (CAT_BASE[type].visual === 'gatoclaus')  { addFloatingText(120, 120, '🎅 ¡Gatoclaus trae nieve y castigo! 🎄', '#ffffff'); addParticle(80, GROUND_Y, 'rgb(255,255,255)', 20, 5); }
 }
 
@@ -131,7 +128,6 @@ function spawnEventEnemy(key, isBoss) {
   if (!t) return;
   pushEnemy(t, key, !!isBoss);
 }
-// v59: enemigos/jefes de Etapas de Leyenda (propios → eventos reutilizados)
 function spawnLegendEnemy(key, isBoss) {
   if (enemies.length >= MAX_ENEMIES) return;
   const t = isBoss ? legendBossObj(key) : (LEGEND_ENEMY_TYPES[key] || EVENT_ENEMY_TYPES[key]);
@@ -139,7 +135,6 @@ function spawnLegendEnemy(key, isBoss) {
   pushEnemy(t, key, !!isBoss);
 }
 function spawnWaveEnemy() {
-  // v59: pools de leyenda (mezclan claves de leyenda/evento e índices normales)
   if (gameMode === 'legend') {
     const L = LEGEND_STAGES[legendLevelIdx];
     const key = L.pool[Math.floor(Math.random() * L.pool.length)];
@@ -186,7 +181,7 @@ function fireCannon() {
   const range = getCannonRange();
   addRing(MY_BASE_X, 170, 'rgb(255,200,0)', range);
   addParticle(MY_BASE_X, 170, 'rgb(255,200,0)', 20, 6);
-  addFloatingText(MY_BASE_X + 60, 100, '💣 ¡CAÑONAZO! 💣', '#ff4444');
+  addFloatingText(MY_BASE_X + 60, 100, '💣 ¡CAÑONAZO! ', '#ff4444');
   let totalDamage = 0, hitCount = 0, bossLimited = false;
   for (let i = 0; i < enemies.length; i++) {
     const e = enemies[i];
@@ -203,7 +198,7 @@ function fireCannon() {
       addParticle(e.x, e.y, 'rgb(255,200,0)', 5, 3);
     }
   }
-  if (bossLimited) addFloatingText(450, 150, '🛡️ Jefe: el cañón máx. baja al 50%', '#ffaa00');
+  if (bossLimited) addFloatingText(450, 150, '️ Jefe: el cañón máx. baja al 50%', '#ffaa00');
   addFloatingText(MY_BASE_X + range/2, 130, `${hitCount} enemigos | ${totalDamage} dmg`, '#ffaa00');
   updateUI();
 }
@@ -252,7 +247,7 @@ function startInfinite(fresh) {
   leaveTestIfNeeded();
   gameMode = 'infinite';
   if (fresh) {
-    money = 400; baseHP = 1500; enemyBaseHP = 2000; enemyBaseMaxHP = 2000; wave = 1;
+    money = 400; baseHP = getBaseMaxHP(); enemyBaseHP = 2000; enemyBaseMaxHP = 2000; wave = 1;
     clearBattle();
     enemySpawnTimer = 120;
   }
@@ -279,8 +274,8 @@ function startStory(idx) {
   gameMode = 'story';
   storyLevelIdx = idx;
   const L = STORY_LEVELS[idx];
-  money = LEVEL_START_MONEY;   // v58: todo nivel empieza con 450
-  baseHP = 1500;
+  money = LEVEL_START_MONEY;
+  baseHP = getBaseMaxHP();
   enemyBaseHP = L.enemyBaseHP;
   enemyBaseMaxHP = L.enemyBaseHP;
   wave = 1;
@@ -299,8 +294,8 @@ function startEvent(eventId, levelIdx) {
   currentEventId = eventId;
   eventLevelIdx = levelIdx;
   const L = EVENTS[eventId].levels[levelIdx];
-  money = LEVEL_START_MONEY;   // v58: todo nivel empieza con 450
-  baseHP = 1500;
+  money = LEVEL_START_MONEY;
+  baseHP = getBaseMaxHP();
   enemyBaseHP = L.enemyBaseHP;
   enemyBaseMaxHP = L.enemyBaseHP;
   wave = 1;
@@ -311,17 +306,16 @@ function startEvent(eventId, levelIdx) {
   showGame();
   setTestControlsVisible(false);
   playing = true;
-  setStatus('🎃 Evento: ' + L.name, '#ff6600');
+  setStatus(' Evento: ' + L.name, '#ff6600');
   updateUI();
 }
-// v59: Etapas de Leyenda
 function startLegend(idx) {
   leaveTestIfNeeded();
   gameMode = 'legend';
   legendLevelIdx = idx;
   const L = LEGEND_STAGES[idx];
-  money = LEVEL_START_MONEY;   // v58: 450 como todo nivel
-  baseHP = 1500;
+  money = LEVEL_START_MONEY;
+  baseHP = getBaseMaxHP();
   enemyBaseHP = L.enemyBaseHP;
   enemyBaseMaxHP = L.enemyBaseHP;
   wave = 1;
@@ -332,14 +326,14 @@ function startLegend(idx) {
   showGame();
   setTestControlsVisible(false);
   playing = true;
-  setStatus('🌟 Leyenda: ' + L.name, '#ffcc00');
+  setStatus(' Leyenda: ' + L.name, '#ffcc00');
   updateUI();
 }
 function startTest() {
   if (gameMode !== 'test') metaSnapshot = snapshotMeta();
   gameMode = 'test';
   money = 0;
-  baseHP = 1500;
+  baseHP = getBaseMaxHP();
   enemyBaseHP = 2000; enemyBaseMaxHP = 2000;
   wave = 1;
   clearBattle();
@@ -348,7 +342,7 @@ function startTest() {
   showGame();
   setTestControlsVisible(true);
   playing = true;
-  setStatus('🧪 Modo pruebas: dinero ∞, oleadas infinitas, base invulnerable, TODAS las unidades', '#cc66ff');
+  setStatus(' Modo pruebas: dinero ∞, oleadas infinitas, base invulnerable, TODAS las unidades', '#cc66ff');
   updateUI();
 }
 function reset() {
@@ -369,7 +363,7 @@ function testSpawnBoss() {
 function testClearEnemies() {
   for (let i = 0; i < enemies.length; i++) addParticle(enemies[i].x, enemies[i].y, 'rgb(150,150,150)', 4, 3);
   enemies = [];
-  addFloatingText(450, 120, '🧹 Enemigos eliminados', '#88ccff');
+  addFloatingText(450, 120, ' Enemigos eliminados', '#88ccff');
 }
 function testMaxUpgrades() {
   for (let i = 0; i < NUM_UNITS; i++) unitLevels[i] = Math.min(MAX_UNIT_LEVEL, unitLevelCap());
@@ -377,7 +371,7 @@ function testMaxUpgrades() {
   cannonDmgLevel = CANNON_DMG_MAX;
   cannonRangeLevel = CANNON_RANGE_MAX;
   cannonCdLevel = CANNON_CD_MAX;
-  coinBonusLevel = COIN_BONUS_MAX;   // v57
+  coinBonusLevel = COIN_BONUS_MAX;
   addFloatingText(450, 140, '⬆️ ¡Todo al máximo! (solo en pruebas)', '#ffd700');
   buildMetaInfoPanel();
   updateUI();
@@ -405,7 +399,6 @@ function nextLevel() {
   }
 }
 
-// v57: victoria de historia con bonus de 🐾 y respeto al modo dev
 function storyVictory() {
   playing = false;
   const L = STORY_LEVELS[storyLevelIdx];
@@ -425,25 +418,22 @@ function storyVictory() {
           newUnlocks.push(`${UNIT_EMOJI[i] || '🐱'} ${CAT_BASE[i].name}`);
         }
       }
-      if (newUnlocks.length) unlockText = ` 🎉 ¡Nueva tropa: ${newUnlocks.join(', ')}! (añádela en 🎖)`;
+      if (newUnlocks.length) unlockText = `  ¡Nueva tropa: ${newUnlocks.join(', ')}! (añádela en 🎖)`;
     }
     saveMeta();
     const last = storyLevelIdx === STORY_LEVELS.length - 1;
     const bonusTxt = coinBonusLevel > 0 ? ` (🐾 +${Math.round(getCoinBonusPercent() * 100)}%)` : '';
     showResult(true,
       `Completaste ${L.name}. ¡+${earned} ${COIN}!${bonusTxt}${firstClear ? '' : ' (repetición)'}` +
-      `${unlockText}${last ? ' 🏆 ¡HISTORIA COMPLETADA!' : ' 📖 Siguiente nivel desbloqueado.'}`);
+      `${unlockText}${last ? '  ¡HISTORIA COMPLETADA!' : ' 📖 Siguiente nivel desbloqueado.'}`);
   } else {
     showResult(true, `Completaste ${L.name}. [DEV: nada guardado]`);
   }
 }
-
 function storyDefeat() {
   playing = false;
   showResult(false, `Tu base cayó en ${STORY_LEVELS[storyLevelIdx].name}. ¡Ajusta tu escuadrón y reintenta!`);
 }
-
-// v57: victoria de evento con bonus de 🐾 y respeto al modo dev
 function eventVictory() {
   playing = false;
   const ev = EVENTS[currentEventId];
@@ -471,14 +461,11 @@ function eventVictory() {
     showResult(true, `¡${L.name} completado! [DEV: nada guardado]`);
   }
 }
-
 function eventDefeat() {
   playing = false;
   const L = EVENTS[currentEventId].levels[eventLevelIdx];
   showResult(false, `Tu base cayó en ${L.name}. ¡Ajusta tu escuadrón y reintenta!`);
 }
-
-// v59: victoria/derrota de Etapas de Leyenda
 function legendVictory() {
   playing = false;
   const L = LEGEND_STAGES[legendLevelIdx];
@@ -500,7 +487,7 @@ function legendVictory() {
     const bonusTxt = coinBonusLevel > 0 ? ` (🐾 +${Math.round(getCoinBonusPercent() * 100)}%)` : '';
     showResult(true,
       `¡${L.name} superada! ¡+${earned} ${COIN}!${bonusTxt}${firstClear ? '' : ' (repetición)'}` +
-      `${unlockText}${last ? ' 🌟 ¡LEYENDA COMPLETADA!' : ' 📖 Siguiente etapa desbloqueada.'}`);
+      `${unlockText}${last ? '  ¡LEYENDA COMPLETADA!' : ' 📖 Siguiente etapa desbloqueada.'}`);
   } else {
     showResult(true, `¡${L.name} superada! [DEV: nada guardado]`);
   }
@@ -539,7 +526,6 @@ function update() {
       if (storyBossTimer <= 0) { storyBossSpawned = true; pendingEventBoss = L.boss; bossWarningTimer = 90; }
     }
   } else if (gameMode === 'legend') {
-    // v59: jefe de la etapa de leyenda
     const L = LEGEND_STAGES[legendLevelIdx];
     if (L.boss && !storyBossSpawned) {
       storyBossTimer--;
@@ -573,7 +559,6 @@ function update() {
     c.cdTimer--;
     if (c.poisonTimer > 0) { c.poisonTimer--; if (frameCount % 30 === 0) c.hp -= c.poison; }
     if (c.unitType === 'healer') {
-      // --- Curación ---
       let hurtAlly = null; let minHP = Infinity;
       for (let j = 0; j < cats.length; j++) {
         const ally = cats[j];
@@ -586,9 +571,6 @@ function update() {
         projectiles.push({ x:c.x, y:c.y, target:hurtAlly, dmg:c.healAmt, type:'heal', isHeal:true, owner:'cat', speed:5 });
         c.cdTimer = c.cooldown; c.attackAnim = 8;
       }
-      // --- v58: POSICIONAMIENTO DEL SANADOR ---
-      // Siempre detrás de la tropa no-sanadora más avanzada.
-      // Si no hay ninguna tropa así, retrocede hasta la base aliada.
       let frontX = 0;
       let hasTroop = false;
       for (let j = 0; j < cats.length; j++) {
@@ -607,7 +589,7 @@ function update() {
       const gap = desired - c.x;
       const mult = (hasTroop && Math.abs(gap) > HEALER_CATCHUP_GAP) ? HEALER_CATCHUP_MULT : 1;
       if (gap > 0) c.x += c.speed * mult;
-      else if (gap < 0) c.x -= c.speed;   // v58: retrocede SIEMPRE que esté adelantado
+      else if (gap < 0) c.x -= c.speed;
       continue;
     }
     const front = findFrontEnemy(c, c.range);
@@ -626,7 +608,6 @@ function update() {
             projRange: projRangeOf(c),
             traveled: 0,
             canHitBase: true,
-            // v47: Arquero evolucionado (Nv.10+) = flechas perforantes
             pierce: (c.type === 3 && isEvolved(c)) ? ARCHER_PIERCE_COUNT : 0,
             hitSet: null
           });
@@ -653,7 +634,6 @@ function update() {
               const t = enemies[j];
               if (t !== front && Math.abs(t.x - front.x) <= c.aoeRadius) { t.hp -= c.dmg; addParticle(t.x, t.y, 'rgb(255,215,0)', 2, 2); }
             }
-            // v58: el golpe masivo salpica a la base si la explosión la alcanza
             if (Math.abs(ENEMY_BASE_X - front.x) <= c.aoeRadius) {
               enemyBaseHP -= c.dmg;
               addParticle(ENEMY_BASE_X, 170, 'rgb(255,215,0)', 4, 3);
@@ -730,7 +710,6 @@ function update() {
       let hit = null;
       for (let j = 0; j < enemies.length; j++) {
         const e = enemies[j];
-        // v47: una flecha perforante no golpea dos veces al mismo enemigo
         if (p.hitSet && p.hitSet.has(e)) continue;
         const r = 14 * (e.scale || 1) + 4;
         if (p.x >= e.x - r && p.x <= e.x + r) { hit = e; break; }
@@ -742,7 +721,6 @@ function update() {
             const t = enemies[j];
             if (Math.abs(t.x - p.x) <= p.aoeRadius) { t.hp -= p.dmg; addParticle(t.x, t.y, 'rgb(255,0,255)', 3, 3); }
           }
-          // v58: la explosión masiva salpica a la base enemiga si está a tiro
           if (Math.abs(ENEMY_BASE_X - p.x) <= p.aoeRadius) {
             enemyBaseHP -= p.dmg;
             addParticle(ENEMY_BASE_X, 170, 'rgb(255,0,255)', 4, 3);
@@ -751,7 +729,6 @@ function update() {
         } else {
           hit.hp -= p.dmg;
           addParticle(hit.x, hit.y, 'rgb(255,200,100)', 3, 2);
-          // v47: FLECHA PERFORANTE — atraviesa hasta ARCHER_PIERCE_COUNT enemigos
           if (p.pierce > 0) {
             p.pierce--;
             if (!p.hitSet) p.hitSet = new Set();

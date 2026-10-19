@@ -1,12 +1,21 @@
 // ============================================================
 // 04-ui.js — Pantallas, menús, grids y refresco de interfaz
-// v59: · Pantalla y grid de ETAPAS DE LEYENDA (showLegend).
-//      · hideScreens/showMenu/updateUI/isUnitUnlocked conscientes
-//        del modo leyenda.
-// v57: · Tarjeta de mejora 🐾 Bonus de Coins (buyCoinBonus).
-// v56: · troopStatsLine(idx) muestra stats REALES (nivel + forma).
-// v55: · Modo desarrollador: grids y compras conscientes de dev.
-// v48: · Selección de Tropas con selector de FORMA (🐱/✨).
+// v68 FIX: paréntesis de más en buildUpgradeScreen rompía el
+//   parseo del archivo entero (cascada: showMenu / isUnitUnlocked
+//   quedaban indefinidos). La zona de texto del botón se reescribió
+//   con variables intermedias (a prueba de desbalanceos) y se corrigió
+//   la lógica de disabled cuando las mejoras base están al tope.
+// v67: buildUpgradeScreen() muestra unitLevels + gachaLevels.
+// v63: Banners / Almacén / Misiones (inyectados desde 11-gacha.js)
+// v61: Bosque Catedral con troncos marrones
+// v60: Bosque Catedral rediseñado (10 capas)
+// v59: Pantalla y grid de ETAPAS DE LEYENDA (showLegend)
+// v58: 450 dinero inicial, splash a base, sanador atrás,
+//      Mago evolucionado aoeRadius 130
+// v57: Bonus de 🐾 (buyCoinBonus, coinRewardFor en grids)
+// v56: troopStatsLine(idx) muestra stats REALES
+// v55: Modo desarrollador (grids y compras conscientes de dev)
+// v48: Selección de Tropas con selector de FORMA (🐱/✨)
 // ============================================================
 // -------------------- RAREZAS --------------------
 const RARITIES = {
@@ -33,7 +42,7 @@ function applyRarityStyle(el, idx) {
 }
 function rarityTag(idx) {
   const r = rarityOf(idx);
-  return `<span class="sb-info" style="color:${r.color};font-weight:bold">◆ ${r.name}</span>`;
+  return '<span class="sb-info" style="color:' + r.color + ';font-weight:bold">◆ ' + r.name + '</span>';
 }
 
 // -------------------- UTILIDADES UI --------------------
@@ -83,8 +92,9 @@ function goMenu() {
 
 // --- Desbloqueos ---
 function isUnitUnlocked(idx) {
-  if (isDevMode()) return true;  // 🔧 modo dev: todo desbloqueado
+  if (isDevMode()) return true;
   if (isTest()) return true;
+  if (gachaUnlocked[idx]) return true;
   const u = UNIT_UNLOCK[idx];
   if (!u || u.type === 'always') return true;
   if (u.type === 'story') return storyProgress >= u.lvl;
@@ -95,10 +105,10 @@ function isUnitUnlocked(idx) {
 function unlockLabel(idx) {
   const u = UNIT_UNLOCK[idx];
   if (!u || u.type === 'always') return '';
-  if (u.type === 'story') return `🔒 Se desbloquea: Historia Nv.${u.lvl}`;
-  if (u.type === 'legend') return `🔒 Se desbloquea: Leyenda Etapa ${u.lvl}`;
+  if (u.type === 'story') return '🔒 Se desbloquea: Historia Nv.' + u.lvl;
+  if (u.type === 'legend') return '🔒 Se desbloquea: Leyenda Etapa ' + u.lvl;
   const ev = EVENTS[u.id];
-  return `🔒 Se desbloquea: ${ev ? ev.name : u.id} Nv.${u.lvl}`;
+  return '🔒 Se desbloquea: ' + (ev ? ev.name : u.id) + ' Nv.' + u.lvl;
 }
 function unlockAtLevel(lvl) {
   const names = [];
@@ -121,7 +131,6 @@ function showUpgrades() {
   buildUpgradeScreen();
   document.getElementById('upgradeScreen').style.display = 'flex';
 }
-// 🔧 MODO DEV: subir mejoras sin gastar coins ni guardar
 function buyUnitUpgrade(idx) {
   if (!isUnitUnlocked(idx)) return;
   if (unitLevels[idx] >= unitLevelCap()) return;
@@ -162,7 +171,6 @@ function buyIncome() {
   if (!isDevMode()) saveMeta();
   buildUpgradeScreen();
 }
-// v57: bonus de 🐾 por nivel superado
 function buyCoinBonus() {
   if (coinBonusLevel >= COIN_BONUS_MAX) return;
   if (!isDevMode()) { const c = getCoinBonusCost(); if (coins < c) return; coins -= c; }
@@ -178,30 +186,52 @@ function buildUpgradeScreen() {
   ug.innerHTML = '';
   CAT_BASE.forEach((u, idx) => {
     const unlocked = isUnitUnlocked(idx);
-    const lvl = unitLevels[idx];
-    const maxed = lvl >= unitLevelCap();
+    const baseLvl = unitLevels[idx];
+    const gachaLvl = gachaLevels[idx] || 0;
+    const totalLvl = baseLvl + gachaLvl;
+    const cap = unitLevelCap() + GACHA_LVL_MAX;
+    const maxed = baseLvl >= unitLevelCap() && gachaLvl >= GACHA_LVL_MAX;
+    const canBuyNormal = baseLvl < unitLevelCap();   // ¿se puede subir la mejora normal?
     const cost = getUnitCoinCost(idx);
-    const evo = lvl >= EVOLVE_LEVEL;
+    const evo = totalLvl >= EVOLVE_LEVEL;
     const b = document.createElement('button');
     applyRarityStyle(b, idx);
     if (!unlocked) {
       b.className = 'upg-card lockedcard';
       b.disabled = true;
-      b.innerHTML = `🔒 ${u.name}${rarityTag(idx)}<span class="sb-info locked">${unlockLabel(idx)}</span><span class="sb-info locked">Desbloquéala para mejorarla</span>`;
+      b.innerHTML = '🔒 ' + u.name + rarityTag(idx) +
+        '<span class="sb-info locked">' + unlockLabel(idx) + '</span>' +
+        '<span class="sb-info locked">Desbloquéala para mejorarla</span>';
     } else {
-      const cur = unitStatsAt(idx, lvl);
-      const nxt = unitStatsAt(idx, lvl + 1);
+      const cur = unitStatsAt(idx, totalLvl);
+      const nxt = unitStatsAt(idx, totalLvl + 1);
       let preview;
-      if (u.healAmt) preview = `HP ${cur.hp}→<span class="up">${nxt.hp}</span> · Cura ${cur.heal}→<span class="up">${nxt.heal}</span>`;
-      else preview = `HP ${cur.hp}→<span class="up">${nxt.hp}</span> · DMG ${cur.dmg}→<span class="up">${nxt.dmg}</span>`;
+      if (u.healAmt) preview = 'HP ' + cur.hp + '→<span class="up">' + nxt.hp + '</span> · Cura ' + cur.heal + '→<span class="up">' + nxt.heal + '</span>';
+      else preview = 'HP ' + cur.hp + '→<span class="up">' + nxt.hp + '</span> · DMG ' + cur.dmg + '→<span class="up">' + nxt.dmg + '</span>';
+      // etiqueta de nivel (con desglose base + 🎰 si hay gacha)
+      const lvlLabel = gachaLvl > 0
+        ? 'Nivel ' + totalLvl + '/' + cap + ' (base ' + baseLvl + ' + 🎰' + gachaLvl + ')'
+        : 'Nivel ' + totalLvl + '/' + cap;
+      // línea de estado/costo (construida con if/else: sin paréntesis anidados)
+      let statusLine;
+      if (maxed) {
+        statusLine = '🏆 MAX';
+      } else if (!canBuyNormal) {
+        statusLine = '⬆️ Mejoras base al tope (usa 🎰 del Almacén para más niveles)';
+      } else if (isDevMode()) {
+        statusLine = '➡ Nv.' + (totalLvl + 1) + ': GRATIS [DEV]';
+      } else {
+        statusLine = '➡ Nv.' + (totalLvl + 1) + ': ' + cost + ' ' + COIN;
+      }
+      // ¿se puede clicar? solo si hay mejora normal disponible y (dev o coins suficientes)
+      b.disabled = maxed || !canBuyNormal || (!isDevMode() && coins < cost);
       b.className = 'upg-card' + (maxed ? ' maxed' : '');
-      b.disabled = maxed || (!isDevMode() && coins < cost);
       b.innerHTML =
-        `${UNIT_EMOJI[idx]} ${u.name}${rarityTag(idx)}` +
-        `<span class="sb-info">Nivel ${lvl}/${unitLevelCap()}${evo ? ' · ✨ EVOLUCIONADA' : ''}</span>` +
-        `<span class="sb-info">${maxed ? '' : preview}</span>` +
+        UNIT_EMOJI[idx] + ' ' + u.name + rarityTag(idx) +
+        '<span class="sb-info">' + lvlLabel + (evo ? ' · ✨ EVOLUCIONADA' : '') + '</span>' +
+        '<span class="sb-info">' + (canBuyNormal && !maxed ? preview : '') + '</span>' +
         (evo ? '<span class="sb-info" style="color:#88ffcc">✨ +10% stats por evolución</span>' : '') +
-        `<span class="sb-info">${maxed ? '🏆 MAX' : (isDevMode() ? `➡ Nv.${lvl+1}: GRATIS [DEV]` : `➡ Nv.${lvl+1}: ${cost} ${COIN}`)}</span>` +
+        '<span class="sb-info">' + statusLine + '</span>' +
         (isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '');
       b.onclick = () => buyUnitUpgrade(idx);
     }
@@ -215,16 +245,16 @@ function buildUpgradeScreen() {
   const cdIfDmg = cannonCdSecAt(cannonDmgLevel + 1, cannonCdLevel);
   const cdIfCd = cannonCdSecAt(cannonDmgLevel, cannonCdLevel + 1);
   const misc = [
-    { label:'💣 Cañón: Daño', info:`Nv ${cannonDmgLevel}/${CANNON_DMG_MAX}`, max:cannonDmgLevel >= CANNON_DMG_MAX, cost:getCannonDmgCoinCost(), fn:'buyCannonDmg()',
-      preview:`Daño ${curDmgPct}%→<span class="up">${nxtDmgPct}%</span> · CD ${curCd}s→<span class="down">${cdIfDmg}s</span>` },
-    { label:'💣 Cañón: Rango', info:`Nv ${cannonRangeLevel}/${CANNON_RANGE_MAX}`, max:cannonRangeLevel >= CANNON_RANGE_MAX, cost:getCannonRangeCoinCost(), fn:'buyCannonRange()',
-      preview:`Rango ${getCannonRangeAt(cannonRangeLevel)}px→<span class="up">${getCannonRangeAt(cannonRangeLevel+1)}px</span>` },
-    { label:'💣 Cañón: Cooldown', info:`Nv ${cannonCdLevel}/${CANNON_CD_MAX}`, max:cannonCdLevel >= CANNON_CD_MAX, cost:getCannonCdCoinCost(), fn:'buyCannonCd()',
-      preview:`CD ${curCd}s→<span class="up">${cdIfCd}s</span>` },
-    { label:'💵 Income base', info:`Nv ${incomeLevel}/${MAX_INCOME_LEVEL}`, max:incomeLevel >= MAX_INCOME_LEVEL, cost:getIncomeCoinCost(), fn:'buyIncome()',
-      preview:`${getIncomeAt(incomeLevel).toFixed(0)}/s→<span class="up">${getIncomeAt(incomeLevel+1).toFixed(0)}/s</span>` },
-    { label:'🐾 Bonus de Coins', info:`Nv ${coinBonusLevel}/${COIN_BONUS_MAX}`, max:coinBonusLevel >= COIN_BONUS_MAX, cost:getCoinBonusCost(), fn:'buyCoinBonus()',
-      preview:`Ganas +${Math.round(getCoinBonusPercentAt(coinBonusLevel)*100)}% → <span class="up">+${Math.round(getCoinBonusPercentAt(coinBonusLevel+1)*100)}%</span> de 🐾 por nivel superado` },
+    { label:'💣 Cañón: Daño', info:'Nv ' + cannonDmgLevel + '/' + CANNON_DMG_MAX, max:cannonDmgLevel >= CANNON_DMG_MAX, cost:getCannonDmgCoinCost(), fn:'buyCannonDmg()',
+      preview:'Daño ' + curDmgPct + '%→<span class="up">' + nxtDmgPct + '%</span> · CD ' + curCd + 's→<span class="down">' + cdIfDmg + 's</span>' },
+    { label:'💣 Cañón: Rango', info:'Nv ' + cannonRangeLevel + '/' + CANNON_RANGE_MAX, max:cannonRangeLevel >= CANNON_RANGE_MAX, cost:getCannonRangeCoinCost(), fn:'buyCannonRange()',
+      preview:'Rango ' + getCannonRangeAt(cannonRangeLevel) + 'px→<span class="up">' + getCannonRangeAt(cannonRangeLevel + 1) + 'px</span>' },
+    { label:'💣 Cañón: Cooldown', info:'Nv ' + cannonCdLevel + '/' + CANNON_CD_MAX, max:cannonCdLevel >= CANNON_CD_MAX, cost:getCannonCdCoinCost(), fn:'buyCannonCd()',
+      preview:'CD ' + curCd + 's→<span class="up">' + cdIfCd + 's</span>' },
+    { label:'💵 Income base', info:'Nv ' + incomeLevel + '/' + MAX_INCOME_LEVEL, max:incomeLevel >= MAX_INCOME_LEVEL, cost:getIncomeCoinCost(), fn:'buyIncome()',
+      preview:getIncomeAt(incomeLevel).toFixed(0) + '/s→<span class="up">' + getIncomeAt(incomeLevel + 1).toFixed(0) + '/s</span>' },
+    { label:'🐾 Bonus de Coins', info:'Nv ' + coinBonusLevel + '/' + COIN_BONUS_MAX, max:coinBonusLevel >= COIN_BONUS_MAX, cost:getCoinBonusCost(), fn:'buyCoinBonus()',
+      preview:'Ganas +' + Math.round(getCoinBonusPercentAt(coinBonusLevel) * 100) + '% → <span class="up">+' + Math.round(getCoinBonusPercentAt(coinBonusLevel + 1) * 100) + '%</span> de 🐾 por nivel superado' },
   ];
   misc.forEach(m => {
     const b = document.createElement('button');
@@ -232,9 +262,9 @@ function buildUpgradeScreen() {
     b.disabled = m.max || (!isDevMode() && coins < m.cost);
     b.setAttribute('onclick', m.fn);
     b.innerHTML =
-      `${m.label}<span class="sb-info">${m.info}</span>` +
-      `<span class="sb-info">${m.max ? '' : m.preview}</span>` +
-      `<span class="sb-info">${m.max ? '🏆 MAX' : (isDevMode() ? '➡ GRATIS [DEV]' : `➡ ${m.cost} ${COIN}`)}</span>` +
+      m.label + '<span class="sb-info">' + m.info + '</span>' +
+      '<span class="sb-info">' + (m.max ? '' : m.preview) + '</span>' +
+      '<span class="sb-info">' + (m.max ? '🏆 MAX' : (isDevMode() ? '➡ GRATIS [DEV]' : '➡ ' + m.cost + ' ' + COIN)) + '</span>' +
       (isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '');
     mg.appendChild(b);
   });
@@ -271,12 +301,17 @@ function buildStoryGrid() {
     const b = document.createElement('button');
     b.className = 'story-btn';
     b.disabled = !unlocked;
+    const rewardInfo =
+      '<span class="sb-info">' + COIN + ' 1ª:' + coinRewardFor(L.coins, true) + ' / rep:' + coinRewardFor(L.coins, false) +
+      (coinBonusLevel > 0 ? ' <span class="up">(+' + Math.round(getCoinBonusPercent() * 100) + '%)</span>' : '') +
+      '</span>';
+    const devTag = isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '';
     b.innerHTML =
-      `${done ? '✅' : unlocked ? '▶' : '🔒'} ${L.name}${L.boss >= 0 ? ' 👑' : ''}` +
-      `<span class="sb-info">Base: ${L.enemyBaseHP} HP · ×${L.mult.toFixed(2)}</span>` +
-      `<span class="sb-info">${COIN} 1ª:${coinRewardFor(L.coins, true)} / rep:${coinRewardFor(L.coins, false)}</span>` +
-      (unlock ? `<span class="sb-info unlock">Desbloquea: ${unlock}</span>` : '') +
-      (isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '');
+      (done ? '✅' : unlocked ? '▶' : '🔒') + ' ' + L.name + (L.boss >= 0 ? ' 👑' : '') +
+      '<span class="sb-info">Base: ' + L.enemyBaseHP + ' HP · ×' + L.mult.toFixed(2) + '</span>' +
+      rewardInfo +
+      (unlock ? '<span class="sb-info unlock">Desbloquea: ' + unlock + '</span>' : '') +
+      devTag;
     if (unlocked) b.onclick = () => startStory(idx);
     grid.appendChild(b);
   });
@@ -301,8 +336,8 @@ function buildEventGrid() {
   Object.values(EVENTS).forEach(ev => {
     const progress = isDevMode() ? ev.levels.length : (eventProgress[ev.id] || 0);
     const b = document.createElement('button');
-    b.className = `event-btn ${ev.theme}`;
-    b.innerHTML = `${ev.name}<span class="sb-info">${ev.description}</span><span class="sb-info">Progreso: ${progress}/${ev.levels.length}</span>`;
+    b.className = 'event-btn ' + ev.theme;
+    b.innerHTML = ev.name + '<span class="sb-info">' + ev.description + '</span><span class="sb-info">Progreso: ' + progress + '/' + ev.levels.length + '</span>';
     b.onclick = () => showEventLevels(ev.id);
     grid.appendChild(b);
   });
@@ -319,14 +354,19 @@ function showEventLevels(eventId) {
     const done = idx < progress;
     const uk = eventUnlocksLabel(L);
     const b = document.createElement('button');
-    b.className = `event-btn ${ev.theme}`;
+    b.className = 'event-btn ' + ev.theme;
     b.disabled = !unlocked;
+    const rewardInfo =
+      '<span class="sb-info">' + COIN + ' 1ª:' + coinRewardFor(L.coins, true) + ' / rep:' + coinRewardFor(L.coins, false) +
+      (coinBonusLevel > 0 ? ' <span class="up">(+' + Math.round(getCoinBonusPercent() * 100) + '%)</span>' : '') +
+      '</span>';
+    const devTag = isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '';
     b.innerHTML =
-      `${done ? '✅' : unlocked ? '▶' : '🔒'} ${L.name}${L.boss ? ' 👑' : ''}` +
-      `<span class="sb-info">Base: ${L.enemyBaseHP} HP · ×${L.mult.toFixed(1)}</span>` +
-      `<span class="sb-info">${COIN} 1ª:${coinRewardFor(L.coins, true)} / rep:${coinRewardFor(L.coins, false)}</span>` +
-      (uk ? `<span class="sb-info unlock">${uk}</span>` : '') +
-      (isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '');
+      (done ? '✅' : unlocked ? '▶' : '🔒') + ' ' + L.name + (L.boss ? ' 👑' : '') +
+      '<span class="sb-info">Base: ' + L.enemyBaseHP + ' HP · ×' + L.mult.toFixed(1) + '</span>' +
+      rewardInfo +
+      (uk ? '<span class="sb-info unlock">' + uk + '</span>' : '') +
+      devTag;
     if (unlocked) b.onclick = () => startEvent(eventId, idx);
     grid.appendChild(b);
   });
@@ -367,16 +407,16 @@ function buildLegendGrid() {
     b.className = 'story-btn';
     b.disabled = !unlocked;
     b.innerHTML =
-      `${done ? '✅' : unlocked ? '▶' : '🔒'} ${L.name}${L.boss ? ' 👑' : ''}` +
-      `<span class="sb-info">Base: ${L.enemyBaseHP} HP · ×${L.mult.toFixed(1)}</span>` +
-      `<span class="sb-info">${COIN} 1ª:${coinRewardFor(L.coins, true)} / rep:${coinRewardFor(L.coins, false)}</span>` +
+      (done ? '✅' : unlocked ? '▶' : '🔒') + ' ' + L.name + (L.boss ? ' 👑' : '') +
+      '<span class="sb-info">Base: ' + L.enemyBaseHP + ' HP · ×' + L.mult.toFixed(1) + '</span>' +
+      '<span class="sb-info">' + COIN + ' 1ª:' + coinRewardFor(L.coins, true) + ' / rep:' + coinRewardFor(L.coins, false) + '</span>' +
       (isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '');
     if (unlocked) b.onclick = () => startLegend(idx);
     grid.appendChild(b);
   });
 }
 
-// --- Selección de tropas (v48: con selector de FORMA) ---
+// --- Selección de tropas ---
 function showTroops() {
   leaveTestIfNeeded();
   screen = 'troops'; playing = false;
@@ -385,18 +425,17 @@ function showTroops() {
   buildTroopGrid();
   document.getElementById('troopScreen').style.display = 'flex';
 }
-// v56: stats REALES según nivel y forma activa (firma por ÍNDICE)
 function troopStatsLine(idx) {
   const u = CAT_BASE[idx];
   const stats = getCatStats(idx);
-  let line = `${u.cost}💰 · HP:${stats.hp} · `;
-  line += u.healAmt ? `Cura:${stats.healAmt}` : `DMG:${stats.dmg}`;
-  line += ` · SPD:${stats.speed}`;
-  if (stats.aoeRadius) line += ` · AOE:${stats.aoeRadius}`;
-  if (u.healAmt) line += ` · RNG:${stats.range}`;
-  else if (stats.type === 'ranged' || stats.type === 'roboRanged') line += ` · RNG:${stats.range}`;
-  if (hasProj(stats)) line += ` · PRJ:${projRangeOf(stats)}`;
-  line += ` · CD:${u.spawnCd}s`;
+  let line = u.cost + '💰 · HP:' + stats.hp + ' · ';
+  line += u.healAmt ? 'Cura:' + stats.healAmt : 'DMG:' + stats.dmg;
+  line += ' · SPD:' + stats.speed;
+  if (stats.aoeRadius) line += ' · AOE:' + stats.aoeRadius;
+  if (u.healAmt) line += ' · RNG:' + stats.range;
+  else if (stats.type === 'ranged' || stats.type === 'roboRanged') line += ' · RNG:' + stats.range;
+  if (hasProj(stats)) line += ' · PRJ:' + projRangeOf(stats);
+  line += ' · CD:' + u.spawnCd + 's';
   return line;
 }
 function buildTroopGrid() {
@@ -405,7 +444,7 @@ function buildTroopGrid() {
   CAT_BASE.forEach((u, idx) => {
     const unlocked = isUnitUnlocked(idx);
     const sel = tempLoadout.includes(idx);
-    const canEvo = unitLevels[idx] >= EVOLVE_LEVEL;
+    const canEvo = (unitLevels[idx] + (gachaLevels[idx] || 0)) >= EVOLVE_LEVEL;
     const evoActive = formIsEvo(idx);
     const card = document.createElement('div');
     card.className = 'troop-card' + (sel ? ' selected' : '') + (unlocked ? '' : ' lockedcard');
@@ -416,8 +455,8 @@ function buildTroopGrid() {
     selectBtn.style.cssText = 'display:block;width:100%;background:transparent;border:none;box-shadow:none;color:inherit;padding:0;font-size:12px;cursor:pointer;text-align:center;';
     selectBtn.disabled = !unlocked;
     selectBtn.innerHTML = unlocked
-      ? `${UNIT_EMOJI[idx]} ${u.name}${rarityTag(idx)}<span class="sb-info">${line}</span><span class="sb-info">${sel ? '✅ En el escuadrón' : '➕ Añadir'}</span>`
-      : `🔒 ${u.name}${rarityTag(idx)}<span class="sb-info">${line}</span><span class="sb-info locked">${unlockLabel(idx)}</span>`;
+      ? UNIT_EMOJI[idx] + ' ' + u.name + rarityTag(idx) + '<span class="sb-info">' + line + '</span><span class="sb-info">' + (sel ? '✅ En el escuadrón' : '➕ Añadir') + '</span>'
+      : '🔒 ' + u.name + rarityTag(idx) + '<span class="sb-info">' + line + '</span><span class="sb-info locked">' + unlockLabel(idx) + '</span>';
     selectBtn.onclick = () => toggleTroop(idx);
     card.appendChild(selectBtn);
     const formBtn = document.createElement('button');
@@ -443,7 +482,7 @@ function buildTroopGrid() {
     card.appendChild(formBtn);
     grid.appendChild(card);
   });
-  document.getElementById('troopCount').textContent = `Seleccionadas: ${tempLoadout.length}/${MAX_LOADOUT}`;
+  document.getElementById('troopCount').textContent = 'Seleccionadas: ' + tempLoadout.length + '/' + MAX_LOADOUT;
 }
 function toggleTroop(idx) {
   if (!isUnitUnlocked(idx)) return;
@@ -465,11 +504,13 @@ function buildMetaInfoPanel() {
   let html = '';
   activeUnitList().forEach(idx => {
     const r = rarityOf(idx);
-    html += `${UNIT_EMOJI[idx]} <span style="color:${r.color}">${CAT_BASE[idx].name}</span>: <b>Nv.${unitLevels[idx]}/${unitLevelCap()}</b>${formIsEvo(idx) ? ' ✨' : ''}<br>`;
+    const totalLvl = unitLevels[idx] + (gachaLevels[idx] || 0);
+    html += UNIT_EMOJI[idx] + ' <span style="color:' + r.color + '">' + CAT_BASE[idx].name + '</span>: <b>Nv.' + totalLvl + '/' + (unitLevelCap() + GACHA_LVL_MAX) + '</b>' + (formIsEvo(idx) ? ' ✨' : '') + (gachaLevels[idx] ? ' <span style="color:#ff88ff">+' + gachaLevels[idx] + '🎰</span>' : '') + '<br>';
   });
-  html += `<hr style="border-color:#444">💵 Income: <b>Nv.${incomeLevel}/${MAX_INCOME_LEVEL}</b><br>`;
-  html += `💣 Cañón: <b>D${cannonDmgLevel} R${cannonRangeLevel} C${cannonCdLevel}</b><br>`;
-  html += `🐾 Bonus coins: <b>+${Math.round(getCoinBonusPercent() * 100)}%</b> (Nv.${coinBonusLevel}/${COIN_BONUS_MAX})`;
+  html += '<hr style="border-color:#444">💵 Income: <b>Nv.' + incomeLevel + '/' + MAX_INCOME_LEVEL + '</b><br>';
+  html += '💣 Cañón: <b>D' + cannonDmgLevel + ' R' + cannonRangeLevel + ' C' + cannonCdLevel + '</b><br>';
+  html += '🐾 Bonus coins: <b>+' + Math.round(getCoinBonusPercent() * 100) + '%</b> (Nv.' + coinBonusLevel + '/' + COIN_BONUS_MAX + ')<br>';
+  html += '🏰 Base: <b>Nv.' + baseLevel + '/' + BASE_GACHA_MAX + '</b> (+' + baseLevel * BASE_HP_PER_LEVEL + ' HP máx)';
   el.innerHTML = html;
 }
 function buildUnitButtons() {
@@ -482,11 +523,12 @@ function buildUnitButtons() {
   list.forEach(idx => {
     const u = CAT_BASE[idx];
     const b = document.createElement('button');
-    b.className = `cat${idx + 1} side`;
+    b.className = 'cat' + (idx + 1) + ' side';
     b.id = 'btn' + idx;
     b.onclick = () => spawnCat(idx);
     applyRarityStyle(b, idx);
-    b.innerHTML = `${UNIT_EMOJI[idx]} ${u.name} (${u.cost}💰)<span class="level-badge" id="lvl${idx}">${unitLevels[idx]}</span>${rarityTag(idx)}<span class="stats" id="stats${idx}"></span><span class="cd" id="cd${idx}">CD: ${u.spawnCd}s</span>`;
+    const totalLvl = unitLevels[idx] + (gachaLevels[idx] || 0);
+    b.innerHTML = UNIT_EMOJI[idx] + ' ' + u.name + ' (' + u.cost + '💰)<span class="level-badge" id="lvl' + idx + '">' + totalLvl + '</span>' + rarityTag(idx) + '<span class="stats" id="stats' + idx + '"></span><span class="cd" id="cd' + idx + '">CD: ' + u.spawnCd + 's</span>';
     uc.appendChild(b);
   });
   buildMetaInfoPanel();
@@ -510,7 +552,10 @@ function updateUI() {
   document.getElementById('income').textContent = isTest() ? '∞' : getIncome().toFixed(1);
   document.getElementById('incomeLevel').textContent = incomeLevel;
   const list = activeUnitList();
-  for (const i of list) { const badge = document.getElementById('lvl' + i); if (badge) badge.textContent = unitLevels[i]; }
+  for (const i of list) {
+    const badge = document.getElementById('lvl' + i);
+    if (badge) badge.textContent = unitLevels[i] + (gachaLevels[i] ? '+' + gachaLevels[i] : '');
+  }
   for (const i of list) {
     const btn = document.getElementById('btn' + i);
     const cdEl = document.getElementById('cd' + i);
@@ -532,13 +577,13 @@ function updateUI() {
       const displayHp = Math.min(Math.floor(stats.hp * waveBonus), MAX_STATS);
       const displayDmg = Math.min(Math.floor(stats.dmg * waveBonus), MAX_STATS);
       const displayHeal = Math.min(Math.floor(stats.healAmt * waveBonus), MAX_STATS);
-      let statsText = i === 5 ? `HP:${displayHp} Heal:${displayHeal} RNG:${stats.range}`
-        : i === 4 ? `HP:${displayHp} DMG:${displayDmg} AOE:${stats.aoeRadius} RNG:${stats.range}`
-        : (i === 3 || i === 8) ? `HP:${displayHp} DMG:${displayDmg} RNG:${stats.range}`
-        : i === 9 ? `HP:${displayHp} DMG:${displayDmg} AOE:${stats.aoeRadius}`
-        : i === 12 ? `HP:${displayHp} DMG:${displayDmg} AOE:${stats.aoeRadius} RNG:${stats.range}`
-        : `HP:${displayHp} DMG:${displayDmg} SPD:${stats.speed.toFixed(1)}`;
-      if (hasProj(CAT_BASE[i])) statsText += ` PRJ:${projRangeOf(CAT_BASE[i])}`;
+      let statsText = i === 5 ? 'HP:' + displayHp + ' Heal:' + displayHeal + ' RNG:' + stats.range
+        : i === 4 ? 'HP:' + displayHp + ' DMG:' + displayDmg + ' AOE:' + stats.aoeRadius + ' RNG:' + stats.range
+        : (i === 3 || i === 8) ? 'HP:' + displayHp + ' DMG:' + displayDmg + ' RNG:' + stats.range
+        : i === 9 ? 'HP:' + displayHp + ' DMG:' + displayDmg + ' AOE:' + stats.aoeRadius
+        : i === 12 ? 'HP:' + displayHp + ' DMG:' + displayDmg + ' AOE:' + stats.aoeRadius + ' RNG:' + stats.range
+        : 'HP:' + displayHp + ' DMG:' + displayDmg + ' SPD:' + stats.speed.toFixed(1);
+      if (hasProj(CAT_BASE[i])) statsText += ' PRJ:' + projRangeOf(CAT_BASE[i]);
       if (formIsEvo(i)) statsText = '✨ ' + statsText;
       statsEl.textContent = statsText;
     }
@@ -551,10 +596,10 @@ function updateUI() {
   const dmgPct = (getCannonDamagePercent() * 100).toFixed(1);
   const range = getCannonRange();
   const cdSec = Math.ceil(maxCd / 60);
-  cannonStats.textContent = `${dmgPct}% HP | Rango: ${range}px | CD: ${cdSec}s`;
+  cannonStats.textContent = dmgPct + '% HP | Rango: ' + range + 'px | CD: ' + cdSec + 's';
   if (cannonCooldown > 0) {
     const seconds = Math.ceil(cannonCooldown / 60);
-    cannonCooldownEl.textContent = `${seconds}s`;
+    cannonCooldownEl.textContent = seconds + 's';
     cannonBar.style.width = (100 - (cannonCooldown / maxCd * 100)) + '%';
     cannonBtn.disabled = true;
   } else {

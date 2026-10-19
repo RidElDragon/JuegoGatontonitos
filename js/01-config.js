@@ -2,7 +2,7 @@
 // 01-config.js — Constantes y datos ESTÁTICOS del juego
 // Si añades unidades/enemigos/jefes/eventos/niveles, es AQUÍ.
 // ============================================================
-const COIN = '🐾';
+const COIN = '';
 const GROUND_Y = 215;
 const ENEMY_BASE_X = 850;
 const MY_BASE_X = 50;
@@ -26,9 +26,9 @@ const INCOME_UPGRADE_BASE_COST = 400;
 const CANNON_DMG_MAX = 9;
 const CANNON_RANGE_MAX = 5;
 const CANNON_CD_MAX = 5;
-const CANNON_BASE_COOLDOWN = 1500; // 25s
-const CANNON_MIN_COOLDOWN = 1200;  // 20s
-const CANNON_BOSS_LIMIT = 0.5;     // el cañón nunca baja a un jefe del 50%
+const CANNON_BASE_COOLDOWN = 1500;
+const CANNON_MIN_COOLDOWN = 1200;
+const CANNON_BOSS_LIMIT = 0.5;
 const STORY_MAX_LEVEL = 45;
 // v57: bonus permanente de 🐾 por nivel superado
 const COIN_BONUS_MAX = 10;
@@ -36,11 +36,19 @@ const COIN_BONUS_PER_LVL = 0.10;
 const COIN_BONUS_BASE_COST = 4000;
 const COIN_BONUS_COST_STEP = 4000;
 // v58: constantes de combate
-const LEVEL_START_MONEY = 450;  // dinero inicial de TODO nivel (historia/eventos/leyenda)
-const MAGE_UNIT_IDX = 4;        // índice del Mago en CAT_BASE
-const MAGE_EVO_AOE = 130;       // radio de área del Mago evolucionado (base: 90)
-const HEALER_HOME_X = 60;       // zona de la base aliada (retroceso del Sanador sin tropas)
-const UNIT_EMOJI = ['🐱','💪','⚡','','🔮','','👑','','🤖','','😈','','🎅'];
+const LEVEL_START_MONEY = 450;
+const MAGE_UNIT_IDX = 4;
+const MAGE_EVO_AOE = 130;
+const HEALER_HOME_X = 60;
+// v63: gacha / banners / almacén
+const BASE_HP_PER_LEVEL = 150;
+const BASE_GACHA_MAX = 20;
+const GACHA_LVL_MAX = 10;
+const GACHA_NORMAL_POOL = [0, 1, 2, 3, 4, 5, 6];
+const GACHA_RARE_POOL = [7, 8, 9, 10, 11, 12];
+
+const UNIT_EMOJI = ['🐱','','⚡','','🔮','💚','👑','','🤖','','','','🎅'];
+
 // ------------------------------------------------------------
 // UNIDADES JUGABLES
 // ------------------------------------------------------------
@@ -59,7 +67,7 @@ const CAT_BASE = [
 { name:'Gato Sin Cabeza',cost:900,hp:400,  dmg:37,  speed:1.5, range:45,  cooldown:60,  color:'#baffc2', color2:'#00331a', type:'melee',  spawnCd:10, visual:'headless', scale:1.15 },
 { name:'Gatoclaus',    cost:3100, hp:750, dmg:90,  speed:1,   range:260, cooldown:150, color:'#ee2222', color2:'#8a0f0f', type:'aoe', aoeRadius:100, projSpeed:7, spawnCd:30, scale:1.6, visual:'gatoclaus' },
 ];
-// Cómo se desbloquea cada unidad (historia, evento o leyenda)
+
 const UNIT_UNLOCK = [
 { type:'story', lvl:0 },
 { type:'story', lvl:1 },
@@ -75,11 +83,12 @@ const UNIT_UNLOCK = [
 { type:'event', id:'halloween', lvl:3 },
 { type:'event', id:'xmas', lvl:3 },
 ];
-// Costes en 🐾 de las mejoras permanentes de unidades
+
 const UNIT_COIN_BASE = [3000, 4500, 6000, 6000, 9000, 7500, 13500, 10500, 9000, 30000, 18000, 12000, 25000];
 const UNIT_COIN_STEP = [2000, 3000, 4000, 4000, 6000, 5000, 9000, 7000, 6000, 20000, 12000, 8000, 16000];
+
 // ------------------------------------------------------------
-// ENEMIGOS NORMALES (infinito + pools de historia)
+// ENEMIGOS NORMALES
 // ------------------------------------------------------------
 const ENEMY_TYPES = [
 { name:'Orco',          hp:100,  dmg:15, speed:0.8,  range:30,  cooldown:70,  color:'#666',    color2:'#333',    reward:60,  type:'melee' },
@@ -99,8 +108,9 @@ const ENEMY_TYPES = [
 { name:'Cáctus Animado',hp:900,  dmg:35, speed:0.4,  range:38,  cooldown:105, color:'#2e8b57', color2:'#006400', reward:240, type:'poison', poisonDmg:10, poisonDur:150, desertStyle:'cactus' },
 { name:'Esqueleto Ankh',hp:450,  dmg:60, speed:0.9,  range:38,  cooldown:75,  color:'#f5f5dc', color2:'#b8a060', reward:280, type:'melee', desertStyle:'ankh' },
 ];
+
 // ------------------------------------------------------------
-// JEFES DEL MODO INFINITO / HISTORIA
+// JEFES
 // ------------------------------------------------------------
 const BOSS_TYPES = [
 { name:'JEFE DRAGÓN',      hp:15000,  dmg:180, speed:0.4, range:60, cooldown:150, color:'#ff0000', color2:'#880000', reward:3000,  type:'boss', scale:2.5, bossStyle:'dragon' },
@@ -110,6 +120,7 @@ const BOSS_TYPES = [
 { name:'COLOSO DE ARENA',  hp:70000,  dmg:320, speed:0.3, range:70, cooldown:155, color:'#daa520', color2:'#8b6914', reward:18000, type:'boss', scale:3.1, bossStyle:'sandgolem' },
 { name:'DJINN DEL DESIERTO',hp:100000,dmg:420, speed:0.5, range:80, cooldown:135, color:'#ff9933', color2:'#cc5500', reward:30000, type:'boss', scale:3.3, bossStyle:'djinnboss' },
 ];
+
 // ------------------------------------------------------------
 // ENEMIGOS Y JEFES DE EVENTOS
 // ------------------------------------------------------------
@@ -133,6 +144,7 @@ emperor: { name:'EMPERADOR ZENON',   hp:60000, dmg:300, speed:0.4,  range:70, co
 lord:    { name:'SEÑOR INFERNAL',    hp:90000, dmg:400, speed:0.45, range:75, cooldown:140, color:'#ff2200', color2:'#550000', reward:40000, type:'boss', scale:3.2, bossStyle:'infernal' },
 krampus: { name:'KRAMPUS',           hp:75000, dmg:380, speed:0.5,  range:80, cooldown:130, color:'#7a1010', color2:'#2a0505', reward:60000, type:'boss', scale:3.2, bossStyle:'krampus' },
 };
+
 const EVENTS = {
 halloween: {
 id:'halloween', name:'🎃 Noche de Halloween', theme:'halloween',
@@ -153,7 +165,7 @@ levels:[
 ]
 },
 infernal: {
-id:'infernal', name:'🔥 Incursión Infernal', theme:'infernal',
+id:'infernal', name:' Incursión Infernal', theme:'infernal',
 description:'Los portales del infierno se abrieron. El Gato Demoníaco espera al final.',
 levels:[
 { name:'Grietas de Lava',     enemyBaseHP:20000, spawnInterval:50, mult:5.0, pool:['imp','hound'],           boss:null,  startMoney:2500, coins:40000 },
@@ -171,8 +183,9 @@ levels:[
 ]
 },
 };
+
 // ------------------------------------------------------------
-// HISTORIA: pools de enemigos y jefes por nivel
+// HISTORIA
 // ------------------------------------------------------------
 function poolForLevel(i) {
 if (i < 3)  return [0, 1];
@@ -197,7 +210,6 @@ if (i === 40) return 4;
 if (i === 45) return 5;
 return -1;
 }
-// Generación de los 45 niveles de historia
 const STORY_LEVELS = [];
 for (let i = 1; i <= STORY_MAX_LEVEL; i++) {
 const part2 = i > 15 && i <= 30;
@@ -213,30 +225,21 @@ startMoney: 300 + i * 40 + (part2 ? (Math.min(i,30) - 15) * 100 : 0) + (part3 ? 
 coins: 1500 * i + (part2 ? (Math.min(i,30) - 15) * 1000 : 0) + (part3 ? (i - 30) * 2000 : 0),
 });
 }
+
 // ============================================================
-// v59: ETAPAS DE LEYENDA — endgame permanente (30 etapas, 6 zonas)
-// · 12 enemigos nuevos + 6 jefes nuevos (arte en 06b, Parte 2).
-// · Pools con enemigos REUTILIZADOS (números = ENEMY_TYPES,
-//   strings = EVENT_ENEMY_TYPES o LEGEND_ENEMY_TYPES).
-// · Zona 6 reutiliza 4 jefes antiguos y cierra con el jefe final.
+// v59: ETAPAS DE LEYENDA
 // ============================================================
 const LEGEND_ENEMY_TYPES = {
-// --- Ruinas Ancestrales ---
 gargoyle:   { name:'Gárgola de Piedra',   hp:400,  dmg:50,  speed:1.4, range:35,  cooldown:70,  color:'#8a8a9a', color2:'#55556a', reward:350,  type:'flying', flyY:115, legendStyle:'gargoyle' },
 templar:    { name:'Templario Olvidado',  hp:900,  dmg:70,  speed:0.7, range:40,  cooldown:95,  color:'#b8a060', color2:'#6a5a2a', reward:500,  type:'melee',  legendStyle:'templar' },
-// --- Caldera del Magma ---
 magmaSlime: { name:'Limo de Magma',       hp:1200, dmg:60,  speed:0.5, range:38,  cooldown:100, color:'#ff5500', color2:'#882200', reward:550,  type:'melee',  legendStyle:'magmaslime' },
 emberBat:   { name:'Murciélago de Ascuas',hp:350,  dmg:45,  speed:2.0, range:30,  cooldown:55,  color:'#ff8844', color2:'#993311', reward:450,  type:'flying', flyY:105, legendStyle:'emberbat' },
-// --- Islas Flotantes ---
 harpy:      { name:'Arpía del Viento',    hp:500,  dmg:55,  speed:1.6, range:170, cooldown:85,  color:'#aaddff', color2:'#4488aa', reward:600,  type:'ranged', projSpeed:6, legendStyle:'harpy' },
 galeWolf:   { name:'Lobo de la Tormenta', hp:650,  dmg:80,  speed:2.2, range:35,  cooldown:60,  color:'#ddeeff', color2:'#7799bb', reward:650,  type:'melee',  legendStyle:'galewolf' },
-// --- Fosa Abisal ---
 angler:     { name:'Pez Abisal',          hp:700,  dmg:65,  speed:0.9, range:200, cooldown:90,  color:'#334466', color2:'#112233', reward:700,  type:'ranged', projSpeed:5, legendStyle:'angler' },
 crabTitan:  { name:'Cangrejo Titán',      hp:2000, dmg:90,  speed:0.4, range:45,  cooldown:110, color:'#cc4444', color2:'#772222', reward:800,  type:'melee',  scale:1.5, legendStyle:'crabtitan' },
-// --- Fábrica de Engranajes ---
 gearSpider: { name:'Araña de Engranajes', hp:600,  dmg:55,  speed:1.9, range:30,  cooldown:50,  color:'#8899aa', color2:'#445566', reward:750,  type:'melee',  legendStyle:'gearspider' },
 steamGolem: { name:'Gólem de Vapor',      hp:2400, dmg:100, speed:0.35,range:50,  cooldown:120, color:'#aabb99', color2:'#556644', reward:900,  type:'melee',  scale:1.6, legendStyle:'steamgolem' },
-// --- Umbral del Vacío ---
 voidEye:    { name:'Ojo del Vacío',       hp:800,  dmg:85,  speed:0.8, range:220, cooldown:95,  color:'#aa66ff', color2:'#440088', reward:1000, type:'ranged', projSpeed:6, legendStyle:'voideye' },
 starWraith: { name:'Espectro Estelar',    hp:550,  dmg:70,  speed:2.4, range:35,  cooldown:55,  color:'#ccddff', color2:'#6677cc', reward:950,  type:'flying', flyY:110, legendStyle:'starwraith' },
 };
@@ -248,7 +251,6 @@ abyssLord:  { name:'LEVIATÁN ABISAL',     hp:130000, dmg:420, speed:0.4,  range
 machineGod: { name:'DEUS EX MACHINA',     hp:170000, dmg:470, speed:0.45, range:80, cooldown:135, color:'#ccddee', color2:'#556677', reward:80000,  type:'boss', scale:3.2, bossStyle:'machinegod' },
 voidMonarch:{ name:'MONARCA DEL VACÍO',   hp:250000, dmg:550, speed:0.5,  range:90, cooldown:130, color:'#bb77ff', color2:'#330066', reward:150000, type:'boss', scale:3.5, bossStyle:'voidmonarch' },
 };
-// Resolución de jefes de leyenda (propios → eventos → infinito por índice)
 function legendBossObj(key) {
   if (LEGEND_BOSS_TYPES[key]) return LEGEND_BOSS_TYPES[key];
   if (EVENT_BOSS_TYPES[key]) return EVENT_BOSS_TYPES[key];
@@ -274,7 +276,6 @@ const LEGEND_ZONE_POOLS = [
   ['voidEye', 'starWraith', 'templar', 'harpy', 'angler', 'gearSpider'],
 ];
 const LEGEND_ZONE_BOSSES = ['ruinKing', 'magmaWyrm', 'skyTitan', 'abyssLord', 'machineGod', null];
-// Zona 6: 4 jefes REUTILIZADOS + jefe final nuevo
 const LEGEND_VOID_BOSSES = ['lord', 'krampus', 'emperor', '5', 'voidMonarch'];
 const LEGEND_STAGE_NAMES = [
   ['Selva de Templos', 'Cripta Musgosa', 'Puente Colgante', 'Altar Roto', 'Trono del Coloso'],
@@ -284,7 +285,6 @@ const LEGEND_STAGE_NAMES = [
   ['Almacén de Piezas', 'Línea de Montaje', 'Caldera de Vapor', 'Torre del Reloj', 'Núcleo de Engranajes'],
   ['Grieta Carmesí', 'Páramo Helado', 'Flota Perdida', 'Desierto Lunar', 'Trono del Monarca'],
 ];
-// Generación de las 30 etapas
 const LEGEND_STAGES = [];
 for (let z = 0; z < 6; z++) {
   for (let s = 0; s < 5; s++) {

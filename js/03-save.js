@@ -1,10 +1,8 @@
 // ============================================================
 // 03-save.js — Persistencia en localStorage (v62)
-// · v62 FIX ANTI-PÉRDIDA: saveMeta() VALIDA los datos antes de
-//   escribir y mantiene una COPIA DE SEGURIDAD ('catBattleMetaBak')
-//   con el último valor bueno. Si al cargar el guardado principal
-//   está vacío o corrupto, se restaura desde la copia solo.
-// · El modo desarrollador y el sandbox siguen sin guardar NADA.
+// · v62: validación anti-basura + copia de seguridad automática
+// · v63: persistencia de tickets, baseLevel, gachaLevels, gachaUnlocked
+// · 🔧 El modo desarrollador bloquea TODOS los guardados.
 // ============================================================
 let memorySave = null;
 let localStorageOK = true;
@@ -51,24 +49,29 @@ function applyMetaObj(m) {
   cannonRangeLevel = clamp(m.cannonRangeLevel, 1, CANNON_RANGE_MAX);
   cannonCdLevel    = clamp(m.cannonCdLevel, 1, CANNON_CD_MAX);
   coinBonusLevel   = clamp(m.coinBonusLevel || 0, 0, COIN_BONUS_MAX);
+  ticketsNormal = (typeof m.ticketsNormal === 'number' && m.ticketsNormal >= 0) ? m.ticketsNormal : 3;
+  ticketsRare = (typeof m.ticketsRare === 'number' && m.ticketsRare >= 0) ? m.ticketsRare : 1;
+  baseLevel = clamp(m.baseLevel || 0, 0, BASE_GACHA_MAX);
+  if (Array.isArray(m.gachaLevels)) { for (let i = 0; i < NUM_UNITS; i++) gachaLevels[i] = clamp(m.gachaLevels[i] || 0, 0, GACHA_LVL_MAX); }
+  if (Array.isArray(m.gachaUnlocked)) { for (let i = 0; i < NUM_UNITS; i++) gachaUnlocked[i] = !!m.gachaUnlocked[i]; }
 }
 
-// --- Meta (coins + mejoras permanentes) ---
+// --- Meta ---
 function saveMeta() {
   if (isTest()) return;
-  if (isDevMode()) return;  // 🔧 NO guardar en modo desarrollador
+  if (isDevMode()) return;
   const obj = {
     coins, unitLevels: unitLevels.slice(), incomeLevel,
-    cannonDmgLevel, cannonRangeLevel, cannonCdLevel, coinBonusLevel
+    cannonDmgLevel, cannonRangeLevel, cannonCdLevel, coinBonusLevel,
+    ticketsNormal, ticketsRare, baseLevel,
+    gachaLevels: gachaLevels.slice(), gachaUnlocked: gachaUnlocked.slice()
   };
-  // v62: NUNCA sobrescribir el guardado con datos inválidos
   if (!metaObjIsValid(obj)) {
-    setStatus('⚠️ Guardado de mejoras omitido (datos inválidos)', '#ffaa00');
+    setStatus('️ Guardado de mejoras omitido (datos inválidos)', '#ffaa00');
     return;
   }
   baseMeta = snapshotMeta();
   try {
-    // rotar copia: el valor bueno actual pasa a ser el backup
     const currentRaw = localStorage.getItem(META_KEY);
     if (currentRaw) {
       try {
@@ -82,18 +85,14 @@ function saveMeta() {
 function loadMeta() {
   const m = readMetaObj();
   if (m) { applyMetaObj(m); return; }
-  // principal vacío/corrupto → intentar la copia de seguridad
   const bak = readMetaBackupObj();
   if (bak) {
     applyMetaObj(bak);
     try { localStorage.setItem(META_KEY, JSON.stringify(bak)); } catch (e) {}
-    setTimeout(() => setStatus('🩹 Mejoras restauradas desde la copia de seguridad', '#88ccff'), 400);
+    setTimeout(() => setStatus(' Mejoras restauradas desde la copia de seguridad', '#88ccff'), 400);
     return;
   }
-  // sin datos válidos en ningún sitio: se quedan los valores por defecto
 }
-// Utilidad de consola por si algún día quieres forzar la restauración:
-//   restoreMetaBackup()
 window.restoreMetaBackup = function () {
   const bak = readMetaBackupObj();
   if (!bak) { setStatus('❌ Sin copia de seguridad válida', '#ff6666'); return; }
@@ -102,7 +101,7 @@ window.restoreMetaBackup = function () {
   setStatus('🩹 Copia de seguridad aplicada', '#88ff88');
 };
 
-// --- Guardado de batalla (solo modo infinito) ---
+// --- Guardado de batalla ---
 function buildSaveData() {
   return { version: 35, money, baseHP, enemyBaseHP, enemyBaseMaxHP, wave, timestamp: Date.now() };
 }
@@ -171,7 +170,7 @@ function loadStoryProgress() {
   } catch (e) { return 0; }
 }
 function saveStoryProgress() {
-  if (isDevMode()) return;  // 🔧 NO guardar en modo desarrollador
+  if (isDevMode()) return;
   try { localStorage.setItem('catBattleStory', String(storyProgress)); } catch (e) {}
 }
 
@@ -180,11 +179,11 @@ function loadEventProgress() {
   try { const o = JSON.parse(localStorage.getItem('catBattleEvents')); return (o && typeof o === 'object') ? o : {}; } catch (e) { return {}; }
 }
 function saveEventProgress() {
-  if (isDevMode()) return;  // 🔧 NO guardar en modo desarrollador
+  if (isDevMode()) return;
   try { localStorage.setItem('catBattleEvents', JSON.stringify(eventProgress)); } catch (e) {}
 }
 
-// --- Progreso de Etapas de Leyenda (v59) ---
+// --- Progreso de Etapas de Leyenda ---
 function loadLegendProgress() {
   try {
     const raw = localStorage.getItem('catBattleLegend');
@@ -194,7 +193,7 @@ function loadLegendProgress() {
   } catch (e) { return 0; }
 }
 function saveLegendProgress() {
-  if (isDevMode()) return;  // 🔧 NO guardar en modo desarrollador
+  if (isDevMode()) return;
   try { localStorage.setItem('catBattleLegend', String(legendProgress)); } catch (e) {}
 }
 
@@ -211,17 +210,20 @@ function loadLoadout() {
   return arr;
 }
 function saveLoadout() {
-  if (isDevMode()) return;  // 🔧 NO guardar en modo desarrollador
+  if (isDevMode()) return;
   try { localStorage.setItem('catBattleLoadout', JSON.stringify(loadout)); } catch (e) {}
 }
 
+// --- Reinicio total ---
 // --- Reinicio total ---
 function resetAllProgress() {
   const msg = '⚠️ ¿Seguro? Se borrará TODO el progreso:\n' +
     '· 🐾 Gatontito Coins y todas las mejoras (y su copia de seguridad)\n' +
     '· 📖 Progreso de Historia\n' +
-    '· 🎃🛸🔥🎄 Progreso de Eventos y tropas desbloqueadas\n' +
+    '· 🎃🛸🎄 Progreso de Eventos y tropas desbloqueadas\n' +
     '· 🌟 Progreso de Etapas de Leyenda\n' +
+    '· 🎟 Tickets, Almacén y Misiones\n' +
+    '· 📖 Bestiario (enemigos descubiertos)\n' +
     '· 💾 Guardado de la partida infinita\n' +
     '· 🎖 Escuadrón seleccionado\n' +
     '¡Esta acción no se puede deshacer!';
@@ -237,6 +239,9 @@ function resetAllProgress() {
     localStorage.removeItem('catBattleLegend');
     localStorage.removeItem('catBattleLoadout');
     localStorage.removeItem('catBattleSave');
+    localStorage.removeItem('catBattleStorage');
+    localStorage.removeItem('catBattleMissions');
+    localStorage.removeItem('catBattleBestiary');   // v69: bestiario
   } catch (e) {}
   coins = 0;
   for (let i = 0; i < NUM_UNITS; i++) unitLevels[i] = 1;
@@ -245,6 +250,8 @@ function resetAllProgress() {
   storyProgress = 0;
   eventProgress = {};
   legendProgress = 0;
+  ticketsNormal = 3; ticketsRare = 1; baseLevel = 0;
+  gachaLevels.fill(0); gachaUnlocked.fill(false);
   loadout = [0];
   tempLoadout = [0];
   spawnTimers = new Array(NUM_UNITS).fill(0);
@@ -252,11 +259,11 @@ function resetAllProgress() {
   money = 400; baseHP = 1500; enemyBaseHP = 2000; enemyBaseMaxHP = 2000; wave = 1;
   cannonCooldown = 0;
   gameMode = 'infinite';
+  if (window.resetBestiary) window.resetBestiary();   // v69: limpia en memoria
   showMenu();
 }
 
-// --- Guardado automático al cerrar/ocultar la pestaña ---
-// 🔧 verifican isDevMode() antes de guardar
+// --- Guardado automático al cerrar/ocultar ---
 window.addEventListener('beforeunload', () => {
   if (!isDevMode()) {
     saveMeta();

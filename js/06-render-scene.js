@@ -1,11 +1,11 @@
 // ============================================================
-// 06-render-scene.js — Escena completa (v61): fondo, temas, bases,
+// 06-render-scene.js — Escena completa (v63): fondo, temas, bases,
 // proyectiles, partículas y draw().
-// · v61: Bosque Catedral con TRONCOS MARRONES (corteza café clara/
-//   oscura, raíces y troncos-marco en madera; copas siguen verdes).
-// · Parte 2 (Nv.16-30) = BOSQUE CATEDRAL denso (10 capas).
-// · Parte 3 (Nv.31-45) = DESIERTO PROHIBIDO (dunas, cactus, templos).
-// · Leyenda = 6 temas (ruins, volcano, sky, abyss, clockwork, void).
+// · v63: drawBase usa getBaseMaxHP() para tu base.
+// · v61: Bosque Catedral con troncos MARRONES.
+// · v60: Bosque Catedral rediseñado (10 capas).
+// · v59: 6 temas de ETAPAS DE LEYENDA (ruins, volcano, sky, abyss,
+//        clockwork, void) + desierto (desert) + bosque (kingdom).
 // · Orden de dibujo por TAMAÑO: grandes detrás, pequeñas delante.
 // ============================================================
 // -------------------- helpers --------------------
@@ -26,28 +26,24 @@ ctx.beginPath(); ctx.ellipse(x, y - 40*s, 8*s, 7*s, 0, 0, Math.PI*2); ctx.fill()
 }
 // ============================================================
 // v61: BOSQUE CATEDRAL (Parte 2) — troncos MARRONES.
-//  1 pared verde · 2 claridad al fondo · 3 fila lejana densa ·
-//  4 fila media con corteza café/raíces/musgo · 5 bóveda en arco ·
-//  6 rayos de luz · 7 sotobosque · 8 troncos-marco de madera ·
-//  9 polen flotando · 10 manchas de luz en el suelo.
 // ============================================================
 function drawKingdomForest() {
 const t = frameCount;
-// ---- 1) Pared de fondo verde profundo ----
+// 1) Pared de fondo verde profundo
 const bg = ctx.createLinearGradient(0, 0, 0, 215);
 bg.addColorStop(0, '#081a0a');
 bg.addColorStop(0.45, '#16361a');
 bg.addColorStop(1, '#2c5426');
 ctx.fillStyle = bg;
 ctx.fillRect(0, 0, 900, 215);
-// ---- 2) Claridad al fondo (final de la avenida) ----
+// 2) Claridad al fondo
 const glow = ctx.createRadialGradient(450, 118, 10, 450, 118, 270);
 glow.addColorStop(0, 'rgba(226,255,178,0.55)');
 glow.addColorStop(0.4, 'rgba(160,220,110,0.25)');
 glow.addColorStop(1, 'rgba(160,220,110,0)');
 ctx.fillStyle = glow;
 ctx.fillRect(0, 0, 900, 215);
-// ---- 3) Fila lejana: troncos finos MARRONES, MUY densos ----
+// 3) Fila lejana: troncos finos MARRONES, MUY densos
 for (let x = -10; x <= 910; x += 24) {
 const h = 140 + ((x * 7) % 46);
 const w = 4 + ((x * 13) % 3);
@@ -56,14 +52,13 @@ ctx.fillRect(x, 215 - h, w, h);
 ctx.fillStyle = 'rgba(160,120,80,0.14)';
 ctx.fillRect(x, 215 - h, 1.4, h);
 }
-// copas lejanas fundidas en la penumbra
 ctx.fillStyle = 'rgba(12,30,14,0.95)';
 for (let x = -20; x <= 920; x += 30) {
 ctx.beginPath();
 ctx.ellipse(x, 58 + ((x * 11) % 24), 24, 18, 0, 0, Math.PI * 2);
 ctx.fill();
 }
-// ---- 4) Fila media: troncos CAFÉ con corteza, raíces y musgo ----
+// 4) Fila media: troncos CAFÉ con corteza, raíces y musgo
 for (let x = 15; x <= 900; x += 58) {
 const w = 10 + ((x * 17) % 6);
 const top = 26 + ((x * 29) % 30);
@@ -74,7 +69,6 @@ tg.addColorStop(0.7, '#4a3018');
 tg.addColorStop(1, '#1a0e06');
 ctx.fillStyle = tg;
 ctx.fillRect(x - w / 2, top, w, 215 - top);
-// anillos/grietas de corteza
 ctx.strokeStyle = 'rgba(0,0,0,0.30)';
 ctx.lineWidth = 1;
 for (let y = top + 14; y < 210; y += 30) {
@@ -83,7 +77,6 @@ ctx.moveTo(x - w / 2 + 2, y);
 ctx.quadraticCurveTo(x, y + 4, x + w / 2 - 2, y);
 ctx.stroke();
 }
-// raíces marrones abiertas
 ctx.fillStyle = '#3a2412';
 ctx.beginPath();
 ctx.moveTo(x - w / 2, 215);
@@ -92,11 +85,10 @@ ctx.lineTo(x + w + 5, 215);
 ctx.quadraticCurveTo(x + w, 212, x + w / 2, 215);
 ctx.closePath();
 ctx.fill();
-// musgo verde sobre la madera
 ctx.fillStyle = 'rgba(96,150,64,0.45)';
 ctx.fillRect(x - w / 2, 215 - 24, 2.6, 24);
 }
-// ---- 5) Bóveda de copas en arco (techo de catedral) ----
+// 5) Bóveda de copas en arco
 ctx.fillStyle = '#0f2a0d';
 ctx.beginPath();
 ctx.moveTo(0, 0);
@@ -113,7 +105,7 @@ ctx.beginPath();
 ctx.ellipse(x, 54 + ((x * 31) % 22), 15, 8, 0, 0, Math.PI * 2);
 ctx.fill();
 }
-// lianas colgando de la bóveda (se mecen)
+// lianas colgando
 ctx.strokeStyle = 'rgba(70,120,50,0.7)';
 ctx.lineWidth = 2;
 ctx.lineCap = 'round';
@@ -130,7 +122,7 @@ ctx.ellipse(x + sway * 1.6, 52 + len, 4, 2.6, sway * 0.1, 0, Math.PI * 2);
 ctx.fill();
 }
 ctx.lineCap = 'butt';
-// ---- 6) Rayos de luz entre las copas ----
+// 6) Rayos de luz
 ctx.save();
 ctx.globalCompositeOperation = 'lighter';
 for (let i = 0; i < 5; i++) {
@@ -146,7 +138,7 @@ ctx.closePath();
 ctx.fill();
 }
 ctx.restore();
-// ---- 7) Sotobosque: helechos, arbustos y setas ----
+// 7) Sotobosque: helechos y setas
 for (let x = 6; x <= 900; x += 36) {
 const s = 0.8 + ((x * 7) % 5) / 10;
 ctx.fillStyle = '#1d4a1c';
@@ -164,7 +156,7 @@ ctx.beginPath(); ctx.ellipse(x, 209, 6, 3.6, 0, Math.PI, 0); ctx.fill();
 ctx.fillStyle = '#fff';
 ctx.beginPath(); ctx.arc(x - 2, 207.6, 0.9, 0, Math.PI * 2); ctx.arc(x + 2.4, 208.2, 0.8, 0, Math.PI * 2); ctx.fill();
 }
-// ---- 8) Troncos-marco cercanos de MADERA en los bordes ----
+// 8) Troncos-marco de MADERA en los bordes
 for (const x of [24, 876]) {
 const w = 26;
 const tg2 = ctx.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
@@ -181,7 +173,6 @@ ctx.moveTo(x - w / 2 + 3, y);
 ctx.quadraticCurveTo(x, y + 6, x + w / 2 - 3, y);
 ctx.stroke();
 }
-// raíces grandes marrones
 ctx.fillStyle = '#241408';
 ctx.beginPath();
 ctx.moveTo(x - w / 2, 215);
@@ -191,7 +182,7 @@ ctx.quadraticCurveTo(x + w, 210, x + w / 2, 215);
 ctx.closePath();
 ctx.fill();
 }
-// ---- 9) Polen / motas de luz flotando ----
+// 9) Polen / motas de luz
 for (let i = 0; i < 14; i++) {
 const px = (i * 137 + t * 0.25) % 900;
 const py = 60 + (i * 53) % 140 + Math.sin(t * 0.02 + i * 2.1) * 8;
@@ -200,7 +191,7 @@ ctx.fillStyle = 'rgba(255,255,200,0.9)';
 ctx.beginPath(); ctx.arc(px, py, 1.4, 0, Math.PI * 2); ctx.fill();
 }
 ctx.globalAlpha = 1;
-// ---- 10) Manchas de luz en el suelo ----
+// 10) Manchas de luz en el suelo
 ctx.fillStyle = 'rgba(255,244,170,0.13)';
 for (let i = 0; i < 7; i++) {
 const dx = 70 + i * 125 + Math.sin(t * 0.006 + i) * 8;
@@ -564,7 +555,7 @@ ctx.globalAlpha = 1;
 }
 // -------------------- ESCENA COMPLETA --------------------
 function draw() {
-// v60: selección de tema (eventos → test → leyenda → desierto → bosque → normal)
+// v63: selección de tema (eventos → test → leyenda → desierto → bosque → normal)
 let theme;
 if (isEvent()) theme = currentEventId;
 else if (isTest()) theme = 'test';
@@ -578,7 +569,6 @@ else if (theme === 'alien') { skyTop='#001122'; skyBot='#003322'; groundTop='#22
 else if (theme === 'infernal') { skyTop='#220000'; skyBot='#551100'; groundTop='#331100'; groundBot='#1a0800'; grassTop='#cc3300'; grassBot='#882200'; flower='#ff6644'; enemyBaseColor='#ff3300'; }
 else if (theme === 'xmas') { skyTop='#1a3a5c'; skyBot='#4a6a8c'; groundTop='#ffffff'; groundBot='#ddeeff'; grassTop='#cc2233'; grassBot='#881122'; flower='#ffffff'; enemyBaseColor='#cc2233'; }
 else if (theme === 'test') { skyTop='#9966cc'; skyBot='#e0ccff'; groundTop='#8B4513'; groundBot='#4a3218'; grassTop='#32CD32'; grassBot='#228B22'; flower='#ff69b4'; enemyBaseColor='#ff4444'; }
-// v60: kingdom = penumbra verde del bosque catedral
 else if (theme === 'kingdom') { skyTop='#12290f'; skyBot='#3f6b2f'; groundTop='#4a3418'; groundBot='#241708'; grassTop='#2f7a2a'; grassBot='#1c4f1a'; flower='#ffd76a'; enemyBaseColor='#ff4444'; }
 else if (theme === 'desert') { skyTop='#f4a460'; skyBot='#ffdab9'; groundTop='#d2b48c'; groundBot='#8b7355'; grassTop='#c89968'; grassBot='#a67c52'; flower='#d4a574'; enemyBaseColor='#ff8844'; }
 else if (theme === 'ruins') { skyTop='#2e4a3a'; skyBot='#8aa87a'; groundTop='#6a5a3a'; groundBot='#3a2a1a'; grassTop='#4a8a3a'; grassBot='#2a5a2a'; flower='#ffd700'; enemyBaseColor='#c8b070'; }
@@ -709,7 +699,7 @@ ctx.fillStyle = grassGrad;
 ctx.fillRect(0, 215, 900, 10);
 ctx.fillStyle = flower;
 for (let i=0; i<8; i++) { const x = (i * 115 + 30) % 900; ctx.beginPath(); ctx.arc(x, 218, 2.5, 0, Math.PI*2); ctx.fill(); }
-// ---- decorados de fondo (detrás de bases y unidades) ----
+// ---- decorados de fondo ----
 if (theme === 'kingdom') drawKingdomForest();
 else if (theme === 'desert') drawDesert();
 else if (theme === 'ruins') drawRuinsDecor();
@@ -719,7 +709,7 @@ else if (theme === 'abyss') drawAbyssDecor();
 else if (theme === 'clockwork') drawClockworkDecor();
 else if (theme === 'void') drawVoidDecor();
 // ---- bases + cañón ----
-drawBase(50, baseHP, 1500, '#4488ff', false);
+drawBase(50, baseHP, getBaseMaxHP(), '#4488ff', false);
 drawBase(ENEMY_BASE_X, enemyBaseHP, enemyBaseMaxHP, enemyBaseColor, true);
 const cannonRange = getCannonRange();
 const rangeRight = Math.min(900, MY_BASE_X + cannonRange);
@@ -748,7 +738,7 @@ ctx.fillText(`💣 Rango: ${cannonRange}px`, (MY_BASE_X + rangeRight) / 2, 25);
 ctx.fillStyle = 'rgba(255, 100, 100, 0.9)';
 ctx.font = 'bold 12px Arial';
 ctx.fillText('▼', rangeRight, 40);
-// ---- entidades (orden por TAMAÑO, grandes detrás) ----
+// ---- entidades (orden por TAMAÑO) ----
 const drawList = [];
 for (let i = 0; i < cats.length; i++)    drawList.push({ s: cats[i].scale || 1,    f: 0, i: i, o: cats[i] });
 for (let i = 0; i < enemies.length; i++) drawList.push({ s: enemies[i].scale || 1, f: 1, i: i, o: enemies[i] });

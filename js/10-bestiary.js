@@ -1,12 +1,11 @@
 // ============================================================
-// 10-bestiary.js — v56: BESTIARIO con retratos EN VIVO (2 formas)
-// · v56 FIX RAÍZ: el bestiario llamaba troopStatsLine(u) pero esa
-//   función ahora firma troopStatsLine(idx) → crash silencioso que
-//   abortaba render() tras pintar el encabezado (lista vacía).
-//   Ahora usa troopLine(idx) LOCAL con stats REALES (nivel+forma).
-// · v56: cada entrada va en try/catch: un error nunca deja la lista
-//   en blanco de nuevo (se loguea y se salta esa entrada).
-// · MODO DEV: todo visible con indicador 🔧 DEV · no registra apariciones.
+// 10-bestiary.js — v65: BESTIARIO con retratos EN VIVO (2 formas)
+// · v65 FIX: ahora registra y muestra enemigos/jefes de ETAPAS
+//   DE LEYENDA (LEGEND_ENEMY_TYPES y LEGEND_BOSS_TYPES).
+// · v56 FIX: troopEntry/enemyEntry NUNCA devuelven null.
+// · v56: cada entrada va en try/catch: un error nunca deja la
+//   lista en blanco de nuevo (se loguea y se salta esa entrada).
+// · MODO DEV: todo visible con indicador 🔧 DEV.
 // ============================================================
 (function () {
 const B_KEY = 'catBattleBestiary';
@@ -22,11 +21,13 @@ function idOf(t) {
   i = BOSS_TYPES.indexOf(t); if (i >= 0) return 'b' + i;
   for (const k in EVENT_ENEMY_TYPES) if (EVENT_ENEMY_TYPES[k] === t) return 'ee:' + k;
   for (const k in EVENT_BOSS_TYPES) if (EVENT_BOSS_TYPES[k] === t) return 'eb:' + k;
+  // v65: enemigos y jefes de Etapas de Leyenda
   for (const k in LEGEND_ENEMY_TYPES) if (LEGEND_ENEMY_TYPES[k] === t) return 'le:' + k;
   for (const k in LEGEND_BOSS_TYPES) if (LEGEND_BOSS_TYPES[k] === t) return 'lb:' + k;
   return null;
 }
 function objById(id) {
+  // v65: leyenda primero
   if (id.startsWith('le:')) return LEGEND_ENEMY_TYPES[id.slice(3)];
   if (id.startsWith('lb:')) return LEGEND_BOSS_TYPES[id.slice(3)];
   if (id.startsWith('ee:')) return EVENT_ENEMY_TYPES[id.slice(3)];
@@ -40,6 +41,7 @@ function allEnemyIds() {
   for (const k in EVENT_ENEMY_TYPES) ids.push('ee:' + k);
   for (let i = 0; i < BOSS_TYPES.length; i++) ids.push('b' + i);
   for (const k in EVENT_BOSS_TYPES) ids.push('eb:' + k);
+  // v65: leyenda
   for (const k in LEGEND_ENEMY_TYPES) ids.push('le:' + k);
   for (const k in LEGEND_BOSS_TYPES) ids.push('lb:' + k);
   return ids;
@@ -50,12 +52,13 @@ function contextNow() {
     const ev = EVENTS[currentEventId];
     return ev ? ev.name + ' · ' + ev.levels[eventLevelIdx].name : currentEventId;
   }
+  if (gameMode === 'legend') return 'Leyenda Etapa ' + (legendLevelIdx + 1);
   if (gameMode === 'infinite') return 'Infinito · Oleada ' + wave;
   return '';
 }
 function record(t) {
   if (isTest()) return;
-  if (isDevMode()) return;  // 🔧 no registrar en modo dev
+  if (isDevMode()) return;
   const id = idOf(t);
   if (!id) return;
   const ctxName = contextNow();
@@ -67,7 +70,8 @@ function record(t) {
 
 // ---------------- Pistas de aparición ----------------
 function enemyHint(id) {
-    if (id.startsWith('le:') || id.startsWith('lb:')) {
+  // v65: pistas para leyenda
+  if (id.startsWith('le:') || id.startsWith('lb:')) {
     const k = id.slice(3);
     for (const L of LEGEND_STAGES) {
       if (L.pool.includes(k) || L.boss === k) return 'Etapas de Leyenda · ' + L.name;
@@ -95,9 +99,9 @@ function enemyHint(id) {
 }
 
 const TYPE_CHIP = {
-  melee: '⚔️ Cuerpo a cuerpo', ranged: '🏹 A distancia', roboRanged: '🔫 A distancia',
+  melee: '️ Cuerpo a cuerpo', ranged: ' A distancia', roboRanged: ' A distancia',
   aoe: '💥 Daño en área', healer: '💚 Curación', poison: '☠️ Veneno',
-  flying: '🪽 Volador', boss: '👑 JEFE'
+  flying: '🪽 Volador', boss: ' JEFE'
 };
 const TROOP_LORE = [
   'El recluta de siempre: barato, valiente y maúlla primero.',
@@ -250,9 +254,10 @@ function catPortrait(idx, cv, level, evo) {
 
 function enemyPortrait(id, cv) {
   const t = objById(id);
-  const isBoss = id[0] === 'b' || id.startsWith('eb:');
+  const isBoss = id[0] === 'b' || id.startsWith('eb:') || id.startsWith('lb:');
   let type;
   if (id.startsWith('ee:') || id.startsWith('eb:')) type = id.slice(3);
+  else if (id.startsWith('le:') || id.startsWith('lb:')) type = id.slice(3);
   else type = +id.slice(1);
   return portraitJob('e' + id, function (x, y) {
     drawEnemy({
@@ -260,6 +265,7 @@ function enemyPortrait(id, cv) {
       hp: 1, maxHp: 1, color: t.color, color2: t.color2,
       unitType: t.type, isBoss: isBoss, bossStyle: t.bossStyle || null,
       desertStyle: t.desertStyle || null, xmasStyle: t.xmasStyle || null,
+      legendStyle: t.legendStyle || null,
       name: t.name, walkCycle: 0.9, attackAnim: 0, spawnAnim: 0, hurtFlash: 0, poisonTimer: 0
     }, { hideHud: true });
   }, cv);
@@ -268,26 +274,8 @@ function enemyPortrait(id, cv) {
 function formStatsLine(idx, lvl) {
   const u = CAT_BASE[idx];
   const s = unitStatsAt(idx, lvl);
-  let line = u.healAmt ? `HP:${s.hp} · Cura:${s.heal}` : `HP:${s.hp} · DMG:${s.dmg}`;
-  line += ` · SPD:${u.speed}`;
-  return line;
-}
-
-// ============================================================
-// v56: LÍNEA DE STATS LOCAL (inmune a cambios de firma externos)
-// Muestra stats REALES según nivel actual y forma activa.
-// ============================================================
-function troopLine(idx) {
-  const u = CAT_BASE[idx];
-  const s = getCatStats(idx);
-  let line = `${u.cost}💰 · HP:${s.hp} · `;
-  line += u.healAmt ? `Cura:${s.healAmt}` : `DMG:${s.dmg}`;
-  line += ` · SPD:${s.speed}`;
-  if (s.aoeRadius) line += ` · AOE:${s.aoeRadius}`;
-  if (u.healAmt) line += ` · RNG:${s.range}`;
-  else if (s.type === 'ranged' || s.type === 'roboRanged') line += ` · RNG:${s.range}`;
-  if (hasProj(s)) line += ` · PRJ:${projRangeOf(s)}`;
-  line += ` · CD:${u.spawnCd}s`;
+  let line = u.healAmt ? 'HP:' + s.hp + ' · Cura:' + s.heal : 'HP:' + s.hp + ' · DMG:' + s.dmg;
+  line += ' · SPD:' + u.speed;
   return line;
 }
 
@@ -319,16 +307,15 @@ function buildUI() {
   bScreen.className = 'screen bestiary-screen';
   bScreen.style.display = 'none';
   bScreen.innerHTML =
-    `<div class="best-head">
-      <h2 style="margin:2px">📖 BESTIARIO</h2>
-      <div class="menu-info" id="bestInfo"></div>
-      <div class="best-tabs">
-        <button class="best-tab" data-mode="seen">✅ Descubiertos</button>
-        <button class="best-tab" data-mode="all">📚 Todos</button>
-      </div>
-    </div>
-    <div class="best-list" id="bestList"></div>
-    <div class="best-foot"></div>`;
+    '<div class="best-head">' +
+    '<h2 style="margin:2px">📖 BESTIARIO</h2>' +
+    '<div class="menu-info" id="bestInfo"></div>' +
+    '<div class="best-tabs">' +
+    '<button class="best-tab" data-mode="seen">✅ Descubiertos</button>' +
+    '<button class="best-tab" data-mode="all">📚 Todos</button>' +
+    '</div></div>' +
+    '<div class="best-list" id="bestList"></div>' +
+    '<div class="best-foot"></div>';
   bList = bScreen.querySelector('#bestList');
   const tabs = bScreen.querySelector('.best-tabs');
   if (tabs) {
@@ -348,7 +335,7 @@ function buildUI() {
 }
 
 function refreshButton() {
-  if (bBtn) bBtn.textContent = `📖 Bestiario (${seenCount()}/${allEnemyIds().length} enemigos · ${troopCount()}/${NUM_UNITS} tropas)`;
+  if (bBtn) bBtn.textContent = '📖 Bestiario (' + seenCount() + '/' + allEnemyIds().length + ' enemigos · ' + troopCount() + '/' + NUM_UNITS + ' tropas)';
 }
 
 function showBestiary() {
@@ -393,7 +380,7 @@ function makeFormColumn(cv, label, labelColor, statsText) {
   return col;
 }
 
-// ---------------- Entradas ----------------
+// v65: troopEntry NUNCA devuelve null
 function troopEntry(idx) {
   const unlocked = isDevMode() || isUnitUnlocked(idx);
   if (!unlocked && mode === 'seen') return null;
@@ -409,27 +396,28 @@ function troopEntry(idx) {
     const cvE = makeThumb();
     const duo = document.createElement('div');
     duo.style.cssText = 'display:flex;gap:10px;align-items:flex-start;flex:0 0 auto';
-    duo.appendChild(makeFormColumn(cvN, '🐱 Normal', null, formStatsLine(idx, 1)));
+    duo.appendChild(makeFormColumn(cvN, ' Normal', null, formStatsLine(idx, 1)));
     duo.appendChild(makeFormColumn(cvE, '✨ Evolucionada', '#88ffcc', formStatsLine(idx, EVOLVE_LEVEL)));
     node.appendChild(duo);
     jobs.push(catPortrait(idx, cvN, 1, false));
     jobs.push(catPortrait(idx, cvE, EVOLVE_LEVEL, true));
     body.innerHTML =
-      `<div class="best-name">${UNIT_EMOJI[idx]} ${u.name} <span class="best-tag" style="border-color:${r.color};color:${r.color}">${r.name}</span>${unitLevels[idx] >= EVOLVE_LEVEL ? ' <span class="best-tag">✨</span>' : ''}${isDevMode() ? ' <span class="best-tag" style="color:#ff88ff">🔧 DEV</span>' : ''}</div>` +
-      `<div class="sb-info">${troopLine(idx)}</div>` +
-      `<div class="sb-info" style="font-style:italic;opacity:.8">"${TROOP_LORE[idx] || ''}"</div>` +
-      `<div class="sb-info">Nivel actual: ${unitLevels[idx]}/${unitLevelCap()} · Forma en uso: ${formIsEvo(idx) ? '✨ Evolucionada' : '🐱 Normal'}</div>`;
+      '<div class="best-name">' + (UNIT_EMOJI[idx] || '🐱') + ' ' + u.name + ' <span class="best-tag" style="border-color:' + r.color + ';color:' + r.color + '">' + r.name + '</span>' + (unitLevels[idx] >= EVOLVE_LEVEL ? ' <span class="best-tag">✨</span>' : '') + (isDevMode() ? ' <span class="best-tag" style="color:#ff88ff">🔧 DEV</span>' : '') + '</div>' +
+      '<div class="sb-info">' + troopStatsLine(idx) + '</div>' +
+      '<div class="sb-info" style="font-style:italic;opacity:.8">"' + (TROOP_LORE[idx] || '') + '"</div>' +
+      '<div class="sb-info">Nivel actual: ' + unitLevels[idx] + '/' + unitLevelCap() + ' · Forma en uso: ' + (formIsEvo(idx) ? '✨ Evolucionada' : ' Normal') + '</div>';
   } else {
     node.appendChild(lockedThumb());
     body.innerHTML =
-      `<div class="best-name locked">🔒 ???</div>` +
-      `<div class="sb-info locked">${unlockLabel(idx)}</div>` +
-      `<div class="sb-info locked">Desbloquéala para ver sus dos formas</div>`;
+      '<div class="best-name locked">🔒 ???</div>' +
+      '<div class="sb-info locked">' + unlockLabel(idx) + '</div>' +
+      '<div class="sb-info locked">Desbloquéala para ver sus dos formas</div>';
   }
   node.appendChild(body);
   return node;
 }
 
+// v65: enemyEntry NUNCA devuelve null, incluye leyenda
 function enemyEntry(id) {
   const t = objById(id);
   const s = isDevMode() ? (seen[id] || { n: 0, first: '[DEV]' }) : seen[id];
@@ -444,30 +432,29 @@ function enemyEntry(id) {
     node.appendChild(cv);
     jobs.push(enemyPortrait(id, cv));
     body.innerHTML =
-      `<div class="best-name">${t.name} <span class="best-tag">${TYPE_CHIP[t.type] || ''}</span>${isDevMode() ? ' <span class="best-tag" style="color:#ff88ff">🔧 DEV</span>' : ''}</div>` +
-      `<div class="sb-info">HP:${t.hp} · DMG:${t.dmg} · SPD:${t.speed}${t.reward ? ' · 💰' + t.reward : ''}</div>` +
-      `<div class="sb-info">${isDevMode() && !seen[id] ? '🔧 [DEV: visible]' : ('👁 Visto ' + s.n + '× · 1ª vez: ' + (s.first || '—'))}</div>`;
+      '<div class="best-name">' + t.name + ' <span class="best-tag">' + (TYPE_CHIP[t.type] || '') + '</span>' + (isDevMode() ? ' <span class="best-tag" style="color:#ff88ff">🔧 DEV</span>' : '') + '</div>' +
+      '<div class="sb-info">HP:' + t.hp + ' · DMG:' + t.dmg + ' · SPD:' + t.speed + (t.reward ? ' · 💰' + t.reward : '') + '</div>' +
+      '<div class="sb-info">' + (isDevMode() && !seen[id] ? ' [DEV: visible]' : ('👁 Visto ' + s.n + '× · 1ª vez: ' + (s.first || '—'))) + '</div>';
   } else {
     node.appendChild(lockedThumb());
     body.innerHTML =
-      `<div class="best-name locked">❓ ???</div>` +
-      `<div class="sb-info locked">${TYPE_CHIP[t.type] || 'Enemigo'}</div>` +
-      `<div class="sb-info locked">Aún no lo has encontrado</div>` +
-      `<div class="sb-info locked">📍 ${enemyHint(id)}</div>`;
+      '<div class="best-name locked"> ???</div>' +
+      '<div class="sb-info locked">' + (TYPE_CHIP[t.type] || 'Enemigo') + '</div>' +
+      '<div class="sb-info locked">Aún no lo has encontrado</div>' +
+      '<div class="sb-info locked">📍 ' + enemyHint(id) + '</div>';
   }
   node.appendChild(body);
   return node;
 }
 
-// v56: envoltorio anti-crash: si una entrada falla, se loguea y se
-// salta, pero el resto de la galería se renderiza igual.
+// v65: safeEntry para que un error no deje la lista en blanco
 function safeEntry(fn, arg) {
   try { return fn(arg); } catch (e) { console.error('📖 Bestiario: error en entrada', arg, e); return null; }
 }
 
 function render() {
   const info = document.getElementById('bestInfo');
-  if (info) info.innerHTML = `Enemigos: <b style="color:#88ccee">${seenCount()}/${allEnemyIds().length}</b> · Tropas: <b style="color:#88ff88">${troopCount()}/${NUM_UNITS}</b> · <span style="font-size:11px">${isDevMode() ? '🔧 MODO DEV: todo visible.' : 'Cada tropa muestra su forma 🐱 Normal y ✨ Evolucionada con sus stats. Se registra al aparecer en batalla (no en 🧪 sandbox).'}</span>`;
+  if (info) info.innerHTML = 'Enemigos: <b style="color:#88ccee">' + seenCount() + '/' + allEnemyIds().length + '</b> · Tropas: <b style="color:#88ff88">' + troopCount() + '/' + NUM_UNITS + '</b> · <span style="font-size:11px">' + (isDevMode() ? '🔧 MODO DEV: todo visible.' : 'Cada tropa muestra su forma 🐱 Normal y ✨ Evolucionada con sus stats. Se registra al aparecer en batalla (no en  sandbox).') + '</span>';
   if (bScreen) {
     bScreen.querySelectorAll('.best-tab').forEach(t => {
       t.classList.toggle('active', (t.dataset.mode || 'seen') === mode);
@@ -486,16 +473,26 @@ function render() {
   const evEnemies = [];
   for (const k in EVENT_ENEMY_TYPES) evEnemies.push(safeEntry(enemyEntry, 'ee:' + k));
 
+  // v65: enemigos de leyenda
+  const legendEnemies = [];
+  for (const k in LEGEND_ENEMY_TYPES) legendEnemies.push(safeEntry(enemyEntry, 'le:' + k));
+
   const bosses = [];
   for (let i = 0; i < BOSS_TYPES.length; i++) bosses.push(safeEntry(enemyEntry, 'b' + i));
   for (const k in EVENT_BOSS_TYPES) bosses.push(safeEntry(enemyEntry, 'eb:' + k));
 
-  section(bList, `🐱 TROPAS (${troops.filter(e => e).length}/${NUM_UNITS})`, troops);
-  section(bList, `👹 ENEMIGOS (${enemies.filter(e => e).length})`, enemies);
-  section(bList, `🎃 ENEMIGOS DE EVENTOS (${evEnemies.filter(e => e).length})`, evEnemies);
-  section(bList, `👑 JEFES (${bosses.filter(e => e).length})`, bosses);
+  // v65: jefes de leyenda
+  const legendBosses = [];
+  for (const k in LEGEND_BOSS_TYPES) legendBosses.push(safeEntry(enemyEntry, 'lb:' + k));
 
-  if (!troops.some(e => e) && !enemies.some(e => e) && !evEnemies.some(e => e) && !bosses.some(e => e)) {
+  section(bList, ' TROPAS (' + troops.filter(e => e).length + '/' + NUM_UNITS + ')', troops);
+  section(bList, '👹 ENEMIGOS (' + enemies.filter(e => e).length + ')', enemies);
+  section(bList, '🎃 ENEMIGOS DE EVENTOS (' + evEnemies.filter(e => e).length + ')', evEnemies);
+  section(bList, ' ENEMIGOS DE LEYENDA (' + legendEnemies.filter(e => e).length + ')', legendEnemies);
+  section(bList, ' JEFES (' + bosses.filter(e => e).length + ')', bosses);
+  section(bList, '🌟 JEFES DE LEYENDA (' + legendBosses.filter(e => e).length + ')', legendBosses);
+
+  if (!troops.some(e => e) && !enemies.some(e => e) && !evEnemies.some(e => e) && !legendEnemies.some(e => e) && !bosses.some(e => e) && !legendBosses.some(e => e)) {
     const h = document.createElement('div');
     h.className = 'best-section';
     h.textContent = 'Aún no has descubierto nada. ¡Sal a combatir!';
@@ -525,6 +522,14 @@ wrap('draw', () => {
 });
 
 // Arranque
+// Arranque
 buildUI();
 refreshButton();
+
+// v69: hook para que resetAllProgress() limpie también el bestiario en memoria
+window.resetBestiary = function () {
+  seen = {};
+  try { localStorage.removeItem(B_KEY); } catch (e) {}
+  refreshButton();
+};
 })();

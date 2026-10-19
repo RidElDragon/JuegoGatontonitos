@@ -1,18 +1,13 @@
 // ============================================================
-// 06c-legends-pixel.js — v59: ARTE de ETAPAS DE LEYENDA
-// · 12 enemigos nuevos + 6 jefes nuevos en pixel-art vectorial,
-//   usando los mismos helpers que 06b (flatBall, monHorn, etc.).
-// · NO reescribe 06b: captura su drawEnemy y lo extiende. Si el
-//   enemigo no es de leyenda, delega en el dispatcher original.
-// · v59 FIX: el wrapper se ASIGNA (window.drawEnemy = function...)
-//   en vez de declararse. Si se declarara, el hoisting pisaría el
-//   global antes de capturar _baseDrawEnemy → recursión infinita.
-// · Se carga DESPUÉS de 06b-enemies-pixel.js (ver index.html).
+// 06c-legends-pixel.js — v63: ARTE de ETAPAS DE LEYENDA
+// · 12 enemigos nuevos + 6 jefes nuevos en pixel-art vectorial.
+// · v59 FIX: el wrapper usa window.drawEnemy = function...
+//   para evitar hoisting que causaba recursión infinita.
+// · Se carga DESPUÉS de 06b-enemies-pixel.js.
 // ============================================================
-const _baseDrawEnemy = drawEnemy; // captura el dispatcher original de 06b
+const _baseDrawEnemy = drawEnemy;
 
 // -------------------- ENEMIGOS DE LEYENDA --------------------
-// --- Zona 1: Ruinas Ancestrales ---
 function drawLegendGargoyle(o){ o.line='#3a3a4a'; o.eyeColor='#ffe14d'; o.pupil='#3a2a00';
 const flap=Math.sin(frameCount*0.25)*6;
 drawCreatureBase(o,{ bodyColor:'#8a8a9a', bodyColor2:'#55556a', headColor:'#9a9aaa', line:'#3a3a4a',
@@ -35,7 +30,6 @@ flatPoly([[0,o.headY-o.headR-8],[3,o.headY-o.headR],[0,o.headY-o.headR+2],[-3,o.
 ctx.fillStyle='#6a5a2a'; catRoundRect(12,-6,10,16,3); ctx.fill(); ctx.strokeStyle='#3a2a10'; ctx.lineWidth=2; ctx.stroke();
 ctx.fillStyle='#ffd700'; ctx.beginPath(); ctx.arc(17,2,3,0,Math.PI*2); ctx.fill(); } }); }
 
-// --- Zona 2: Caldera del Magma ---
 function drawLegendMagmaSlime(o){ o.line='#5a1100'; o.eyeColor='#ffee88'; o.pupil='#882200'; o.angry=false;
 drawCreatureBase(o,{ noLegs:true, noBelly:true, noHead:true, line:'#5a1100',
 extra:function(){
@@ -56,7 +50,6 @@ ctx.fillStyle='rgba(255,140,40,0.5)';
 for(let i=0;i<3;i++){ const t=(frameCount*0.06+i*0.7)%2; ctx.beginPath(); ctx.arc(10+i*4,4+t*6,2-(i%2),0,Math.PI*2); ctx.fill(); } },
 ears:function(){ for(const s of [1,-1]) flatPoly([[s*5,-15],[s*10,-24],[s*8,-12]],'#ff9955',CAT_LINE,2); } }); }
 
-// --- Zona 3: Islas Flotantes ---
 function drawLegendHarpy(o){ o.line='#225577'; o.eyeColor='#88eeff'; o.pupil='#114455';
 const flap=Math.sin(frameCount*0.22)*7;
 drawCreatureBase(o,{ bodyColor:'#aaddff', bodyColor2:'#4488aa', headColor:'#cfeeff', line:'#225577',
@@ -84,7 +77,6 @@ ctx.strokeStyle='rgba(220,240,255,0.8)'; ctx.lineWidth=2; ctx.lineCap='round';
 for(let i=0;i<4;i++){ ctx.beginPath(); ctx.moveTo(-8+i*4,-12); ctx.quadraticCurveTo(2+i*4,-18+Math.sin(frameCount*0.15+i)*2,10+i*5,-14+i*2); ctx.stroke(); }
 ctx.lineCap='butt'; } }); }
 
-// --- Zona 4: Fosa Abisal ---
 function drawLegendAngler(o){ o.line='#0a1a33'; o.eyeColor='#ffee66'; o.pupil='#332200';
 const lure=Math.sin(frameCount*0.1)*3;
 drawCreatureBase(o,{ noLegs:true, bodyColor:'#334466', bodyColor2:'#112233', headColor:'#3a4a70', line:'#0a1a33',
@@ -112,7 +104,6 @@ for(const s of [1,-1]){ ctx.strokeStyle='#993333'; ctx.lineWidth=2.4; ctx.beginP
 ctx.fillStyle='#ffee44'; ctx.beginPath(); ctx.arc(s*6,o.headY-13,2.4,0,Math.PI*2); ctx.fill();
 ctx.fillStyle='#442200'; ctx.beginPath(); ctx.arc(s*6,o.headY-13,1,0,Math.PI*2); ctx.fill(); } } }); }
 
-// --- Zona 5: Fábrica de Engranajes ---
 function drawLegendGearSpider(o){ o.line='#223344';
 const legA=Math.sin(o.walk*2)*2.4;
 drawCreatureBase(o,{ noLegs:true, noHead:true, noBelly:true, line:'#223344',
@@ -146,7 +137,6 @@ ctx.beginPath(); ctx.arc(8,o.headY-o.headR-12-puff*8,4+puff*3,0,Math.PI*2); ctx.
 o.eyeX=4.6; o.eyeY=-14; o.eyeColor='#ffee88'; o.pupil='#554400'; o.angry=false;
 creatureEye(1,o); creatureEye(-1,o); } }); }
 
-// --- Zona 6: Umbral del Vacío ---
 function drawLegendVoidEye(o){ o.line='#220044';
 const pulse=1+Math.sin(frameCount*0.12)*0.08;
 drawCreatureBase(o,{ noLegs:true, noHead:true, noBelly:true, line:'#220044',
@@ -303,8 +293,7 @@ const LEGEND_DRAW = {
   'B:machinegod': drawBossMachineGod,
   'B:voidmonarch':drawBossVoidMonarch,
 };
-// v59 FIX: ASIGNACIÓN, no declaración. Así _baseDrawEnemy conserva el
-// dispatcher de 06b y no hay recursión infinita.
+// v59 FIX: ASIGNACIÓN (no declaración) para evitar hoisting y recursión infinita
 window.drawEnemy = function (e, opts) {
   const fn = LEGEND_DRAW[enemyKind(e)];
   if (!fn) { _baseDrawEnemy(e, opts); return; }
@@ -333,7 +322,7 @@ window.drawEnemy = function (e, opts) {
     ctx.fillStyle = '#ff5555'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
     ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.lineJoin = 'round';
     ctx.strokeText('👑 ' + e.name, e.x, e.y - 50 * scale + bounce);
-    ctx.fillText('👑 ' + e.name, e.x, e.y - 50 * scale + bounce);
+    ctx.fillText(' ' + e.name, e.x, e.y - 50 * scale + bounce);
     if (e.hp <= e.maxHp * 0.5) {
       ctx.fillStyle = '#ffaa00'; ctx.font = 'bold 10px Arial';
       ctx.strokeText('🛡️ Inmune al cañón', e.x, e.y - 38 * scale + bounce);
