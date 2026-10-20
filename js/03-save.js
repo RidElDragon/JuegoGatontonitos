@@ -51,6 +51,7 @@ function applyMetaObj(m) {
   coinBonusLevel   = clamp(m.coinBonusLevel || 0, 0, COIN_BONUS_MAX);
   ticketsNormal = (typeof m.ticketsNormal === 'number' && m.ticketsNormal >= 0) ? m.ticketsNormal : 3;
   ticketsRare = (typeof m.ticketsRare === 'number' && m.ticketsRare >= 0) ? m.ticketsRare : 1;
+  ticketsEvent = (typeof m.ticketsEvent === 'number' && m.ticketsEvent >= 0) ? m.ticketsEvent : 1;
   baseLevel = clamp(m.baseLevel || 0, 0, BASE_GACHA_MAX);
   if (Array.isArray(m.gachaLevels)) { for (let i = 0; i < NUM_UNITS; i++) gachaLevels[i] = clamp(m.gachaLevels[i] || 0, 0, GACHA_LVL_MAX); }
   if (Array.isArray(m.gachaUnlocked)) { for (let i = 0; i < NUM_UNITS; i++) gachaUnlocked[i] = !!m.gachaUnlocked[i]; }
@@ -63,7 +64,7 @@ function saveMeta() {
   const obj = {
     coins, unitLevels: unitLevels.slice(), incomeLevel,
     cannonDmgLevel, cannonRangeLevel, cannonCdLevel, coinBonusLevel,
-    ticketsNormal, ticketsRare, baseLevel,
+    ticketsNormal, ticketsRare, ticketsEvent, baseLevel,
     gachaLevels: gachaLevels.slice(), gachaUnlocked: gachaUnlocked.slice()
   };
   if (!metaObjIsValid(obj)) {
@@ -250,7 +251,7 @@ function resetAllProgress() {
   storyProgress = 0;
   eventProgress = {};
   legendProgress = 0;
-  ticketsNormal = 3; ticketsRare = 1; baseLevel = 0;
+  ticketsNormal = 3; ticketsRare = 1; ticketsEvent = 1; baseLevel = 0;
   gachaLevels.fill(0); gachaUnlocked.fill(false);
   loadout = [0];
   tempLoadout = [0];

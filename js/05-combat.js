@@ -391,6 +391,7 @@ function nextLevel() {
   } else if (gameMode === 'event') {
     const ev = EVENTS[currentEventId];
     const prog = eventProgress[currentEventId] || 0;
+    ticketsEvent++;   // v68: +1 ticket de evento por primer claro
     if (eventLevelIdx + 1 < ev.levels.length && eventLevelIdx + 1 <= prog) startEvent(currentEventId, eventLevelIdx + 1);
     else showEvents();
   } else if (gameMode === 'legend') {

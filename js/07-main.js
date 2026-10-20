@@ -31,6 +31,6 @@ window.onload = function() {
   loadout = loadLoadout();
   tempLoadout = [...loadout];
   baseMeta = snapshotMeta();
-  showMenu();
+  showTitle();
   loop();
 };

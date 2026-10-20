@@ -23,6 +23,7 @@ let legendProgress = 0;
 // v63: gacha
 let ticketsNormal = 3;
 let ticketsRare = 1;
+let ticketsEvent = 1;   // v68: tickets de banner de evento
 let baseLevel = 0;
 const gachaLevels = new Array(NUM_UNITS).fill(0);
 const gachaUnlocked = new Array(NUM_UNITS).fill(false);
@@ -182,6 +183,7 @@ function snapshotMeta() {
     coinBonusLevel,
     ticketsNormal,
     ticketsRare,
+    ticketsEvent,
     baseLevel,
     gachaLevels: gachaLevels.slice(),
     gachaUnlocked: gachaUnlocked.slice()
@@ -198,6 +200,7 @@ function restoreMeta(s) {
   coinBonusLevel = s.coinBonusLevel || 0;
   ticketsNormal = (typeof s.ticketsNormal === 'number') ? s.ticketsNormal : 3;
   ticketsRare = (typeof s.ticketsRare === 'number') ? s.ticketsRare : 1;
+  ticketsEvent = (typeof s.ticketsEvent === 'number') ? s.ticketsEvent : 1;
   baseLevel = s.baseLevel || 0;
   if (Array.isArray(s.gachaLevels)) for (let i = 0; i < NUM_UNITS; i++) gachaLevels[i] = s.gachaLevels[i] || 0;
   if (Array.isArray(s.gachaUnlocked)) for (let i = 0; i < NUM_UNITS; i++) gachaUnlocked[i] = !!s.gachaUnlocked[i];

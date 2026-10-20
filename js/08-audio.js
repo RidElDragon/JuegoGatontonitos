@@ -299,9 +299,22 @@ const AudioSys = (function () {
     }
   }
 
+  // v69: controles de sonido expuestos para el modal de Ajustes
+window.audioControls = {
+  settings: settings,
+  setMusic: function (v) { settings.music = clamp01(v / 100); applyVolumes(); saveSettings(); },
+  setSfx: function (v) { settings.sfx = clamp01(v / 100); applyVolumes(); saveSettings(); },
+  muteMusic: function () { settings.musicMuted = !settings.musicMuted; applyVolumes(); saveSettings(); },
+  muteSfx: function () { settings.sfxMuted = !settings.sfxMuted; applyVolumes(); saveSettings(); },
+  test: function () { unlock(); sfx('coin'); setTimeout(function () { sfx('upgrade'); }, 150); }
+};
+function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+
   // Arranque
   injectButtons();
   poll();
 
   return { unlock, setMusic, sfx, openOptions, settings };
 })();
+// v75: exponer AudioSys globalmente para que 04-ui pueda cambiar la música
+window.AudioSys = AudioSys;

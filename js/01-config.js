@@ -2,7 +2,7 @@
 // 01-config.js — Constantes y datos ESTÁTICOS del juego
 // Si añades unidades/enemigos/jefes/eventos/niveles, es AQUÍ.
 // ============================================================
-const COIN = '';
+const COIN = 'XP';
 const GROUND_Y = 215;
 const ENEMY_BASE_X = 850;
 const MY_BASE_X = 50;
@@ -304,4 +304,128 @@ for (let z = 0; z < 6; z++) {
       coins: 8000 + i * 1200 + z * 4000,
     });
   }
+  // v68: banner de evento (unidades exclusivas de eventos)
+const GACHA_EVENT_POOL = [7, 8, 10, 11, 12];
 }
+// ============================================================
+// v77: TESOROS + GAMATOTO
+// ============================================================
+
+// --- TESOROS: uno por cada nivel de historia (1-45) ---
+// Cada tesoro: { id, name, zone, level, set (id del combo o null para sueltos) }
+const TREASURES = [];
+const TREASURE_DEFS = [
+  // Parte 1 - Praderas del Inicio
+  // Combo "Pradera Verde" (1-7)
+  { id:'t01', name:'Hoja de Trébol',    zone:1, level:1,  set:'set_prairie' },
+  { id:'t02', name:'Pluma de Gorrión',  zone:1, level:2,  set:'set_prairie' },
+  { id:'t03', name:'Roca de Río',       zone:1, level:3,  set:'set_prairie' },
+  { id:'t04', name:'Flor Silvestre',    zone:1, level:4,  set:'set_prairie' },
+  { id:'t05', name:'Espina de Zarza',   zone:1, level:5,  set:'set_prairie' },
+  { id:'t06', name:'Gota de Rocío',     zone:1, level:6,  set:'set_prairie' },
+  { id:'t07', name:'Raíz Antigua',      zone:1, level:7,  set:'set_prairie' },
+  // Combo "Colinas del Alba" (8-14)
+  { id:'t08', name:'Cristal de Cuarzo', zone:1, level:8,  set:'set_hills' },
+  { id:'t09', name:'Pico de Cuervo',    zone:1, level:9,  set:'set_hills' },
+  { id:'t10', name:'Corteza de Roble',  zone:1, level:10, set:'set_hills' },
+  { id:'t11', name:'Semilla Dorada',    zone:1, level:11, set:'set_hills' },
+  { id:'t12', name:'Espora Mágica',     zone:1, level:12, set:'set_hills' },
+  { id:'t13', name:'Pluma de Búho',     zone:1, level:13, set:'set_hills' },
+  { id:'t14', name:'Hueso Pulido',      zone:1, level:14, set:'set_hills' },
+  // Tesoro suelto del jefe (15)
+  { id:'t15', name:'Corona de Dragón',  zone:1, level:15, set:null },
+
+  // Parte 2 - Tierras del Rey
+  // Combo "Corona Real" (16-22)
+  { id:'t16', name:'Cetro de Marfil',   zone:2, level:16, set:'set_crown' },
+  { id:'t17', name:'Pergamino Real',    zone:2, level:17, set:'set_crown' },
+  { id:'t18', name:'Gema Azul',         zone:2, level:18, set:'set_crown' },
+  { id:'t19', name:'Anillo de Plata',   zone:2, level:19, set:'set_crown' },
+  { id:'t20', name:'Moneda Antigua',    zone:2, level:20, set:'set_crown' },
+  { id:'t21', name:'Sello de Cera',     zone:2, level:21, set:'set_crown' },
+  { id:'t22', name:'Capa Púrpura',      zone:2, level:22, set:'set_crown' },
+  // Combo "Bosque Encantado" (23-29)
+  { id:'t23', name:'Varita de Hechicero',zone:2, level:23, set:'set_enchanted' },
+  { id:'t24', name:'Hoja Lunar',        zone:2, level:24, set:'set_enchanted' },
+  { id:'t25', name:'Raíz de Mandrágora',zone:2, level:25, set:'set_enchanted' },
+  { id:'t26', name:'Cristal Psíquico',  zone:2, level:26, set:'set_enchanted' },
+  { id:'t27', name:'Pluma de Fénix',    zone:2, level:27, set:'set_enchanted' },
+  { id:'t28', name:'Escama Dorada',     zone:2, level:28, set:'set_enchanted' },
+  { id:'t29', name:'Ojo de Halcón',     zone:2, level:29, set:'set_enchanted' },
+  // Tesoro suelto del jefe (30)
+  { id:'t30', name:'Cuerno Demoníaco',  zone:2, level:30, set:null },
+
+  // Parte 3 - Desierto Prohibido
+  // Combo "Oasis Perdido" (31-37)
+  { id:'t31', name:'Cactus Sagrado',    zone:3, level:31, set:'set_oasis' },
+  { id:'t32', name:'Arena de Oro',      zone:3, level:32, set:'set_oasis' },
+  { id:'t33', name:'Escarabajo Dorado', zone:3, level:33, set:'set_oasis' },
+  { id:'t34', name:'Pluma de Íbice',    zone:3, level:34, set:'set_oasis' },
+  { id:'t35', name:'Perla del Desierto',zone:3, level:35, set:'set_oasis' },
+  { id:'t36', name:'Agua Cristalina',   zone:3, level:36, set:'set_oasis' },
+  { id:'t37', name:'Flor de Loto',      zone:3, level:37, set:'set_oasis' },
+  // Combo "Tumba del Faraón" (38-44)
+  { id:'t38', name:'Ankh de Oro',       zone:3, level:38, set:'set_pharaoh' },
+  { id:'t39', name:'Ushabti de Piedra', zone:3, level:39, set:'set_pharaoh' },
+  { id:'t40', name:'Papiro Sagrado',    zone:3, level:40, set:'set_pharaoh' },
+  { id:'t41', name:'Esfinge Miniatura', zone:3, level:41, set:'set_pharaoh' },
+  { id:'t42', name:'Joya Escarlata',    zone:3, level:42, set:'set_pharaoh' },
+  { id:'t43', name:'Máscara Funeraria', zone:3, level:43, set:'set_pharaoh' },
+  { id:'t44', name:'Cáliz de Lapislázuli', zone:3, level:44, set:'set_pharaoh' },
+  // Tesoro suelto del jefe (45)
+  { id:'t45', name:'Lámpara Mágica',    zone:3, level:45, set:null },
+];
+
+// --- COMBOS DE TESOROS + TESOROS SUELTOS ---
+// Cada combo: { id, name, zone, treasureIds:[7], desc, effect }
+// effect: { kind:'unitHpMult'|'unitDmgMult'|'unitSpeedMult'|'baseHpFlat'|'cannonDmgFlat'|'unitAoeMult'|'allDmgMult', ...params }
+// La calidad del combo = la calidad MÁS BAJA de sus 7 tesoros.
+//   🥉 bronce=0 → mult 1.0 | 🥈 plata=1 → mult 1.5 | 🥇 oro=2 → mult 2.0
+const TREASURE_SETS = [
+  { id:'set_prairie',   name:'🌿 Pradera Verde',       zone:1,
+    treasureIds:['t01','t02','t03','t04','t05','t06','t07'],
+    desc:'+HP a tropas normales (Básico-Gigante)',
+    effect:{ kind:'unitHpMult', units:[0,1,2,3,4,5,6], base:0.10 } },
+  { id:'set_hills',     name:'⛰️ Colinas del Alba',    zone:1,
+    treasureIds:['t08','t09','t10','t11','t12','t13','t14'],
+    desc:'+DMG a tropas normales',
+    effect:{ kind:'unitDmgMult', units:[0,1,2,3,4,5,6], base:0.15 } },
+  { id:'set_crown',     name:'👑 Corona Real',         zone:2,
+    treasureIds:['t16','t17','t18','t19','t20','t21','t22'],
+    desc:'+HP máximo a tu base',
+    effect:{ kind:'baseHpFlat', base:300 } },
+  { id:'set_enchanted', name:'✨ Bosque Encantado',    zone:2,
+    treasureIds:['t23','t24','t25','t26','t27','t28','t29'],
+    desc:'+DMG a Mago y Arquero',
+    effect:{ kind:'unitDmgMult', units:[3,4], base:0.25 } },
+  { id:'set_oasis',     name:'🌵 Oasis Perdido',       zone:3,
+    treasureIds:['t31','t32','t33','t34','t35','t36','t37'],
+    desc:'+Velocidad a todas las tropas',
+    effect:{ kind:'unitSpeedMult', units:'all', base:0.20 } },
+  { id:'set_pharaoh',   name:'🏺 Tumba del Faraón',    zone:3,
+    treasureIds:['t38','t39','t40','t41','t42','t43','t44'],
+    desc:'+DMG a TODAS las tropas',
+    effect:{ kind:'allDmgMult', base:0.30 } },
+];
+
+// Tesoros sueltos de jefes (no forman combo, dan efecto al obtenerlos)
+const TREASURE_BOSS_EFFECTS = {
+  't15': { desc:'🐉 Corona de Dragón: +1 nivel de cañón gratis', effect:{ kind:'cannonDmgFlat', base:1 } },
+  't30': { desc:'😈 Cuerno Demoníaco: +20% daño en área a todas las tropas AOE', effect:{ kind:'unitAoeMult', units:[4,9,12], base:0.20 } },
+  't45': { desc:'🪔 Lámpara Mágica: +2 niveles de cañón gratis', effect:{ kind:'cannonDmgFlat', base:2 } },
+};
+
+// Calidad de tesoros
+const TREASURE_QUALITY_NAMES = ['🥉 Bronce', '🥈 Plata', '🥇 Oro'];
+const TREASURE_QUALITY_COLORS = ['#cd7f32', '#c0c0c0', '#ffd700'];
+const TREASURE_QUALITY_MULT = [1.0, 1.5, 2.0];
+// Probabilidades al obtener (al primer claro)
+const TREASURE_QUALITY_CHANCE = [0.55, 0.32, 0.13]; // bronce 55%, plata 32%, oro 13%
+
+// --- GAMATOTO ---
+const GAMATOTO_DURATIONS = [
+  { hours:1,  label:'1 hora',  xpMin:200,  xpMax:600,   rewards:[{t:'normal',ch:0.30},{t:'none',ch:0.70}] },
+  { hours:3,  label:'3 horas', xpMin:800,  xpMax:2000,  rewards:[{t:'normal',ch:0.55},{t:'rare',ch:0.25},{t:'none',ch:0.20}] },
+  { hours:8,  label:'8 horas', xpMin:2500, xpMax:6000,  rewards:[{t:'rare',ch:0.60},{t:'event',ch:0.25},{t:'normal',ch:0.15}] },
+  { hours:24, label:'24 horas',xpMin:8000, xpMax:20000, rewards:[{t:'event',ch:0.70},{t:'rare',ch:0.25},{t:'rare2',ch:0.05}] },
+];

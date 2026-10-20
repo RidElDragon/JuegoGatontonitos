@@ -75,8 +75,7 @@ h2 { margin:8px; font-size:20px; }
 #resultOverlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; z-index:100; }
 .result-box { background:#222233; padding:30px 40px; border-radius:12px; text-align:center; border:3px solid #ffd700; }
 .result-box button { margin:6px; font-size:14px; padding:10px 18px; }
-
-/* ---------- BESTIARIO (galería deslizable con retratos) ---------- */
+/* ---------- BESTIARIO ---------- */
 .bestiary-screen { height:100vh; min-height:100vh; padding:0; gap:0; justify-content:flex-start; overflow:hidden; }
 .best-head { flex:0 0 auto; width:100%; padding:8px 14px 10px; background:rgba(0,0,0,0.35); border-bottom:2px solid #445566; display:flex; flex-direction:column; align-items:center; gap:6px; }
 .best-head h2 { margin:2px 0; }
@@ -95,3 +94,59 @@ h2 { margin:8px; font-size:20px; }
 .best-name.locked { color:#999; }
 .best-tag { font-size:9px; font-weight:bold; color:#b8c0c8; border:1px solid #556677; border-radius:4px; padding:0 4px; white-space:nowrap; }
 .best-foot { flex:0 0 auto; width:100%; padding:10px; background:rgba(0,0,0,0.35); border-top:2px solid #445566; }
+/* ---------- v69: TÍTULO / AJUSTES / CARRUSEL / HUB ---------- */
+#versionTag { position:fixed; top:8px; right:12px; font-size:11px; color:#8899aa; z-index:60; }
+.game-title { font-size:56px; margin:10px; color:#fff; text-shadow:0 3px 0 #000; }
+.big-yellow { background:linear-gradient(135deg,#ffd21f,#f0b400); color:#111; border:3px solid #000; border-radius:14px; font-size:22px; padding:12px 60px; min-width:340px; font-weight:bold; }
+.close-x { position:absolute; top:14px; right:18px; width:46px; height:46px; border-radius:50%; background:linear-gradient(135deg,#ffd21f,#f0b400); border:3px solid #000; color:#111; font-size:20px; font-weight:bold; z-index:5; }
+.float-x { position:fixed; }
+#settingsOverlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); display:flex; align-items:center; justify-content:center; z-index:150; }
+.settings-box { width:660px; max-width:94vw; background:#8a8a8a; border:3px solid #000; border-radius:14px; overflow:hidden; position:relative; }
+.settings-head { background:#d9d9d9; padding:10px; border-bottom:3px solid #000; position:relative; }
+.settings-head h2 { margin:0; color:#111; }
+.settings-head .close-x { top:8px; right:10px; width:40px; height:40px; font-size:17px; }
+.settings-body { padding:14px 18px; color:#111; }
+.settings-foot { background:#d9d9d9; height:34px; border-top:3px solid #000; }
+.set-row { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.set-row.center { justify-content:center; }
+.set-label { font-weight:bold; color:#111; }
+.set-btn { border:2px solid #000; border-radius:10px; font-weight:bold; padding:8px 14px; color:#111; }
+.set-btn.yellow { background:#f8f832; }
+.set-btn.purple { background:#b060c8; color:#fff; }
+.set-btn.blue { background:#2c2ce0; color:#fff; }
+.set-sep { border:none; border-top:3px solid #111; margin:12px 0; }
+.set-title { text-align:center; color:#111; margin:6px 0 10px; }
+.set-slider { display:block; color:#111; font-size:13px; margin:8px 40px; font-weight:bold; }
+.set-slider input { width:100%; accent-color:#2c2ce0; }
+.carousel-screen { justify-content:flex-start; padding-top:40px; }
+.carousel-wrap { display:flex; align-items:center; gap:8px; width:100%; max-width:1200px; }
+.carousel-band { flex:1; background:rgba(150,150,150,0.30); border-radius:16px; padding:26px 12px; display:flex; gap:14px; overflow:hidden; justify-content:flex-start; }
+.carousel-arrow { flex:0 0 54px; height:64px; font-size:26px; background:#9adcf0; border:3px solid #000; border-radius:8px; color:#111; }
+.mode-card { flex:0 0 210px; height:150px; border:3px solid #000; border-radius:6px; font-size:17px; font-weight:bold; color:#111; }
+.chapter-card { flex:0 0 230px; height:150px; border:3px solid #000; border-radius:6px; position:relative; font-weight:bold; color:#111; font-size:15px; }
+.chapter-card .ch-num { position:absolute; top:4px; left:6px; font-size:10px; }
+.chapter-card.back-card { background:linear-gradient(135deg,#ffd21f,#f0b400); flex:0 0 130px; }
+.hub-screen { min-height:100vh; display:flex; flex-direction:column; }
+.hub-top { background:#b0764a; border-bottom:3px solid #000; display:flex; align-items:center; justify-content:space-between; padding:8px 14px; color:#111; font-weight:bold; font-size:16px; }
+.hub-xp b { background:#f0e6b0; border:2px solid #000; border-radius:8px; padding:2px 16px; margin-left:6px; color:#c8860a; font-size:18px; }
+.hub-body { flex:1; position:relative; padding:16px; text-align:left; }
+.hub-pill { display:inline-block; background:#b0764a; border:3px solid #000; border-radius:16px; padding:4px 12px; color:#111; font-weight:bold; font-size:13px; }
+.hub-pill b { background:#111; color:#ffd21f; border-radius:8px; padding:1px 12px; margin-left:6px; }
+.hub-col { display:flex; flex-direction:column; gap:12px; align-items:flex-start; margin-top:18px; }
+.hub-col .big-yellow { min-width:260px; font-size:18px; padding:10px 30px; }
+.hub-icons { display:flex; gap:8px; margin-top:6px; }
+.icon-btn { width:52px; height:44px; border:2px solid #000; border-radius:8px; background:#fff; color:#111; font-size:20px; }
+.icon-btn:disabled { background:#ddd; opacity:0.6; }
+.hub-gacha { position:absolute; left:50%; bottom:26px; transform:translateX(-50%); display:flex; gap:14px; align-items:center; }
+.gacha-group { display:flex; gap:6px; background:#b0764a; border:3px solid #000; border-radius:12px; padding:6px; }
+.gacha-btn { border:2px solid #000; border-radius:10px; font-weight:bold; padding:8px 14px; color:#111; font-size:13px; }
+.gacha-btn.white { background:#fff; }
+.gacha-btn.green { background:#2ecc71; }
+.gacha-btn.yellow { background:#ffd21f; }
+.gacha-btn.purple { background:#a86cc8; color:#fff; border-radius:12px; padding:10px 16px; }
+.hub-back { position:absolute; left:14px; bottom:14px; width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,#ffd21f,#f0b400); border:3px solid #000; font-size:24px; color:#111; }
+.hub-bottom { background:#b0764a; border-top:3px solid #000; height:26px; }
+/* ---------- v70: FPS dentro del borde inferior; versión fuera de la barra XP ---------- */
+#fps { position:fixed; top:auto; bottom:3px; right:8px; background:rgba(0,0,0,0.7); padding:2px 8px; border-radius:5px; font-size:10px; z-index:50; }
+#versionTag { position:fixed; top:8px; right:12px; font-size:11px; color:#8899aa; z-index:60; }
+body.in-battle #versionTag { top:auto; bottom:32px; right:8px; }

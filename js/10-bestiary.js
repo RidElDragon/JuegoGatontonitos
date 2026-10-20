@@ -1,11 +1,15 @@
 // ============================================================
-// 10-bestiary.js — v65: BESTIARIO con retratos EN VIVO (2 formas)
-// · v65 FIX: ahora registra y muestra enemigos/jefes de ETAPAS
-//   DE LEYENDA (LEGEND_ENEMY_TYPES y LEGEND_BOSS_TYPES).
-// · v56 FIX: troopEntry/enemyEntry NUNCA devuelven null.
-// · v56: cada entrada va en try/catch: un error nunca deja la
-//   lista en blanco de nuevo (se loguea y se salta esa entrada).
-// · MODO DEV: todo visible con indicador 🔧 DEV.
+// 10-bestiary.js — v70: BIBLIOTECA (menú del libro) + galerías
+// · v70: · El icono 📖 del hub abre un MENÚ INTERMEDIO con 3 opciones:
+//          🐱 Gatopedia (bestiario de gatos) · 👹 Bestiario (enemigos)
+//          · 💎 Tesoros (placeholder, mecánica futura).
+//        · Cada galería conserva pestañas ✅ Descubiertos / 📚 Todos
+//          y su botón ⬅ vuelve al menú del libro (no al hub).
+// · v69: window.resetBestiary() para el Reinicio Total.
+// · v65: enemigos/jefes de LEYENDA registrados y mostrados.
+// · v56: entradas a prueba de null + safeEntry (nunca lista en blanco).
+// · MODO DEV: todo visible con tag 🔧 DEV · no registra apariciones.
+// · Retratos EN VIVO compatibles con setRenderContext / sceneCanvas.
 // ============================================================
 (function () {
 const B_KEY = 'catBattleBestiary';
@@ -21,13 +25,11 @@ function idOf(t) {
   i = BOSS_TYPES.indexOf(t); if (i >= 0) return 'b' + i;
   for (const k in EVENT_ENEMY_TYPES) if (EVENT_ENEMY_TYPES[k] === t) return 'ee:' + k;
   for (const k in EVENT_BOSS_TYPES) if (EVENT_BOSS_TYPES[k] === t) return 'eb:' + k;
-  // v65: enemigos y jefes de Etapas de Leyenda
   for (const k in LEGEND_ENEMY_TYPES) if (LEGEND_ENEMY_TYPES[k] === t) return 'le:' + k;
   for (const k in LEGEND_BOSS_TYPES) if (LEGEND_BOSS_TYPES[k] === t) return 'lb:' + k;
   return null;
 }
 function objById(id) {
-  // v65: leyenda primero
   if (id.startsWith('le:')) return LEGEND_ENEMY_TYPES[id.slice(3)];
   if (id.startsWith('lb:')) return LEGEND_BOSS_TYPES[id.slice(3)];
   if (id.startsWith('ee:')) return EVENT_ENEMY_TYPES[id.slice(3)];
@@ -41,7 +43,6 @@ function allEnemyIds() {
   for (const k in EVENT_ENEMY_TYPES) ids.push('ee:' + k);
   for (let i = 0; i < BOSS_TYPES.length; i++) ids.push('b' + i);
   for (const k in EVENT_BOSS_TYPES) ids.push('eb:' + k);
-  // v65: leyenda
   for (const k in LEGEND_ENEMY_TYPES) ids.push('le:' + k);
   for (const k in LEGEND_BOSS_TYPES) ids.push('lb:' + k);
   return ids;
@@ -65,12 +66,10 @@ function record(t) {
   if (!seen[id]) seen[id] = { n: 0, first: ctxName };
   seen[id].n++;
   save();
-  refreshButton();
 }
 
 // ---------------- Pistas de aparición ----------------
 function enemyHint(id) {
-  // v65: pistas para leyenda
   if (id.startsWith('le:') || id.startsWith('lb:')) {
     const k = id.slice(3);
     for (const L of LEGEND_STAGES) {
@@ -99,9 +98,9 @@ function enemyHint(id) {
 }
 
 const TYPE_CHIP = {
-  melee: '️ Cuerpo a cuerpo', ranged: ' A distancia', roboRanged: ' A distancia',
+  melee: '⚔️ Cuerpo a cuerpo', ranged: '🏹 A distancia', roboRanged: '🔫 A distancia',
   aoe: '💥 Daño en área', healer: '💚 Curación', poison: '☠️ Veneno',
-  flying: '🪽 Volador', boss: ' JEFE'
+  flying: '🪽 Volador', boss: '👑 JEFE'
 };
 const TROOP_LORE = [
   'El recluta de siempre: barato, valiente y maúlla primero.',
@@ -149,7 +148,6 @@ const srcCache = {};
 function useScenePipeline() {
   return (typeof sceneCanvas !== 'undefined' && !!sceneCanvas);
 }
-
 function measureFigure() {
   let data = null;
   const ox = WIN_CX * PSCALE - WIN * PSCALE / 2, oy = WIN_CY * PSCALE - WIN * PSCALE / 2;
@@ -171,7 +169,6 @@ function measureFigure() {
   const side = Math.max(maxx - minx, maxy - miny) + PAD * 2 * PSCALE;
   return [cx - side / 2, cy - side / 2, side, side];
 }
-
 function drawFigure(job) {
   const prevF = frameCount;
   frameCount = galleryFrame;
@@ -213,7 +210,6 @@ function drawFigure(job) {
     frameCount = prevF;
   }
 }
-
 function refreshGallery() {
   const vh = window.innerHeight || 800;
   for (let i = 0; i < jobs.length; i++) {
@@ -226,20 +222,17 @@ function refreshGallery() {
     drawFigure(job);
   }
 }
-
 function makeThumb() {
   const cv = document.createElement('canvas');
   cv.className = 'best-thumb';
   cv.width = BACK; cv.height = BACK;
   return cv;
 }
-
 function portraitJob(key, draw, cv) {
   let tctx = null;
   try { tctx = cv.getContext('2d'); } catch (e) {}
   return { key: key, draw: draw, tctx: tctx, w: BACK, h: BACK, src: null };
 }
-
 function catPortrait(idx, cv, level, evo) {
   const u = CAT_BASE[idx];
   return portraitJob('c' + idx + (evo ? 'e' : 'n'), function (x, y) {
@@ -251,13 +244,11 @@ function catPortrait(idx, cv, level, evo) {
     }, { hideHud: true });
   }, cv);
 }
-
 function enemyPortrait(id, cv) {
   const t = objById(id);
   const isBoss = id[0] === 'b' || id.startsWith('eb:') || id.startsWith('lb:');
   let type;
-  if (id.startsWith('ee:') || id.startsWith('eb:')) type = id.slice(3);
-  else if (id.startsWith('le:') || id.startsWith('lb:')) type = id.slice(3);
+  if (id.startsWith('ee:') || id.startsWith('eb:') || id.startsWith('le:') || id.startsWith('lb:')) type = id.slice(3);
   else type = +id.slice(1);
   return portraitJob('e' + id, function (x, y) {
     drawEnemy({
@@ -265,12 +256,10 @@ function enemyPortrait(id, cv) {
       hp: 1, maxHp: 1, color: t.color, color2: t.color2,
       unitType: t.type, isBoss: isBoss, bossStyle: t.bossStyle || null,
       desertStyle: t.desertStyle || null, xmasStyle: t.xmasStyle || null,
-      legendStyle: t.legendStyle || null,
       name: t.name, walkCycle: 0.9, attackAnim: 0, spawnAnim: 0, hurtFlash: 0, poisonTimer: 0
     }, { hideHud: true });
   }, cv);
 }
-
 function formStatsLine(idx, lvl) {
   const u = CAT_BASE[idx];
   const s = unitStatsAt(idx, lvl);
@@ -279,9 +268,10 @@ function formStatsLine(idx, lvl) {
   return line;
 }
 
-// ---------------- Pantalla ----------------
-let bBtn = null, bScreen = null, bList = null;
-let mode = 'seen';
+// ---------------- Estado de vistas ----------------
+let bookScreen = null, bScreen = null, bList = null, bTitle = null;
+let mode = 'seen';        // 'seen' | 'all'
+let view = 'enemies';     // 'cats' | 'enemies'
 
 function seenCount() {
   if (isDevMode()) return allEnemyIds().length;
@@ -293,22 +283,33 @@ function troopCount() {
   return n;
 }
 
+// ---------------- Construcción de pantallas ----------------
 function buildUI() {
-  const menu = document.getElementById('menuScreen');
-  if (menu) {
-    bBtn = document.createElement('button');
-    bBtn.className = 'menu-btn';
-    bBtn.style.background = 'linear-gradient(135deg, #66aacc, #225577)';
-    bBtn.onclick = showBestiary;
-    const resetBtn = menu.querySelector('.reset-all');
-    if (resetBtn) menu.insertBefore(bBtn, resetBtn); else menu.appendChild(bBtn);
-  }
+  // Menú del libro (📚) con las 3 puertas
+  bookScreen = document.createElement('div');
+  bookScreen.className = 'screen';
+  bookScreen.style.display = 'none';
+  bookScreen.innerHTML =
+    '<h2>📚 BIBLIOTECA GATUNA</h2>' +
+    '<div class="menu-info">Consulta todo lo que has descubierto en tus aventuras.</div>' +
+    '<button class="menu-btn" style="background:linear-gradient(135deg,#88ff88,#228822)" onclick="showGatopedia()">🐱 Gatopedia</button>' +
+    '<button class="menu-btn" style="background:linear-gradient(135deg,#ff8866,#aa2200)" onclick="showEnemyBook()">👹 Bestiario</button>' +
+    '<button class="menu-btn" style="background:linear-gradient(135deg,#ffd700,#aa7700);color:#221100" onclick="showTesoros()">💎 Tesoros</button>' +
+    '<button class="menu-btn" style="background:linear-gradient(135deg,#ffcc44,#886600);color:#221100" onclick="showAch()">🏆 Logros</button>' +
+    '<div class="best-foot"></div>';
+  const bf = bookScreen.querySelector('.best-foot');
+  const bb = document.createElement('button');
+  bb.className = 'back'; bb.textContent = '⬅ Volver'; bb.onclick = showMenu;
+  bf.appendChild(bb);
+  document.body.appendChild(bookScreen);
+
+  // Galería compartida (Gatopedia / Bestiario)
   bScreen = document.createElement('div');
   bScreen.className = 'screen bestiary-screen';
   bScreen.style.display = 'none';
   bScreen.innerHTML =
     '<div class="best-head">' +
-    '<h2 style="margin:2px">📖 BESTIARIO</h2>' +
+    '<h2 style="margin:2px" id="bestTitle">👹 BESTIARIO</h2>' +
     '<div class="menu-info" id="bestInfo"></div>' +
     '<div class="best-tabs">' +
     '<button class="best-tab" data-mode="seen">✅ Descubiertos</button>' +
@@ -317,6 +318,7 @@ function buildUI() {
     '<div class="best-list" id="bestList"></div>' +
     '<div class="best-foot"></div>';
   bList = bScreen.querySelector('#bestList');
+  bTitle = bScreen.querySelector('#bestTitle');
   const tabs = bScreen.querySelector('.best-tabs');
   if (tabs) {
     tabs.querySelectorAll('.best-tab').forEach(t => {
@@ -324,35 +326,56 @@ function buildUI() {
     });
   }
   const foot = bScreen.querySelector('.best-foot');
-  if (foot) {
-    const b = document.createElement('button');
-    b.className = 'back';
-    b.textContent = '⬅ Volver al menú';
-    b.onclick = showMenu;
-    foot.appendChild(b);
-  }
+  const b = document.createElement('button');
+  b.className = 'back'; b.textContent = '⬅ Volver a la Biblioteca'; b.onclick = showBookMenu;
+  foot.appendChild(b);
   document.body.appendChild(bScreen);
 }
 
-function refreshButton() {
-  if (bBtn) bBtn.textContent = '📖 Bestiario (' + seenCount() + '/' + allEnemyIds().length + ' enemigos · ' + troopCount() + '/' + NUM_UNITS + ' tropas)';
+// ---------------- Navegación ----------------
+function showBookMenu() {
+  hideScreens();
+  if (bookScreen) bookScreen.style.display = 'flex';
+  screen = 'bookmenu'; playing = false;
 }
-
-function showBestiary() {
+function showGatopedia() {
+  view = 'cats';
   hideScreens();
   if (bScreen) bScreen.style.display = 'flex';
   screen = 'bestiary'; playing = false;
+  if (bTitle) bTitle.textContent = '🐱 GATOPEDIA';
   render();
 }
-window.showBestiary = showBestiary;
+function showEnemyBook() {
+  view = 'enemies';
+  hideScreens();
+  if (bScreen) bScreen.style.display = 'flex';
+  screen = 'bestiary'; playing = false;
+  if (bTitle) bTitle.textContent = '👹 BESTIARIO';
+  render();
+}
+function showTesoros() {
+  setStatus('💎 Tesoros: mecánica que añadiremos más adelante', '#ffaa00');
+}
+// El icono 📖 del hub abre el menú del libro
+window.showBestiary = showBookMenu;
+window.showGatopedia = showGatopedia;
+window.showEnemyBook = showEnemyBook;
+window.showBookMenu = showBookMenu;
 
+// v69: hook para que resetAllProgress() limpie también en memoria
+window.resetBestiary = function () {
+  seen = {};
+  try { localStorage.removeItem(B_KEY); } catch (e) {}
+};
+
+// ---------------- Elementos de galería ----------------
 function lockedThumb() {
   const d = document.createElement('div');
   d.className = 'best-thumb best-thumb-locked';
   d.textContent = '❓';
   return d;
 }
-
 function section(list, title, entries) {
   const valid = entries.filter(e => !!e);
   if (!valid.length) return;
@@ -362,7 +385,6 @@ function section(list, title, entries) {
   list.appendChild(h);
   valid.forEach(e => list.appendChild(e));
 }
-
 function makeFormColumn(cv, label, labelColor, statsText) {
   const col = document.createElement('div');
   col.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px';
@@ -379,8 +401,6 @@ function makeFormColumn(cv, label, labelColor, statsText) {
   col.appendChild(st);
   return col;
 }
-
-// v65: troopEntry NUNCA devuelve null
 function troopEntry(idx) {
   const unlocked = isDevMode() || isUnitUnlocked(idx);
   if (!unlocked && mode === 'seen') return null;
@@ -389,23 +409,25 @@ function troopEntry(idx) {
   node.className = 'best-entry' + (unlocked ? '' : ' locked-entry');
   const body = document.createElement('div');
   body.className = 'best-body';
-
   if (unlocked) {
     const r = rarityOf(idx);
     const cvN = makeThumb();
     const cvE = makeThumb();
     const duo = document.createElement('div');
     duo.style.cssText = 'display:flex;gap:10px;align-items:flex-start;flex:0 0 auto';
-    duo.appendChild(makeFormColumn(cvN, ' Normal', null, formStatsLine(idx, 1)));
+    duo.appendChild(makeFormColumn(cvN, '🐱 Normal', null, formStatsLine(idx, 1)));
     duo.appendChild(makeFormColumn(cvE, '✨ Evolucionada', '#88ffcc', formStatsLine(idx, EVOLVE_LEVEL)));
     node.appendChild(duo);
     jobs.push(catPortrait(idx, cvN, 1, false));
     jobs.push(catPortrait(idx, cvE, EVOLVE_LEVEL, true));
     body.innerHTML =
-      '<div class="best-name">' + (UNIT_EMOJI[idx] || '🐱') + ' ' + u.name + ' <span class="best-tag" style="border-color:' + r.color + ';color:' + r.color + '">' + r.name + '</span>' + (unitLevels[idx] >= EVOLVE_LEVEL ? ' <span class="best-tag">✨</span>' : '') + (isDevMode() ? ' <span class="best-tag" style="color:#ff88ff">🔧 DEV</span>' : '') + '</div>' +
+      '<div class="best-name">' + (UNIT_EMOJI[idx] || '🐱') + ' ' + u.name +
+      ' <span class="best-tag" style="border-color:' + r.color + ';color:' + r.color + '">' + r.name + '</span>' +
+      (unitLevels[idx] >= EVOLVE_LEVEL ? ' <span class="best-tag">✨</span>' : '') +
+      (isDevMode() ? ' <span class="best-tag" style="color:#ff88ff">🔧 DEV</span>' : '') + '</div>' +
       '<div class="sb-info">' + troopStatsLine(idx) + '</div>' +
       '<div class="sb-info" style="font-style:italic;opacity:.8">"' + (TROOP_LORE[idx] || '') + '"</div>' +
-      '<div class="sb-info">Nivel actual: ' + unitLevels[idx] + '/' + unitLevelCap() + ' · Forma en uso: ' + (formIsEvo(idx) ? '✨ Evolucionada' : ' Normal') + '</div>';
+      '<div class="sb-info">Nivel actual: ' + unitLevels[idx] + '/' + unitLevelCap() + ' · Forma en uso: ' + (formIsEvo(idx) ? '✨ Evolucionada' : '🐱 Normal') + '</div>';
   } else {
     node.appendChild(lockedThumb());
     body.innerHTML =
@@ -416,8 +438,6 @@ function troopEntry(idx) {
   node.appendChild(body);
   return node;
 }
-
-// v65: enemyEntry NUNCA devuelve null, incluye leyenda
 function enemyEntry(id) {
   const t = objById(id);
   const s = isDevMode() ? (seen[id] || { n: 0, first: '[DEV]' }) : seen[id];
@@ -426,19 +446,19 @@ function enemyEntry(id) {
   node.className = 'best-entry' + (s ? '' : ' locked-entry');
   const body = document.createElement('div');
   body.className = 'best-body';
-
   if (s) {
     const cv = makeThumb();
     node.appendChild(cv);
     jobs.push(enemyPortrait(id, cv));
     body.innerHTML =
-      '<div class="best-name">' + t.name + ' <span class="best-tag">' + (TYPE_CHIP[t.type] || '') + '</span>' + (isDevMode() ? ' <span class="best-tag" style="color:#ff88ff">🔧 DEV</span>' : '') + '</div>' +
+      '<div class="best-name">' + t.name + ' <span class="best-tag">' + (TYPE_CHIP[t.type] || '') + '</span>' +
+      (isDevMode() ? ' <span class="best-tag" style="color:#ff88ff">🔧 DEV</span>' : '') + '</div>' +
       '<div class="sb-info">HP:' + t.hp + ' · DMG:' + t.dmg + ' · SPD:' + t.speed + (t.reward ? ' · 💰' + t.reward : '') + '</div>' +
-      '<div class="sb-info">' + (isDevMode() && !seen[id] ? ' [DEV: visible]' : ('👁 Visto ' + s.n + '× · 1ª vez: ' + (s.first || '—'))) + '</div>';
+      '<div class="sb-info">' + (isDevMode() && !seen[id] ? '🔧 [DEV: visible]' : ('👁 Visto ' + s.n + '× · 1ª vez: ' + (s.first || '—'))) + '</div>';
   } else {
     node.appendChild(lockedThumb());
     body.innerHTML =
-      '<div class="best-name locked"> ???</div>' +
+      '<div class="best-name locked">❓ ???</div>' +
       '<div class="sb-info locked">' + (TYPE_CHIP[t.type] || 'Enemigo') + '</div>' +
       '<div class="sb-info locked">Aún no lo has encontrado</div>' +
       '<div class="sb-info locked">📍 ' + enemyHint(id) + '</div>';
@@ -446,15 +466,20 @@ function enemyEntry(id) {
   node.appendChild(body);
   return node;
 }
-
-// v65: safeEntry para que un error no deje la lista en blanco
 function safeEntry(fn, arg) {
   try { return fn(arg); } catch (e) { console.error('📖 Bestiario: error en entrada', arg, e); return null; }
 }
 
+// ---------------- Render ----------------
 function render() {
   const info = document.getElementById('bestInfo');
-  if (info) info.innerHTML = 'Enemigos: <b style="color:#88ccee">' + seenCount() + '/' + allEnemyIds().length + '</b> · Tropas: <b style="color:#88ff88">' + troopCount() + '/' + NUM_UNITS + '</b> · <span style="font-size:11px">' + (isDevMode() ? '🔧 MODO DEV: todo visible.' : 'Cada tropa muestra su forma 🐱 Normal y ✨ Evolucionada con sus stats. Se registra al aparecer en batalla (no en  sandbox).') + '</span>';
+  if (info) {
+    if (view === 'cats') {
+      info.innerHTML = 'Tropas: <b style="color:#88ff88">' + troopCount() + '/' + NUM_UNITS + '</b> · <span style="font-size:11px">Cada tropa muestra su forma 🐱 Normal y  Evolucionada con sus stats reales.</span>' + (isDevMode() ? ' <span style="color:#ff88ff">🔧 MODO DEV.</span>' : '');
+    } else {
+      info.innerHTML = 'Enemigos: <b style="color:#88ccee">' + seenCount() + '/' + allEnemyIds().length + '</b> · <span style="font-size:11px">Se registra al aparecer en batalla (no en 🧪 sandbox ni 🔧 dev).</span>' + (isDevMode() ? ' <span style="color:#ff88ff">🔧 MODO DEV: todo visible.</span>' : '');
+    }
+  }
   if (bScreen) {
     bScreen.querySelectorAll('.best-tab').forEach(t => {
       t.classList.toggle('active', (t.dataset.mode || 'seen') === mode);
@@ -464,39 +489,40 @@ function render() {
   bList.innerHTML = '';
   jobs = [];
 
-  const troops = [];
-  for (let i = 0; i < NUM_UNITS; i++) troops.push(safeEntry(troopEntry, i));
-
-  const enemies = [];
-  for (let i = 0; i < ENEMY_TYPES.length; i++) enemies.push(safeEntry(enemyEntry, 'n' + i));
-
-  const evEnemies = [];
-  for (const k in EVENT_ENEMY_TYPES) evEnemies.push(safeEntry(enemyEntry, 'ee:' + k));
-
-  // v65: enemigos de leyenda
-  const legendEnemies = [];
-  for (const k in LEGEND_ENEMY_TYPES) legendEnemies.push(safeEntry(enemyEntry, 'le:' + k));
-
-  const bosses = [];
-  for (let i = 0; i < BOSS_TYPES.length; i++) bosses.push(safeEntry(enemyEntry, 'b' + i));
-  for (const k in EVENT_BOSS_TYPES) bosses.push(safeEntry(enemyEntry, 'eb:' + k));
-
-  // v65: jefes de leyenda
-  const legendBosses = [];
-  for (const k in LEGEND_BOSS_TYPES) legendBosses.push(safeEntry(enemyEntry, 'lb:' + k));
-
-  section(bList, ' TROPAS (' + troops.filter(e => e).length + '/' + NUM_UNITS + ')', troops);
-  section(bList, '👹 ENEMIGOS (' + enemies.filter(e => e).length + ')', enemies);
-  section(bList, '🎃 ENEMIGOS DE EVENTOS (' + evEnemies.filter(e => e).length + ')', evEnemies);
-  section(bList, ' ENEMIGOS DE LEYENDA (' + legendEnemies.filter(e => e).length + ')', legendEnemies);
-  section(bList, ' JEFES (' + bosses.filter(e => e).length + ')', bosses);
-  section(bList, '🌟 JEFES DE LEYENDA (' + legendBosses.filter(e => e).length + ')', legendBosses);
-
-  if (!troops.some(e => e) && !enemies.some(e => e) && !evEnemies.some(e => e) && !legendEnemies.some(e => e) && !bosses.some(e => e) && !legendBosses.some(e => e)) {
-    const h = document.createElement('div');
-    h.className = 'best-section';
-    h.textContent = 'Aún no has descubierto nada. ¡Sal a combatir!';
-    bList.appendChild(h);
+  if (view === 'cats') {
+    const troops = [];
+    for (let i = 0; i < NUM_UNITS; i++) troops.push(safeEntry(troopEntry, i));
+    section(bList, '🐱 TROPAS (' + troops.filter(e => e).length + '/' + NUM_UNITS + ')', troops);
+    if (!troops.some(e => e)) {
+      const h = document.createElement('div');
+      h.className = 'best-section';
+      h.textContent = 'Aún no has descubierto ninguna tropa.';
+      bList.appendChild(h);
+    }
+  } else {
+    const enemies = [];
+    for (let i = 0; i < ENEMY_TYPES.length; i++) enemies.push(safeEntry(enemyEntry, 'n' + i));
+    const evEnemies = [];
+    for (const k in EVENT_ENEMY_TYPES) evEnemies.push(safeEntry(enemyEntry, 'ee:' + k));
+    const legendEnemies = [];
+    for (const k in LEGEND_ENEMY_TYPES) legendEnemies.push(safeEntry(enemyEntry, 'le:' + k));
+    const bosses = [];
+    for (let i = 0; i < BOSS_TYPES.length; i++) bosses.push(safeEntry(enemyEntry, 'b' + i));
+    for (const k in EVENT_BOSS_TYPES) bosses.push(safeEntry(enemyEntry, 'eb:' + k));
+    const legendBosses = [];
+    for (const k in LEGEND_BOSS_TYPES) legendBosses.push(safeEntry(enemyEntry, 'lb:' + k));
+    section(bList, '👹 ENEMIGOS (' + enemies.filter(e => e).length + ')', enemies);
+    section(bList, '🎃 ENEMIGOS DE EVENTOS (' + evEnemies.filter(e => e).length + ')', evEnemies);
+    section(bList, '🌟 ENEMIGOS DE LEYENDA (' + legendEnemies.filter(e => e).length + ')', legendEnemies);
+    section(bList, '👑 JEFES (' + bosses.filter(e => e).length + ')', bosses);
+    section(bList, '🌟 JEFES DE LEYENDA (' + legendBosses.filter(e => e).length + ')', legendBosses);
+    const any = enemies.some(e => e) || evEnemies.some(e => e) || legendEnemies.some(e => e) || bosses.some(e => e) || legendBosses.some(e => e);
+    if (!any) {
+      const h = document.createElement('div');
+      h.className = 'best-section';
+      h.textContent = 'Aún no has descubierto nada. ¡Sal a combatir!';
+      bList.appendChild(h);
+    }
   }
   galleryFrame++;
   refreshGallery();
@@ -512,8 +538,10 @@ function wrap(name, after) {
     return r;
   };
 }
-wrap('hideScreens', () => { if (bScreen) bScreen.style.display = 'none'; });
-wrap('showMenu', () => { refreshButton(); });
+wrap('hideScreens', () => {
+  if (bookScreen) bookScreen.style.display = 'none';
+  if (bScreen) bScreen.style.display = 'none';
+});
 wrap('draw', () => {
   if (screen !== 'bestiary') return;
   galleryFrame++;
@@ -522,14 +550,5 @@ wrap('draw', () => {
 });
 
 // Arranque
-// Arranque
 buildUI();
-refreshButton();
-
-// v69: hook para que resetAllProgress() limpie también el bestiario en memoria
-window.resetBestiary = function () {
-  seen = {};
-  try { localStorage.removeItem(B_KEY); } catch (e) {}
-  refreshButton();
-};
 })();

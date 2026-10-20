@@ -1,21 +1,10 @@
 // ============================================================
-// 04-ui.js — Pantallas, menús, grids y refresco de interfaz
-// v68 FIX: paréntesis de más en buildUpgradeScreen rompía el
-//   parseo del archivo entero (cascada: showMenu / isUnitUnlocked
-//   quedaban indefinidos). La zona de texto del botón se reescribió
-//   con variables intermedias (a prueba de desbalanceos) y se corrigió
-//   la lógica de disabled cuando las mejoras base están al tope.
-// v67: buildUpgradeScreen() muestra unitLevels + gachaLevels.
-// v63: Banners / Almacén / Misiones (inyectados desde 11-gacha.js)
-// v61: Bosque Catedral con troncos marrones
-// v60: Bosque Catedral rediseñado (10 capas)
-// v59: Pantalla y grid de ETAPAS DE LEYENDA (showLegend)
-// v58: 450 dinero inicial, splash a base, sanador atrás,
-//      Mago evolucionado aoeRadius 130
-// v57: Bonus de 🐾 (buyCoinBonus, coinRewardFor en grids)
-// v56: troopStatsLine(idx) muestra stats REALES
-// v55: Modo desarrollador (grids y compras conscientes de dev)
-// v48: Selección de Tropas con selector de FORMA (🐱/✨)
+// 04-ui.js — v74: NAVEGACIÓN COMPLETA + TOAST + CANDADOS + MÚSICA
+// · v74: música de menú al salir de batalla (goMenu/showHub/etc).
+// · v73: hideScreens universal (oculta TODAS las .screen).
+// · v72: toast global visible + candados en el hub + back de logros.
+// · v70: reenvíos seguros (openBanners/Storage/Missions/Book).
+// · v69: navegación Título → Carrusel → Capítulos → Hub.
 // ============================================================
 // -------------------- RAREZAS --------------------
 const RARITIES = {
@@ -45,40 +34,71 @@ function rarityTag(idx) {
   return '<span class="sb-info" style="color:' + r.color + ';font-weight:bold">◆ ' + r.name + '</span>';
 }
 
+// -------------------- ESTADO DE NAVEGACIÓN --------------------
+const hubState = { mode: null, chapter: null };
+const MODES = [
+  { key:'story',    name:'📖 Modo Historia',       color:'#3f8fd0', chapters:true },
+  { key:'event',    name:'🎃 Eventos Especiales',  color:'#ff6600', chapters:true },
+  { key:'legend',   name:'🌟 Etapas de Leyenda',   color:'#e02020', chapters:true },
+  { key:'infinite', name:'∞ Modo Infinito',        color:'#b0764a', chapters:false },
+  { key:'test',     name:'🧪 Sandbox',             color:'#c8bfe8', chapters:false },
+];
+const STORY_PART_NAMES = ['Praderas del Inicio', 'Tierras del Rey', 'Desierto Prohibido'];
+const LEGEND_ZONE_SHORT = ['Ruinas Ancestrales', 'Caldera de Magma', 'Islas Flotantes', 'Fosa Abisal', 'Fábrica de Engranajes', 'Umbral del Vacío'];
+function modeObj(key) { for (const m of MODES) if (m.key === key) return m; return null; }
+function chaptersFor(mode) {
+  if (mode === 'story') return [
+    { value:1, name:STORY_PART_NAMES[0], color:'#e8b23a' },
+    { value:2, name:STORY_PART_NAMES[1], color:'#e8b23a' },
+    { value:3, name:STORY_PART_NAMES[2], color:'#e8b23a' },
+  ];
+  if (mode === 'event') return Object.values(EVENTS).map(ev => ({ value:ev.id, name:ev.name, color:'#ff8844' }));
+  if (mode === 'legend') return LEGEND_ZONE_SHORT.map((n, i) => ({ value:i, name:n, color:'#e02020' }));
+  return [];
+}
+
 // -------------------- UTILIDADES UI --------------------
 function setStatus(text, color) {
   const status = document.getElementById('saveStatus');
+  if (!status) return;
   status.textContent = text;
   status.style.color = color || '#88ff88';
   clearTimeout(status._t);
   status._t = setTimeout(() => { status.textContent = ''; }, 3000);
 }
 function hideScreens() {
-  document.getElementById('menuScreen').style.display = 'none';
-  document.getElementById('upgradeScreen').style.display = 'none';
-  document.getElementById('storyScreen').style.display = 'none';
-  document.getElementById('eventScreen').style.display = 'none';
-  document.getElementById('legendScreen').style.display = 'none';
-  document.getElementById('troopScreen').style.display = 'none';
-  document.getElementById('resultOverlay').style.display = 'none';
-  document.getElementById('gameWrap').style.display = 'none';
+  const ids = ['titleScreen','carouselScreen','chapterScreen','hubScreen','upgradeScreen','storyScreen','eventScreen','legendScreen','troopScreen','resultOverlay','gameWrap'];
+  for (const id of ids) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
+}
+function showTitle() {
+  leaveTestIfNeeded();
+  screen = 'title'; playing = false;
+  hideScreens();
+  document.getElementById('titleScreen').style.display = 'flex';
+}
+function showCarousel() {
+  leaveTestIfNeeded();
+  screen = 'carousel'; playing = false;
+  hideScreens();
+  document.getElementById('carouselScreen').style.display = 'flex';
+  renderModeBand();
+}
+function showChapters() {
+  leaveTestIfNeeded();
+  screen = 'chapters'; playing = false;
+  hideScreens();
+  document.getElementById('chapterScreen').style.display = 'flex';
+  renderChapterBand();
+}
+function showHub() {
+  leaveTestIfNeeded();
+  screen = 'hub'; playing = false;
+  hideScreens();
+  document.getElementById('hubScreen').style.display = 'flex';
+  renderHub();
 }
 function showMenu() {
-  leaveTestIfNeeded();
-  if (gameMode === 'test') gameMode = 'menu';
-  screen = 'menu'; playing = false;
-  hideScreens();
-  document.getElementById('menuScreen').style.display = 'flex';
-  document.getElementById('continueBtn').style.display = readSave() ? 'inline-block' : 'none';
-  document.getElementById('menuCoins').textContent = coins;
-  document.getElementById('menuLoadoutCount').textContent = loadout.length;
-  document.getElementById('menuStoryProgress').textContent = storyProgress;
-  document.getElementById('evH').textContent = (eventProgress['halloween'] || 0);
-  document.getElementById('evA').textContent = (eventProgress['alien'] || 0);
-  document.getElementById('evI').textContent = (eventProgress['infernal'] || 0);
-  document.getElementById('evX').textContent = (eventProgress['xmas'] || 0);
-  document.getElementById('evL').textContent = legendProgress;
-  updateDevModeButton();
+  if (hubState.mode) showHub(); else showCarousel();
 }
 function showGame() {
   screen = 'game';
@@ -87,10 +107,115 @@ function showGame() {
 }
 function goMenu() {
   if (gameMode === 'infinite' && playing) writeSave(buildSaveData());
-  showMenu();
+  showHub();
+}
+function scrollCarousel(dir) { const b = document.getElementById('modeBand'); if (b) b.scrollBy({ left: dir * 260, behavior: 'smooth' }); }
+function scrollChapters(dir) { const b = document.getElementById('chapterBand'); if (b) b.scrollBy({ left: dir * 260, behavior: 'smooth' }); }
+function renderModeBand() {
+  const band = document.getElementById('modeBand');
+  if (!band) return;
+  band.innerHTML = '';
+  band.style.overflowX = 'auto';
+  band.style.scrollBehavior = 'smooth';
+  MODES.forEach(m => {
+    const c = document.createElement('button');
+    c.className = 'mode-card';
+    c.style.background = m.color;
+    c.textContent = m.name;
+    c.onclick = () => selectMode(m.key);
+    band.appendChild(c);
+  });
+}
+function selectMode(key) {
+  hubState.mode = key;
+  hubState.chapter = null;
+  const m = modeObj(key);
+  if (m && m.chapters) showChapters(); else showHub();
+}
+function renderChapterBand() {
+  const band = document.getElementById('chapterBand');
+  if (!band) return;
+  band.innerHTML = '';
+  band.style.overflowX = 'auto';
+  band.style.scrollBehavior = 'smooth';
+  const back = document.createElement('button');
+  back.className = 'chapter-card back-card';
+  back.textContent = 'Volver';
+  back.onclick = showCarousel;
+  band.appendChild(back);
+  chaptersFor(hubState.mode).forEach((ch, i) => {
+    const c = document.createElement('button');
+    c.className = 'chapter-card';
+    c.style.background = ch.color;
+    c.innerHTML = '<span class="ch-num">Capítulo ' + (i + 1) + '</span><br>' + ch.name;
+    c.onclick = () => { hubState.chapter = ch.value; showHub(); };
+    band.appendChild(c);
+  });
+}
+function renderHub() {
+  const m = modeObj(hubState.mode);
+  const base = document.getElementById('hubBase');
+  const modeEl = document.getElementById('hubMode');
+  const xp = document.getElementById('hubXP');
+  const cannon = document.getElementById('hubCannon');
+  if (base) base.textContent = 'Base Gatuna Nv.' + baseLevel;
+  let title = m ? m.name : '';
+  if (hubState.chapter != null) {
+    const ch = chaptersFor(hubState.mode).find(c => c.value === hubState.chapter);
+    if (ch) title += ' · ' + ch.name;
+  }
+  if (modeEl) modeEl.textContent = title;
+  if (xp) xp.textContent = coins;
+  if (cannon) cannon.innerHTML = 'ℹ️ Rango <b>' + getCannonRange() + '</b>';
+}
+function hubStart() {
+  leaveTestIfNeeded();
+  const m = hubState.mode;
+  if (m === 'story') showStoryScreen();
+  else if (m === 'event') showEventScreen();
+  else if (m === 'legend') showLegendScreen();
+  else if (m === 'infinite') { if (readSave()) continueInfinite(); else startInfinite(true); }
+  else if (m === 'test') startTest();
+}
+function hubUpgrade() { showUpgrades(); }
+function hubOrganize() { showTroops(); }
+function hubBack() {
+  const m = modeObj(hubState.mode);
+  if (m && m.chapters) showChapters(); else showCarousel();
+}
+function eventBallsSoon() { setStatus('🔮 Las Bolas de evento llegarán en una futura actualización', '#ffaa00'); }
+
+// -------------------- AJUSTES (modal) --------------------
+function openSettings() {
+  syncSettingsUI();
+  const o = document.getElementById('settingsOverlay');
+  if (o) o.style.display = 'flex';
+}
+function closeSettings() {
+  const o = document.getElementById('settingsOverlay');
+  if (o) o.style.display = 'none';
+}
+function syncSettingsUI() {
+  if (window.audioControls) {
+    const s = window.audioControls.settings;
+    const m = document.getElementById('setMusicVol');
+    const x = document.getElementById('setSfxVol');
+    if (m) m.value = Math.round(s.music * 100);
+    if (x) x.value = Math.round(s.sfx * 100);
+  }
+  updateDevModeButton();
+}
+function setSettingMusic(v) { if (window.audioControls) window.audioControls.setMusic(v); }
+function setSettingSfx(v) { if (window.audioControls) window.audioControls.setSfx(v); }
+function toggleSettingMusicMute() { if (window.audioControls) { window.audioControls.muteMusic(); syncSettingsUI(); } }
+function toggleSettingSfxMute() { if (window.audioControls) { window.audioControls.muteSfx(); syncSettingsUI(); } }
+function testSettingSound() { if (window.audioControls) window.audioControls.test(); }
+function updateDevModeButton() {
+  const b = document.getElementById('setDevBtn');
+  if (b) b.textContent = 'Modo desarrollador: ' + (devMode ? 'ON' : 'OFF');
 }
 
-// --- Desbloqueos ---
+// -------------------- DESBLOQUEOS --------------------
 function isUnitUnlocked(idx) {
   if (isDevMode()) return true;
   if (isTest()) return true;
@@ -123,7 +248,7 @@ function eventUnlocksLabel(L) {
   return 'Desbloquea: ' + L.unlocks.map(i => UNIT_EMOJI[i] || '🐱').join(' ');
 }
 
-// --- Menú de mejoras permanentes ---
+// -------------------- MEJORAS --------------------
 function showUpgrades() {
   leaveTestIfNeeded();
   screen = 'upgrades'; playing = false;
@@ -178,10 +303,8 @@ function buyCoinBonus() {
   if (!isDevMode()) saveMeta();
   buildUpgradeScreen();
 }
-
 function buildUpgradeScreen() {
-  document.getElementById('upgCoins').textContent =
-    isDevMode() ? coins + ' (DEV: gratis)' : coins;
+  document.getElementById('upgCoins').textContent = isDevMode() ? coins + ' (DEV)' : coins;
   const ug = document.getElementById('upgradeUnitGrid');
   ug.innerHTML = '';
   CAT_BASE.forEach((u, idx) => {
@@ -191,7 +314,7 @@ function buildUpgradeScreen() {
     const totalLvl = baseLvl + gachaLvl;
     const cap = unitLevelCap() + GACHA_LVL_MAX;
     const maxed = baseLvl >= unitLevelCap() && gachaLvl >= GACHA_LVL_MAX;
-    const canBuyNormal = baseLvl < unitLevelCap();   // ¿se puede subir la mejora normal?
+    const canBuyNormal = baseLvl < unitLevelCap();
     const cost = getUnitCoinCost(idx);
     const evo = totalLvl >= EVOLVE_LEVEL;
     const b = document.createElement('button');
@@ -208,22 +331,14 @@ function buildUpgradeScreen() {
       let preview;
       if (u.healAmt) preview = 'HP ' + cur.hp + '→<span class="up">' + nxt.hp + '</span> · Cura ' + cur.heal + '→<span class="up">' + nxt.heal + '</span>';
       else preview = 'HP ' + cur.hp + '→<span class="up">' + nxt.hp + '</span> · DMG ' + cur.dmg + '→<span class="up">' + nxt.dmg + '</span>';
-      // etiqueta de nivel (con desglose base + 🎰 si hay gacha)
       const lvlLabel = gachaLvl > 0
         ? 'Nivel ' + totalLvl + '/' + cap + ' (base ' + baseLvl + ' + 🎰' + gachaLvl + ')'
         : 'Nivel ' + totalLvl + '/' + cap;
-      // línea de estado/costo (construida con if/else: sin paréntesis anidados)
       let statusLine;
-      if (maxed) {
-        statusLine = '🏆 MAX';
-      } else if (!canBuyNormal) {
-        statusLine = '⬆️ Mejoras base al tope (usa 🎰 del Almacén para más niveles)';
-      } else if (isDevMode()) {
-        statusLine = '➡ Nv.' + (totalLvl + 1) + ': GRATIS [DEV]';
-      } else {
-        statusLine = '➡ Nv.' + (totalLvl + 1) + ': ' + cost + ' ' + COIN;
-      }
-      // ¿se puede clicar? solo si hay mejora normal disponible y (dev o coins suficientes)
+      if (maxed) statusLine = '🏆 MAX';
+      else if (!canBuyNormal) statusLine = '⬆️ Base al tope (usa 🎰 del Almacén)';
+      else if (isDevMode()) statusLine = '➡ Nv.' + (totalLvl + 1) + ': GRATIS [DEV]';
+      else statusLine = '➡ Nv.' + (totalLvl + 1) + ': ' + cost + ' ' + COIN;
       b.disabled = maxed || !canBuyNormal || (!isDevMode() && coins < cost);
       b.className = 'upg-card' + (maxed ? ' maxed' : '');
       b.innerHTML =
@@ -253,8 +368,8 @@ function buildUpgradeScreen() {
       preview:'CD ' + curCd + 's→<span class="up">' + cdIfCd + 's</span>' },
     { label:'💵 Income base', info:'Nv ' + incomeLevel + '/' + MAX_INCOME_LEVEL, max:incomeLevel >= MAX_INCOME_LEVEL, cost:getIncomeCoinCost(), fn:'buyIncome()',
       preview:getIncomeAt(incomeLevel).toFixed(0) + '/s→<span class="up">' + getIncomeAt(incomeLevel + 1).toFixed(0) + '/s</span>' },
-    { label:'🐾 Bonus de Coins', info:'Nv ' + coinBonusLevel + '/' + COIN_BONUS_MAX, max:coinBonusLevel >= COIN_BONUS_MAX, cost:getCoinBonusCost(), fn:'buyCoinBonus()',
-      preview:'Ganas +' + Math.round(getCoinBonusPercentAt(coinBonusLevel) * 100) + '% → <span class="up">+' + Math.round(getCoinBonusPercentAt(coinBonusLevel + 1) * 100) + '%</span> de 🐾 por nivel superado' },
+    { label:'⭐ Bonus de XP', info:'Nv ' + coinBonusLevel + '/' + COIN_BONUS_MAX, max:coinBonusLevel >= COIN_BONUS_MAX, cost:getCoinBonusCost(), fn:'buyCoinBonus()',
+      preview:'Ganas +' + Math.round(getCoinBonusPercentAt(coinBonusLevel) * 100) + '% → <span class="up">+' + Math.round(getCoinBonusPercentAt(coinBonusLevel + 1) * 100) + '%</span> de XP por nivel' },
   ];
   misc.forEach(m => {
     const b = document.createElement('button');
@@ -270,8 +385,8 @@ function buildUpgradeScreen() {
   });
 }
 
-// --- Historia ---
-function showStory() {
+// -------------------- HISTORIA --------------------
+function showStoryScreen() {
   leaveTestIfNeeded();
   screen = 'story'; playing = false;
   hideScreens();
@@ -281,23 +396,14 @@ function showStory() {
 function buildStoryGrid() {
   const grid = document.getElementById('storyGrid');
   grid.innerHTML = '';
+  const part = hubState.chapter;
+  const info = document.getElementById('storyInfo');
+  if (info) info.textContent = part ? ('Parte ' + part + ' — ' + STORY_PART_NAMES[part - 1]) : 'Todas las partes';
   STORY_LEVELS.forEach((L, idx) => {
-    const lvl = idx + 1;
-    if (lvl === 16) {
-      const h = document.createElement('div');
-      h.className = 'grid-header';
-      h.textContent = '📖 PARTE 2 — Tierras del Rey (desbloquea al 👑 al final)';
-      grid.appendChild(h);
-    }
-    if (lvl === 31) {
-      const h = document.createElement('div');
-      h.className = 'grid-header';
-      h.textContent = '🏜️ PARTE 3 — Desierto Prohibido: momias, escarabajos, djinns y los 3 jefes del desierto';
-      grid.appendChild(h);
-    }
+    if (part && L.part !== part) return;
     const unlocked = isDevMode() || idx <= storyProgress;
     const done = idx < storyProgress;
-    const unlock = unlockAtLevel(lvl);
+    const unlock = unlockAtLevel(idx + 1);
     const b = document.createElement('button');
     b.className = 'story-btn';
     b.disabled = !unlocked;
@@ -317,12 +423,13 @@ function buildStoryGrid() {
   });
 }
 
-// --- Eventos ---
-function showEvents() {
+// -------------------- EVENTOS --------------------
+function showEventScreen() {
   leaveTestIfNeeded();
   screen = 'events'; playing = false;
   hideScreens();
-  buildEventGrid();
+  if (hubState.chapter) showEventLevels(hubState.chapter);
+  else buildEventGrid();
   document.getElementById('eventScreen').style.display = 'flex';
 }
 function buildEventGrid() {
@@ -332,13 +439,13 @@ function buildEventGrid() {
   document.getElementById('eventMenuBtn').style.display = 'inline-block';
   document.getElementById('eventInfo').textContent =
     'Eventos temáticos con recompensas de ' + COIN + ' (mitad al repetir) y tropas exclusivas.' +
-    (isDevMode() ? ' 🔧 [MODO DEV: todos desbloqueados, nada se guarda]' : '');
+    (isDevMode() ? ' 🔧 [MODO DEV]' : '');
   Object.values(EVENTS).forEach(ev => {
     const progress = isDevMode() ? ev.levels.length : (eventProgress[ev.id] || 0);
     const b = document.createElement('button');
     b.className = 'event-btn ' + ev.theme;
     b.innerHTML = ev.name + '<span class="sb-info">' + ev.description + '</span><span class="sb-info">Progreso: ' + progress + '/' + ev.levels.length + '</span>';
-    b.onclick = () => showEventLevels(ev.id);
+    b.onclick = () => { hubState.mode = 'event'; hubState.chapter = ev.id; showEventScreen(); };
     grid.appendChild(b);
   });
 }
@@ -347,8 +454,7 @@ function showEventLevels(eventId) {
   const grid = document.getElementById('eventGrid');
   grid.innerHTML = '';
   const progress = isDevMode() ? ev.levels.length : (eventProgress[eventId] || 0);
-  document.getElementById('eventInfo').textContent =
-    ev.name + ' — ' + ev.description + (isDevMode() ? ' 🔧 [MODO DEV]' : '');
+  document.getElementById('eventInfo').textContent = ev.name + ' — ' + ev.description + (isDevMode() ? ' 🔧 [MODO DEV]' : '');
   ev.levels.forEach((L, idx) => {
     const unlocked = isDevMode() || idx <= progress;
     const done = idx < progress;
@@ -374,9 +480,9 @@ function showEventLevels(eventId) {
   document.getElementById('eventMenuBtn').style.display = 'none';
 }
 
-// --- v59: Etapas de Leyenda ---
+// -------------------- LEYENDA --------------------
 function legendUnlocked() { return isDevMode() || storyProgress >= STORY_MAX_LEVEL; }
-function showLegend() {
+function showLegendScreen() {
   leaveTestIfNeeded();
   screen = 'legend'; playing = false;
   hideScreens();
@@ -386,21 +492,16 @@ function showLegend() {
 function buildLegendGrid() {
   const grid = document.getElementById('legendGrid');
   grid.innerHTML = '';
+  const zone = hubState.chapter;
   const info = document.getElementById('legendInfo');
   if (info) {
     info.innerHTML = legendUnlocked()
-      ? 'Endgame definitivo: 6 zonas × 5 etapas, jefes únicos y tropas enemigas de élite. Recompensas de ' + COIN + ' (mitad al repetir). Progreso: <b>' + legendProgress + '/' + LEGEND_STAGES.length + '</b>' + (isDevMode() ? ' 🔧 [MODO DEV]' : '')
-      : '🔒 Se desbloquea al completar la Historia Nivel 45 (Desierto Prohibido).';
+      ? (zone != null ? ('Zona ' + (zone + 1) + ' — ' + LEGEND_ZONE_SHORT[zone]) : 'Todas las zonas') +
+        ' · Progreso: <b>' + legendProgress + '/' + LEGEND_STAGES.length + '</b>' + (isDevMode() ? ' 🔧 [MODO DEV]' : '')
+      : '🔒 Se desbloquea al completar la Historia Nivel 45.';
   }
-  let lastZone = -1;
   LEGEND_STAGES.forEach((L, idx) => {
-    if (L.zone !== lastZone) {
-      lastZone = L.zone;
-      const h = document.createElement('div');
-      h.className = 'grid-header';
-      h.textContent = LEGEND_ZONE_TITLES[L.zone];
-      grid.appendChild(h);
-    }
+    if (zone != null && L.zone !== zone) return;
     const unlocked = isDevMode() || (legendUnlocked() && idx <= legendProgress);
     const done = idx < legendProgress;
     const b = document.createElement('button');
@@ -416,7 +517,7 @@ function buildLegendGrid() {
   });
 }
 
-// --- Selección de tropas ---
+// -------------------- TROPAS --------------------
 function showTroops() {
   leaveTestIfNeeded();
   screen = 'troops'; playing = false;
@@ -495,10 +596,10 @@ function saveLoadoutAndBack() {
   loadout = [...new Set(tempLoadout.filter(i => isUnitUnlocked(i)))].sort((a, b) => a - b);
   if (loadout.length === 0) loadout = [0];
   saveLoadout();
-  showMenu();
+  showHub();
 }
 
-// --- Paneles dentro de la partida ---
+// -------------------- PANELES EN BATALLA --------------------
 function buildMetaInfoPanel() {
   const el = document.getElementById('metaInfo');
   let html = '';
@@ -509,7 +610,7 @@ function buildMetaInfoPanel() {
   });
   html += '<hr style="border-color:#444">💵 Income: <b>Nv.' + incomeLevel + '/' + MAX_INCOME_LEVEL + '</b><br>';
   html += '💣 Cañón: <b>D' + cannonDmgLevel + ' R' + cannonRangeLevel + ' C' + cannonCdLevel + '</b><br>';
-  html += '🐾 Bonus coins: <b>+' + Math.round(getCoinBonusPercent() * 100) + '%</b> (Nv.' + coinBonusLevel + '/' + COIN_BONUS_MAX + ')<br>';
+  html += '⭐ Bonus XP: <b>+' + Math.round(getCoinBonusPercent() * 100) + '%</b> (Nv.' + coinBonusLevel + '/' + COIN_BONUS_MAX + ')<br>';
   html += '🏰 Base: <b>Nv.' + baseLevel + '/' + BASE_GACHA_MAX + '</b> (+' + baseLevel * BASE_HP_PER_LEVEL + ' HP máx)';
   el.innerHTML = html;
 }
@@ -536,11 +637,11 @@ function buildUnitButtons() {
 function setTestControlsVisible(v) {
   document.getElementById('testControls').style.display = v ? 'flex' : 'none';
   document.getElementById('gameHint').textContent = v
-    ? '💡 Sandbox: todas las unidades disponibles · dinero ∞ · sin cooldowns de invocación · base invulnerable'
-    : '💡 Click en una tropa propia para retirarla · Las mejoras se compran en el menú principal con 🐾';
+    ? '💡 Sandbox: todas las unidades disponibles · dinero ∞ · sin cooldowns · base invulnerable'
+    : '💡 Click en una tropa propia para retirarla · Las mejoras se compran con XP';
 }
 
-// --- Refresco de HUD en batalla ---
+// -------------------- HUD --------------------
 function updateUI() {
   document.getElementById('money').textContent = isTest() ? '∞' : Math.floor(money);
   document.getElementById('baseHP').textContent = isTest() ? '∞' : Math.floor(baseHP);
@@ -609,7 +710,7 @@ function updateUI() {
   }
 }
 
-// --- Overlay de resultados ---
+// -------------------- RESULTADOS --------------------
 function showResult(victory, text) {
   document.getElementById('resultTitle').textContent = victory ? '🎉 ¡VICTORIA!' : '💀 DERROTA';
   document.getElementById('resultText').textContent = text;
@@ -617,3 +718,104 @@ function showResult(victory, text) {
   document.getElementById('nextBtn').style.display = victory ? 'inline-block' : 'none';
   document.getElementById('resultOverlay').style.display = 'flex';
 }
+
+// ------------------------------------------------------------
+// v70: reenvíos seguros para los botones del hub
+// ------------------------------------------------------------
+function openBanners(focus) { if (window.showBanners) window.showBanners(focus); else setStatus('❌ Módulo de banners no cargado', '#ff6666'); }
+function openStorage() { if (window.showStorage) window.showStorage(); else setStatus('❌ Módulo de almacén no cargado', '#ff6666'); }
+function openMissions() { if (window.showMissions) window.showMissions(); else setStatus('❌ Módulo de misiones no cargado', '#ff6666'); }
+function openBook() { if (window.showBestiary) window.showBestiary(); else setStatus('❌ Módulo de biblioteca no cargado', '#ff6666'); }
+
+// ============================================================
+// v72: AVISOS VISIBLES + CANDADOS EN EL HUB + BACK DE LOGROS
+// ============================================================
+(function () {
+  let tEl = null, tT = null;
+  window.toastMsg = function (text, color) {
+    if (!tEl) {
+      tEl = document.createElement('div');
+      tEl.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#222233;color:#fff;border:3px solid #ffd700;border-radius:12px;padding:10px 22px;z-index:400;font-size:14px;font-weight:bold;box-shadow:0 4px 14px rgba(0,0,0,.5);max-width:80vw;text-align:center;';
+      document.body.appendChild(tEl);
+    }
+    tEl.textContent = text;
+    tEl.style.borderColor = color || '#ffd700';
+    tEl.style.display = 'block';
+    clearTimeout(tT);
+    tT = setTimeout(() => { tEl.style.display = 'none'; }, 3200);
+  };
+  const origSet = window.setStatus;
+  window.setStatus = function (text, color) {
+    try { window.toastMsg(text, color); } catch (e) {}
+    if (origSet) return origSet.apply(this, arguments);
+  };
+})();
+(function () {
+  const orig = window.showAch;
+  if (typeof orig !== 'function') return;
+  window.showAch = function () {
+    const before = new Set();
+    document.querySelectorAll('.screen').forEach(el => { if (el.style.display !== 'none') before.add(el); });
+    const r = orig.apply(this, arguments);
+    try {
+      document.querySelectorAll('.screen').forEach(scr => {
+        if (scr.style.display !== 'none' && !before.has(scr)) {
+          const bk = scr.querySelector('.back');
+          if (bk) bk.onclick = function () { if (window.showBookMenu) window.showBookMenu(); else showMenu(); };
+        }
+      });
+    } catch (e) {}
+    return r;
+  };
+})();
+(function () {
+  const orig = window.renderHub;
+  if (typeof orig !== 'function') return;
+  window.renderHub = function () {
+    const r = orig.apply(this, arguments);
+    try {
+      const locked = !(isDevMode() || storyProgress >= 10);
+      const q = s => document.querySelector('#hubScreen ' + s);
+      [['.gacha-btn.white','Almacén'], ['.gacha-btn.green','Gatobolas'], ['.gacha-btn.yellow','Bolas raras'], ['.gacha-btn.purple','Bolas de evento']].forEach(p => {
+        const el = q(p[0]);
+        if (el) el.textContent = (locked ? '🔒 ' : '') + p[1];
+      });
+      const mi = q('.hub-icons .icon-btn[title="Misiones"]');
+      if (mi) mi.textContent = locked ? '🔒' : '📜';
+    } catch (e) {}
+    return r;
+  };
+})();
+
+// ============================================================
+// v73: hideScreens universal (oculta TODAS las .screen)
+// ============================================================
+(function () {
+  const orig = window.hideScreens;
+  if (typeof orig !== 'function') return;
+  window.hideScreens = function () {
+    const r = orig.apply(this, arguments);
+    document.querySelectorAll('.screen').forEach(el => { el.style.display = 'none'; });
+    return r;
+  };
+})();
+
+// ============================================================
+// v75: música de menú al salir de batalla
+// ============================================================
+(function () {
+  function menuMusic() {
+    try {
+      if (window.AudioSys && typeof AudioSys.setMusic === 'function') { AudioSys.setMusic('menu'); return; }
+    } catch (e) {}
+  }
+  ['goMenu', 'showHub', 'showTitle', 'showCarousel', 'showChapters', 'showUpgrades', 'showTroops', 'retryLevel', 'nextLevel'].forEach(f => {
+    const orig = window[f];
+    if (typeof orig !== 'function') return;
+    window[f] = function () {
+      const r = orig.apply(this, arguments);
+      menuMusic();
+      return r;
+    };
+  });
+})();
