@@ -311,6 +311,27 @@ function buyWallet() {
   if (!isDevMode()) saveMeta();
   buildUpgradeScreen();
 }
+function buyBaseDef() {
+  if (baseDefLevel >= BASE_DEF_MAX) return;
+  if (!isDevMode()) { const c = getBaseDefCost(); if (coins < c) return; coins -= c; }
+  baseDefLevel++;
+  if (!isDevMode()) saveMeta();
+  buildUpgradeScreen();
+}
+function buyResearch() {
+  if (researchLevel >= RESEARCH_MAX) return;
+  if (!isDevMode()) { const c = getResearchCost(); if (coins < c) return; coins -= c; }
+  researchLevel++;
+  if (!isDevMode()) saveMeta();
+  buildUpgradeScreen();
+}
+function buyReward() {
+  if (rewardLevel >= REWARD_MAX) return;
+  if (!isDevMode()) { const c = getRewardCost(); if (coins < c) return; coins -= c; }
+  rewardLevel++;
+  if (!isDevMode()) saveMeta();
+  buildUpgradeScreen();
+}
 function buildUpgradeScreen() {
   document.getElementById('upgCoins').textContent = isDevMode() ? coins + ' (DEV)' : coins;
   const ug = document.getElementById('upgradeUnitGrid');
@@ -380,6 +401,12 @@ function buildUpgradeScreen() {
       preview:'Ganas +' + Math.round(getCoinBonusPercentAt(coinBonusLevel) * 100) + '% → <span class="up">+' + Math.round(getCoinBonusPercentAt(coinBonusLevel + 1) * 100) + '%</span> de XP por nivel' },
     { label:'💼 Cartera', info:'Nv ' + walletLevel + '/' + WALLET_UPGRADE_MAX, max:walletLevel >= WALLET_UPGRADE_MAX, cost:getWalletUpgradeCost(), fn:'buyWallet()',
       preview:'Cap máx en partida: ' + getWalletMax() + '💰→<span class="up">' + (getWalletMax() + WALLET_UPGRADE_PER_LVL) + '💰</span>' },
+          { label:'🛡️ Defensa de base', info:'Nv ' + baseDefLevel + '/' + BASE_DEF_MAX, max:baseDefLevel >= BASE_DEF_MAX, cost:getBaseDefCost(), fn:'buyBaseDef()',
+      preview:'HP máx base: ' + getBaseMaxHP() + '→<span class="up">' + (getBaseMaxHP() + BASE_DEF_PER_LVL) + '</span>' },
+    { label:'🔬 Investigación', info:'Nv ' + researchLevel + '/' + RESEARCH_MAX, max:researchLevel >= RESEARCH_MAX, cost:getResearchCost(), fn:'buyResearch()',
+      preview:'CD spawn: -' + Math.round(researchLevel * RESEARCH_PER_LVL * 100) + '%→<span class="up">-' + Math.round((researchLevel + 1) * RESEARCH_PER_LVL * 100) + '%</span>' },
+    { label:'💰 Recompensa mejorada', info:'Nv ' + rewardLevel + '/' + REWARD_MAX, max:rewardLevel >= REWARD_MAX, cost:getRewardCost(), fn:'buyReward()',
+      preview:'Drop enemigos: +' + Math.round(researchLevel * 0 + rewardLevel * REWARD_PER_LVL * 100) + '%→<span class="up">+' + Math.round((rewardLevel + 1) * REWARD_PER_LVL * 100) + '%</span>' },
   ];
   misc.forEach(m => {
     const b = document.createElement('button');
@@ -734,7 +761,7 @@ function updateUI() {
         cdEl.textContent = '⏳ ' + (spawnTimers[i] / 60).toFixed(1) + 's';
       } else {
         btn.disabled = false;
-        cdEl.textContent = isTest() ? 'CD: 0s (pruebas)' : ('CD: ' + CAT_BASE[i].spawnCd + 's');
+        cdEl.textContent = isTest() ? 'CD: 0s (pruebas)' : ('CD: ' + (CAT_BASE[i].spawnCd * getResearchMult()).toFixed(1) + 's');
       }
     }
   }

@@ -1,8 +1,11 @@
 // ============================================================
 // 05-combat.js — Lógica de batalla: spawns, update, modos, cañón
-// v78b: la cartera NO crece sola; se amplía con el botón de pago.
-// v78: RADAR (oro), SABELOTODO (+50%), GATOMÁTICO, GATOTIRADOR,
-//      AUTO-WIN, límite de dinero por cap.
+// v79h: CLAMP DURO al final de update() (money = min(money, cap) sin
+//      tocar walletCap) + addMoney() en toda ganancia + SIN el bloque
+//      viejo que perseguía el cap. Resultado: el cap JAMÁS sube solo;
+//      solo lo mueve buyWalletUpgrade() (botón 💼).
+// v78c: income en partida (getEffectiveIncome).
+// v78: RADAR (oro), SABELOTODO (+50%), GATOMÁTICO, GATOTIRADOR, AUTO-WIN.
 // v77: awardTreasureForLevel + storyVictory muestra el tesoro.
 // v63: start...() usan getBaseMaxHP().
 // v59: modo LEYENDA.
@@ -70,7 +73,7 @@ function spawnCat(type) {
   const stats = getCatStats(type);
   if (!isTest() && money < stats.cost) return;
   money -= stats.cost;
-  if (!isTest()) spawnTimers[type] = Math.round(CAT_BASE[type].spawnCd * 60);
+  if (!isTest()) spawnTimers[type] = getSpawnCdFrames(type);   // v80: Investigación reduce el CD
   const waveBonus = getWaveBonus();
   cats.push({
     x: 80, y: GROUND_Y, type,
@@ -249,7 +252,7 @@ function autoWinLevel() {
   return false;
 }
 
-// --- v77: otorgar tesoro del nivel de historia ---
+// --- v77/v79: otorgar tesoro del nivel de historia (40% drop) ---
 function awardTreasureForLevel(levelNum) {
   const tdef = TREASURE_DEFS.find(t => t.level === levelNum);
   if (!tdef) return null;
@@ -280,7 +283,7 @@ function advanceWave() {
   waveTimer = 0;
   enemyBaseMaxHP += 800;
   enemyBaseHP += 800;
-  if (!isTest()) money += 400 + wave * 60;
+  if (!isTest()) addMoney(400 + wave * 60);   // v79g: clamp al cap
   bossSpawnedThisWave = false;
   addFloatingText(450, 100, `¡Oleada ${wave}!`, '#ffd700');
   const bossInterval = wave >= 100 ? 25 : 10;
@@ -590,15 +593,11 @@ function legendDefeat() {
 function update() {
   if (gameOver || !playing) return;
   frameCount++;
-  if (!isTest()) money += getEffectiveIncome() / 60;   // v78c: incluye bonus de partida
+  if (!isTest()) addMoney(getEffectiveIncome() / 60);   // v79g: clamp al cap en el momento
 
-  // ---- v78b: CARTERA (wallet) — NO crece sola ----
-  if (!isTest()) {
-    // el cap nunca queda por debajo del dinero actual (evita recortes al cargar)
-    battleFlags.walletCap = Math.max(battleFlags.walletCap, Math.min(getWalletMax(), Math.floor(money)));
-    // el dinero no supera el cap actual
-    money = Math.min(money, currentWalletCap());
-  }
+  // v79h: NO existe bloque de wallet aquí. El cap ya no persigue al dinero.
+  // Cada ganancia pasa por addMoney() y, además, hay un CLAMP DURO al final
+  // de esta función que recorta money al cap SIN tocar walletCap.
 
   // ---- v78: GATOMÁTICO (auto-spawn) ----
   if (battleFlags.cpu && !battleFlags.cpuAutoWin && !isTest()) {
@@ -880,7 +879,7 @@ function update() {
   // ---------------- MUERTES ----------------
   enemies = enemies.filter(e => {
     if (e.hp <= 0) {
-      if (!isTest()) money += e.reward;
+      if (!isTest()) addMoney(e.reward);   // v79g: clamp al cap (NO money +=)
       addParticle(e.x, e.y, 'rgb(100,100,100)', 5, 3);
       addFloatingText(e.x, e.y - 25, `+${e.reward}💰`, '#ffd700');
       if (e.isBoss) addFloatingText(450, 100, '👑 ¡' + e.name + ' DERROTADO! 👑', '#ff0000');
@@ -903,7 +902,7 @@ function update() {
     wave++;
     if (!isTest()) {
       const bonus = 600 + wave * 120;
-      money += bonus;
+      addMoney(bonus);   // v79g: clamp al cap
       addFloatingText(450, 100, `¡VICTORIA! +${bonus}💰`, '#ffd700');
     } else {
       addFloatingText(450, 100, `¡Oleada ${wave}!`, '#ffd700');
@@ -915,5 +914,11 @@ function update() {
     const bossInterval = wave >= 100 ? 25 : 10;
     if (wave % bossInterval === 0) { pendingBoss = getBossForWave(); bossWarningTimer = 90; }
   }
+  // ---- v79h: CLAMP DURO (red de seguridad) ----
+  // money NUNCA queda por encima del cap al cerrar el frame, y esta línea
+  // NO toca battleFlags.walletCap → el cap no puede subir por esta vía.
+  // Con esto, incluso si se te cuela un money += en cualquier sitio, el
+  // límite sigue siendo un límite real. Solo buyWalletUpgrade() (💼) sube el cap.
+  if (!isTest() && money > currentWalletCap()) money = currentWalletCap();
   updateUI();
 }

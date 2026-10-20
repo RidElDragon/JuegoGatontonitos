@@ -1,8 +1,6 @@
 // ============================================================
-// 03-save.js — Persistencia en localStorage (v78)
-// · v78: persistencia de CONSUMIBLES y walletLevel.
-// · v77: tesoros y gamatoto.
-// · v62: validación anti-basura + copia de seguridad automática.
+// 03-save.js — Persistencia en localStorage (v79g)
+// · buildSaveData/loadGame persisten cap e income DE PARTIDA.
 // ============================================================
 let memorySave = null;
 let localStorageOK = true;
@@ -24,20 +22,10 @@ function metaObjIsValid(m) {
   return true;
 }
 function readMetaObj() {
-  try {
-    const raw = localStorage.getItem(META_KEY);
-    if (!raw) return null;
-    const m = JSON.parse(raw);
-    return metaObjIsValid(m) ? m : null;
-  } catch (e) { return null; }
+  try { const raw = localStorage.getItem(META_KEY); if (!raw) return null; const m = JSON.parse(raw); return metaObjIsValid(m) ? m : null; } catch (e) { return null; }
 }
 function readMetaBackupObj() {
-  try {
-    const raw = localStorage.getItem(META_BAK_KEY);
-    if (!raw) return null;
-    const m = JSON.parse(raw);
-    return metaObjIsValid(m) ? m : null;
-  } catch (e) { return null; }
+  try { const raw = localStorage.getItem(META_BAK_KEY); if (!raw) return null; const m = JSON.parse(raw); return metaObjIsValid(m) ? m : null; } catch (e) { return null; }
 }
 function applyMetaObj(m) {
   coins = m.coins;
@@ -49,6 +37,9 @@ function applyMetaObj(m) {
   cannonCdLevel    = clamp(m.cannonCdLevel, 1, CANNON_CD_MAX);
   coinBonusLevel   = clamp(m.coinBonusLevel || 0, 0, COIN_BONUS_MAX);
   walletLevel      = clamp(m.walletLevel || 0, 0, WALLET_UPGRADE_MAX);
+  baseDefLevel     = clamp(m.baseDefLevel || 0, 0, BASE_DEF_MAX);
+  researchLevel    = clamp(m.researchLevel || 0, 0, RESEARCH_MAX);
+  rewardLevel      = clamp(m.rewardLevel || 0, 0, REWARD_MAX);
   ticketsNormal = (typeof m.ticketsNormal === 'number' && m.ticketsNormal >= 0) ? m.ticketsNormal : 3;
   ticketsRare = (typeof m.ticketsRare === 'number' && m.ticketsRare >= 0) ? m.ticketsRare : 1;
   ticketsEvent = (typeof m.ticketsEvent === 'number' && m.ticketsEvent >= 0) ? m.ticketsEvent : 1;
@@ -62,31 +53,25 @@ function applyMetaObj(m) {
     consumables = Object.assign({ speed:0, radar:0, rich:0, cpu:0, sabelotodo:0, sniper:0 }, m.consumables);
   }
 }
-
 function saveMeta() {
   if (isTest()) return;
   if (isDevMode()) return;
   const obj = {
     coins, unitLevels: unitLevels.slice(), incomeLevel,
     cannonDmgLevel, cannonRangeLevel, cannonCdLevel, coinBonusLevel, walletLevel,
+    baseDefLevel, researchLevel, rewardLevel,
     ticketsNormal, ticketsRare, ticketsEvent, baseLevel,
     gachaLevels: gachaLevels.slice(), gachaUnlocked: gachaUnlocked.slice(),
     treasuresObtained: Object.assign({}, treasuresObtained),
     expedition: expedition ? Object.assign({}, expedition) : null,
     consumables: Object.assign({}, consumables)
   };
-  if (!metaObjIsValid(obj)) {
-    setStatus('⚠️ Guardado de mejoras omitido (datos inválidos)', '#ffaa00');
-    return;
-  }
+  if (!metaObjIsValid(obj)) { setStatus('⚠️ Guardado de mejoras omitido (datos inválidos)', '#ffaa00'); return; }
   baseMeta = snapshotMeta();
   try {
     const currentRaw = localStorage.getItem(META_KEY);
     if (currentRaw) {
-      try {
-        const cur = JSON.parse(currentRaw);
-        if (metaObjIsValid(cur)) localStorage.setItem(META_BAK_KEY, currentRaw);
-      } catch (e) {}
+      try { const cur = JSON.parse(currentRaw); if (metaObjIsValid(cur)) localStorage.setItem(META_BAK_KEY, currentRaw); } catch (e) {}
     }
     localStorage.setItem(META_KEY, JSON.stringify(obj));
   } catch (e) {}
@@ -105,13 +90,16 @@ function loadMeta() {
 window.restoreMetaBackup = function () {
   const bak = readMetaBackupObj();
   if (!bak) { setStatus('❌ Sin copia de seguridad válida', '#ff6666'); return; }
-  applyMetaObj(bak);
-  saveMeta();
-  setStatus('🩹 Copia de seguridad aplicada', '#88ff88');
+  applyMetaObj(bak); saveMeta(); setStatus('🩹 Copia de seguridad aplicada', '#88ff88');
 };
 
 function buildSaveData() {
-  return { version: 35, money, baseHP, enemyBaseHP, enemyBaseMaxHP, wave, timestamp: Date.now() };
+  return {
+    version: 36, money, baseHP, enemyBaseHP, enemyBaseMaxHP, wave,
+    walletCap: battleFlags.walletCap, walletUpgrades: battleFlags.walletUpgrades,
+    incomeUpgrades: battleFlags.incomeUpgrades,
+    timestamp: Date.now()
+  };
 }
 function writeSave(data) {
   memorySave = data;
@@ -151,7 +139,13 @@ function loadGame() {
   gameOver = false; frameCount = 0; waveTimer = 0; enemySpawnTimer = 120;
   cannonCooldown = 0; bossSpawnedThisWave = false; bossWarningTimer = 0; autoSaveTimer = 0;
   resetBattleFlags();
-  setStatus(`📂 Cargado: Ol.${wave}, ${Math.floor(money)}💰`, '#88ccff');
+  // v79g: restaurar las mejoras de partida guardadas (cap e income)
+  if (typeof data.walletCap === 'number') battleFlags.walletCap = data.walletCap;
+  if (typeof data.walletUpgrades === 'number') battleFlags.walletUpgrades = data.walletUpgrades;
+  if (typeof data.incomeUpgrades === 'number') battleFlags.incomeUpgrades = data.incomeUpgrades;
+  battleFlags.walletCap = Math.max(battleFlags.walletCap, Math.min(getWalletMax(), Math.floor(money)));
+  money = Math.min(money, currentWalletCap());
+  setStatus(`📂 Cargado: Ol.${wave}, ${Math.floor(money)}💰 (cap ${Math.floor(battleFlags.walletCap)})`, '#88ccff');
   updateUI();
   return true;
 }
@@ -168,38 +162,16 @@ function deleteSave() {
     setStatus('🗑️ Guardado borrado', '#ffaa00');
   }
 }
-
 function loadStoryProgress() {
-  try {
-    const raw = localStorage.getItem('catBattleStory');
-    if (raw === null) return 0;
-    const v = parseInt(raw);
-    return isNaN(v) || v < 0 ? 0 : v;
-  } catch (e) { return 0; }
+  try { const raw = localStorage.getItem('catBattleStory'); if (raw === null) return 0; const v = parseInt(raw); return isNaN(v) || v < 0 ? 0 : v; } catch (e) { return 0; }
 }
-function saveStoryProgress() {
-  if (isDevMode()) return;
-  try { localStorage.setItem('catBattleStory', String(storyProgress)); } catch (e) {}
-}
-function loadEventProgress() {
-  try { const o = JSON.parse(localStorage.getItem('catBattleEvents')); return (o && typeof o === 'object') ? o : {}; } catch (e) { return {}; }
-}
-function saveEventProgress() {
-  if (isDevMode()) return;
-  try { localStorage.setItem('catBattleEvents', JSON.stringify(eventProgress)); } catch (e) {}
-}
+function saveStoryProgress() { if (isDevMode()) return; try { localStorage.setItem('catBattleStory', String(storyProgress)); } catch (e) {} }
+function loadEventProgress() { try { const o = JSON.parse(localStorage.getItem('catBattleEvents')); return (o && typeof o === 'object') ? o : {}; } catch (e) { return {}; } }
+function saveEventProgress() { if (isDevMode()) return; try { localStorage.setItem('catBattleEvents', JSON.stringify(eventProgress)); } catch (e) {} }
 function loadLegendProgress() {
-  try {
-    const raw = localStorage.getItem('catBattleLegend');
-    if (raw === null) return 0;
-    const v = parseInt(raw);
-    return isNaN(v) || v < 0 ? 0 : v;
-  } catch (e) { return 0; }
+  try { const raw = localStorage.getItem('catBattleLegend'); if (raw === null) return 0; const v = parseInt(raw); return isNaN(v) || v < 0 ? 0 : v; } catch (e) { return 0; }
 }
-function saveLegendProgress() {
-  if (isDevMode()) return;
-  try { localStorage.setItem('catBattleLegend', String(legendProgress)); } catch (e) {}
-}
+function saveLegendProgress() { if (isDevMode()) return; try { localStorage.setItem('catBattleLegend', String(legendProgress)); } catch (e) {} }
 function loadLoadout() {
   let arr = null;
   try {
@@ -211,54 +183,34 @@ function loadLoadout() {
   if (arr.length === 0) arr = [0];
   return arr;
 }
-function saveLoadout() {
-  if (isDevMode()) return;
-  try { localStorage.setItem('catBattleLoadout', JSON.stringify(loadout)); } catch (e) {}
-}
-
+function saveLoadout() { if (isDevMode()) return; try { localStorage.setItem('catBattleLoadout', JSON.stringify(loadout)); } catch (e) {} }
 function resetAllProgress() {
   const msg = '⚠️ ¿Seguro? Se borrará TODO el progreso:\n' +
-    '· XP y todas las mejoras (y su copia de seguridad)\n' +
-    '· 📖 Progreso de Historia\n' +
-    '· 🎃🛸 Progreso de Eventos y tropas desbloqueadas\n' +
-    '· 🌟 Progreso de Etapas de Leyenda\n' +
-    '· 🎟 Tickets, Almacén y Misiones\n' +
-    '· 💎 Tesoros y Gamatoto\n' +
-    '· 🎒 Consumibles\n' +
-    '· 📖 Bestiario (enemigos descubiertos)\n' +
-    '· 💾 Guardado de la partida infinita\n' +
-    '· 🎖 Escuadrón seleccionado\n' +
-    '¡Esta acción no se puede deshacer!';
+    '· XP y todas las mejoras (y su copia de seguridad)\n· 📖 Progreso de Historia\n· 🎃🛸 Progreso de Eventos y tropas desbloqueadas\n' +
+    '· 🌟 Progreso de Etapas de Leyenda\n· 🎟 Tickets, Almacén y Misiones\n· 💎 Tesoros y Gamatoto\n· 🎒 Consumibles\n' +
+    '· 📖 Bestiario (enemigos descubiertos)\n· 💾 Guardado de la partida infinita\n· 🎖 Escuadrón seleccionado\n¡Esta acción no se puede deshacer!';
   if (!confirm(msg)) return;
   if (!confirm('🔁 Confirmación final: ¿reiniciar TODO el progreso desde cero?')) return;
   playing = false; gameOver = false;
   metaSnapshot = null; memorySave = null; baseMeta = null;
   try {
-    localStorage.removeItem(META_KEY);
-    localStorage.removeItem(META_BAK_KEY);
-    localStorage.removeItem('catBattleStory');
-    localStorage.removeItem('catBattleEvents');
-    localStorage.removeItem('catBattleLegend');
-    localStorage.removeItem('catBattleLoadout');
-    localStorage.removeItem('catBattleSave');
-    localStorage.removeItem('catBattleStorage');
-    localStorage.removeItem('catBattleMissions');
-    localStorage.removeItem('catBattleBestiary');
+    localStorage.removeItem(META_KEY); localStorage.removeItem(META_BAK_KEY);
+    localStorage.removeItem('catBattleStory'); localStorage.removeItem('catBattleEvents');
+    localStorage.removeItem('catBattleLegend'); localStorage.removeItem('catBattleLoadout');
+    localStorage.removeItem('catBattleSave'); localStorage.removeItem('catBattleStorage');
+    localStorage.removeItem('catBattleMissions'); localStorage.removeItem('catBattleBestiary');
     localStorage.removeItem('catBattleGamatoto');
   } catch (e) {}
   coins = 0;
   for (let i = 0; i < NUM_UNITS; i++) unitLevels[i] = 1;
   incomeLevel = 1; cannonDmgLevel = 1; cannonRangeLevel = 1; cannonCdLevel = 1;
-  coinBonusLevel = 0; walletLevel = 0;
-  storyProgress = 0;
-  eventProgress = {};
-  legendProgress = 0;
+  coinBonusLevel = 0; walletLevel = 0; baseDefLevel = 0; researchLevel = 0; rewardLevel = 0;
+  storyProgress = 0; eventProgress = {}; legendProgress = 0;
   ticketsNormal = 3; ticketsRare = 1; ticketsEvent = 1; baseLevel = 0;
   gachaLevels.fill(0); gachaUnlocked.fill(false);
   treasuresObtained = {}; expedition = null;
   consumables = { speed:0, radar:0, rich:0, cpu:0, sabelotodo:0, sniper:0 };
-  loadout = [0];
-  tempLoadout = [0];
+  loadout = [0]; tempLoadout = [0];
   spawnTimers = new Array(NUM_UNITS).fill(0);
   cats = []; enemies = []; projectiles = []; particles = []; floatingTexts = [];
   money = 400; baseHP = 1500; enemyBaseHP = 2000; enemyBaseMaxHP = 2000; wave = 1;
@@ -268,22 +220,12 @@ function resetAllProgress() {
   if (window.resetBestiary) window.resetBestiary();
   showMenu();
 }
-
 window.addEventListener('beforeunload', () => {
-  if (!isDevMode()) {
-    saveMeta();
-    if (gameMode === 'infinite' && screen === 'game') writeSave(buildSaveData());
-  }
+  if (!isDevMode()) { saveMeta(); if (gameMode === 'infinite' && screen === 'game') writeSave(buildSaveData()); }
 });
 window.addEventListener('pagehide', () => {
-  if (!isDevMode()) {
-    saveMeta();
-    if (gameMode === 'infinite' && screen === 'game') writeSave(buildSaveData());
-  }
+  if (!isDevMode()) { saveMeta(); if (gameMode === 'infinite' && screen === 'game') writeSave(buildSaveData()); }
 });
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden' && !isDevMode()) {
-    saveMeta();
-    if (gameMode === 'infinite' && screen === 'game') writeSave(buildSaveData());
-  }
+  if (document.visibilityState === 'hidden' && !isDevMode()) { saveMeta(); if (gameMode === 'infinite' && screen === 'game') writeSave(buildSaveData()); }
 });

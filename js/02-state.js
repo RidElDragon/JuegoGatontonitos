@@ -1,11 +1,8 @@
 // ============================================================
-// 02-state.js — Estado mutable global + cálculos/getters
-// v78c: mejora de INCOME en partida (de pago, máx 6, +5/s c/u).
-// v78b: ampliación MANUAL de cartera en partida (de pago, máx 6).
-// v78: consumibles, walletLevel, gameSpeed, battleFlags.
-// v77: bonus de TESOROS aplicados a stats.
+// 02-state.js — Estado mutable global + cálculos/getters (v79g)
+// · addMoney(): TODA ganancia de dinero se clampa al cap en el momento.
+// · Cartera v78b + Income v78c en partida.
 // ============================================================
-// --- Progreso persistente ---
 let coins = 0;
 const unitLevels = new Array(NUM_UNITS).fill(1);
 let incomeLevel = 1;
@@ -14,6 +11,9 @@ let cannonRangeLevel = 1;
 let cannonCdLevel = 1;
 let coinBonusLevel = 0;
 let walletLevel = 0;
+let baseDefLevel = 0;
+let researchLevel = 0;
+let rewardLevel = 0;
 let storyProgress = 0;
 let eventProgress = {};
 let legendProgress = 0;
@@ -26,12 +26,10 @@ const gachaUnlocked = new Array(NUM_UNITS).fill(false);
 let treasuresObtained = {};
 let expedition = null;
 let consumables = { speed:0, radar:0, rich:0, cpu:0, sabelotodo:0, sniper:0 };
-// ---
 let loadout = [0];
 let tempLoadout = [0];
 let metaSnapshot = null;
 let baseMeta = null;
-// --- Estado de batalla ---
 let spawnTimers = new Array(NUM_UNITS).fill(0);
 let money = 400;
 let baseHP = 1500;
@@ -56,14 +54,12 @@ let pendingEventBoss = '';
 let pendingLegendBoss = '';
 let storyBossSpawned = false;
 let storyBossTimer = 0;
-// --- v78: velocidad y flags de batalla ---
 let gameSpeed = 1;
 let battleFlags = { radar:false, rich:false, cpu:false, cpuAutoWin:false, sabelotodo:false, sniper:false, sniperTimer:0, walletCap:WALLET_BATTLE_START, walletUpgrades:0, incomeUpgrades:0, cpuTimer:0 };
 function resetBattleFlags() {
   gameSpeed = 1;
   battleFlags = { radar:false, rich:false, cpu:false, cpuAutoWin:false, sabelotodo:false, sniper:false, sniperTimer:0, walletCap:WALLET_BATTLE_START, walletUpgrades:0, incomeUpgrades:0, cpuTimer:0 };
 }
-// --- Pantalla / modo ---
 let screen = 'menu';
 let playing = false;
 let gameMode = 'infinite';
@@ -71,29 +67,22 @@ let storyLevelIdx = 0;
 let eventLevelIdx = 0;
 let currentEventId = '';
 let legendLevelIdx = 0;
-// --- Bucle / FPS ---
 let lastTime = performance.now();
 let fps = 60;
 let frameAccumulator = 0;
 let fpsSampleTimer = 0;
 let fpsTickCount = 0;
 
-// ============================================================
-// MODO DESARROLLADOR
-// ============================================================
 let devMode = false;
 let devSnapshot = null;
 function isDevMode() { return devMode; }
 function toggleDevMode() {
   if (!devMode) {
-    devSnapshot = snapshotMeta();
+    cannonDmgLevel, cannonRangeLevel, cannonCdLevel, coinBonusLevel, walletLevel,
+    baseDefLevel, researchLevel, rewardLevel,
     setStatus('🔧 Modo desarrollador ACTIVADO - NADA se guarda', '#ff88ff');
   } else {
-    if (devSnapshot) {
-      restoreMeta(devSnapshot);
-      devSnapshot = null;
-      setStatus('🔧 Modo desarrollador DESACTIVADO - Estado restaurado', '#888888');
-    }
+    if (devSnapshot) { restoreMeta(devSnapshot); devSnapshot = null; setStatus('🔧 Modo desarrollador DESACTIVADO - Estado restaurado', '#888888'); }
   }
   devMode = !devMode;
   if (screen === 'story') buildStoryGrid();
@@ -112,9 +101,6 @@ function updateDevModeButton() {
   if (btn) btn.textContent = 'Modo desarrollador: ' + (devMode ? 'ON' : 'OFF');
 }
 
-// ------------------------------------------------------------
-// v44: EVOLUCIÓN DE UNIDADES
-// ------------------------------------------------------------
 const EVOLVE_LEVEL = 10;
 const EVOLVE_MULT = 1.10;
 function isEvolved(c) {
@@ -122,10 +108,6 @@ function isEvolved(c) {
   if (c.evo !== undefined) return !!c.evo;
   return (c.level || 1) >= EVOLVE_LEVEL;
 }
-
-// ------------------------------------------------------------
-// v48: FORMA PREFERIDA POR UNIDAD
-// ------------------------------------------------------------
 function loadForms() {
   try {
     const o = JSON.parse(localStorage.getItem('catBattleForms'));
@@ -137,17 +119,10 @@ function loadForms() {
   } catch (e) {}
   return new Array(NUM_UNITS).fill('evo');
 }
-function saveForms() {
-  try { localStorage.setItem('catBattleForms', JSON.stringify(unitFormPref)); } catch (e) {}
-}
+function saveForms() { try { localStorage.setItem('catBattleForms', JSON.stringify(unitFormPref)); } catch (e) {} }
 let unitFormPref = loadForms();
-function formIsEvo(idx) {
-  return unitFormPref[idx] !== 'normal' && unitLevels[idx] >= EVOLVE_LEVEL;
-}
+function formIsEvo(idx) { return unitFormPref[idx] !== 'normal' && unitLevels[idx] >= EVOLVE_LEVEL; }
 
-// ------------------------------------------------------------
-// Utilidades y consultas de modo
-// ------------------------------------------------------------
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 function isTest()  { return gameMode === 'test'; }
 function isEvent() { return gameMode === 'event'; }
@@ -188,6 +163,9 @@ function restoreMeta(s) {
   cannonCdLevel = s.cannonCdLevel;
   coinBonusLevel = s.coinBonusLevel || 0;
   walletLevel = s.walletLevel || 0;
+  baseDefLevel = s.baseDefLevel || 0;
+  researchLevel = s.researchLevel || 0;
+  rewardLevel = s.rewardLevel || 0;
   ticketsNormal = (typeof s.ticketsNormal === 'number') ? s.ticketsNormal : 3;
   ticketsRare = (typeof s.ticketsRare === 'number') ? s.ticketsRare : 1;
   ticketsEvent = (typeof s.ticketsEvent === 'number') ? s.ticketsEvent : 1;
@@ -208,13 +186,9 @@ function leaveTestIfNeeded() {
   }
 }
 
-// ------------------------------------------------------------
-// Income (permanente + bonus de partida v78c)
-// ------------------------------------------------------------
 function getIncomeAt(l) { return BASE_INCOME + 10 * (l * (l + 1) / 2); }
 function getIncome() { return getIncomeAt(incomeLevel); }
 function getIncomeCoinCost() { const l = incomeLevel; return 8000 + 5000 * l * (l - 1); }
-// v78c: bonus temporal de income dentro de la partida
 function getBattleIncomeBonus() { return battleFlags.incomeUpgrades * INCOME_BATTLE_STEP; }
 function getEffectiveIncome() { return getIncome() + getBattleIncomeBonus(); }
 function getIncomeUpgradePrice() { return INCOME_BATTLE_BASE_PRICE * (battleFlags.incomeUpgrades + 1); }
@@ -232,9 +206,6 @@ function buyIncomeUpgrade() {
   if (window.updateUI) window.updateUI();
 }
 
-// ------------------------------------------------------------
-// Cañón (con bonus de tesoros sueltos)
-// ------------------------------------------------------------
 function getCannonDamagePercentAt(l) { return 0.05 + (l - 1) * 0.005; }
 function getCannonDamagePercent() { return getCannonDamagePercentAt(getEffectiveCannonDmgLevel()); }
 function getCannonRangeAt(l) { return 250 + (l - 1) * 150; }
@@ -247,13 +218,8 @@ function cannonCdSecAt(dmgL, cdL) { return Math.ceil(getCannonCooldownFramesFor(
 function getCannonDmgCoinCost()   { const l = cannonDmgLevel;   return 20000 + 15000 * l * (l - 1); }
 function getCannonRangeCoinCost() { const l = cannonRangeLevel; return 12000 + 8000  * l * (l - 1); }
 function getCannonCdCoinCost()    { const l = cannonCdLevel;    return 15000 + 10000 * l * (l - 1); }
-function getEffectiveCannonDmgLevel() {
-  return Math.min(cannonDmgLevel + getTreasureCannonBonus(), CANNON_DMG_MAX);
-}
+function getEffectiveCannonDmgLevel() { return Math.min(cannonDmgLevel + getTreasureCannonBonus(), CANNON_DMG_MAX); }
 
-// ------------------------------------------------------------
-// v57: BONUS DE XP
-// ------------------------------------------------------------
 function getCoinBonusPercentAt(l) { return l * COIN_BONUS_PER_LVL; }
 function getCoinBonusPercent() { return getCoinBonusPercentAt(coinBonusLevel); }
 function getCoinBonusCost() { return COIN_BONUS_BASE_COST + COIN_BONUS_COST_STEP * coinBonusLevel; }
@@ -261,38 +227,36 @@ function coinRewardFor(baseCoins, firstClear) {
   const baseEarned = firstClear ? baseCoins : Math.floor(baseCoins / 2);
   return Math.floor(baseEarned * (1 + getCoinBonusPercent()));
 }
+function getBaseMaxHP() { return 1500 + baseLevel * BASE_HP_PER_LEVEL + getTreasureFlatBaseHP() + getBaseDefBonus(); }
+// v80: Defensa de base / Investigación / Recompensa mejorada
+function getBaseDefBonus() { return baseDefLevel * BASE_DEF_PER_LVL; }
+function getBaseDefCost() { return BASE_DEF_BASE_COST + BASE_DEF_COST_STEP * baseDefLevel; }
+function getResearchMult() { return 1 - researchLevel * RESEARCH_PER_LVL; }
+function getResearchCost() { return RESEARCH_BASE_COST + RESEARCH_COST_STEP * researchLevel; }
+function getRewardMult() { return 1 + rewardLevel * REWARD_PER_LVL; }
+function getRewardCost() { return REWARD_BASE_COST + REWARD_COST_STEP * rewardLevel; }
+function getSpawnCdFrames(type) { return Math.max(1, Math.round(CAT_BASE[type].spawnCd * 60 * getResearchMult())); }
 
-// v63: HP máximo de la base (+ bonus de tesoro Corona Real)
-function getBaseMaxHP() {
-  return 1500 + baseLevel * BASE_HP_PER_LEVEL + getTreasureFlatBaseHP();
-}
-
-// ------------------------------------------------------------
-// v78: CARTERA (wallet)
-// ------------------------------------------------------------
 function getWalletTreasureBonus() {
   let n = 0;
   for (const id in treasuresObtained) if (treasuresObtained[id] === 2) n++;
   return n * WALLET_GOLD_TREASURE_BONUS;
 }
-function getWalletMax() {
-  return WALLET_BASE + walletLevel * WALLET_UPGRADE_PER_LVL + getWalletTreasureBonus();
-}
+function getWalletMax() { return WALLET_BASE + walletLevel * WALLET_UPGRADE_PER_LVL + getWalletTreasureBonus(); }
 function getWalletUpgradeCost() { return getWalletUpgradeCostAt(walletLevel); }
 function currentWalletCap() {
   if (isTest()) return Infinity;
   if (battleFlags.rich) return getWalletMax();
   return battleFlags.walletCap;
 }
-// v78b: ampliación MANUAL del cap dentro de la partida (de pago, máx 6)
+// v79g: TODA ganancia de dinero pasa por aquí → clamp al cap EN EL MOMENTO.
+function addMoney(n) { money = Math.min(currentWalletCap(), money + n); }
 function getWalletBattleStep() {
   const span = getWalletMax() - WALLET_BATTLE_START;
   if (span <= 0) return 0;
   return Math.max(50, Math.ceil(span / WALLET_BATTLE_MAX_UPGRADES / 50) * 50);
 }
-function getWalletUpgradePrice() {
-  return WALLET_UPGRADE_BASE_PRICE + WALLET_UPGRADE_PRICE_STEP * battleFlags.walletUpgrades;
-}
+function getWalletUpgradePrice() { return WALLET_UPGRADE_BASE_PRICE + WALLET_UPGRADE_PRICE_STEP * battleFlags.walletUpgrades; }
 function canUpgradeWallet() {
   if (battleFlags.rich) return false;
   if (battleFlags.walletUpgrades >= WALLET_BATTLE_MAX_UPGRADES) return false;
@@ -318,9 +282,6 @@ function buyWalletUpgrade() {
   if (window.updateUI) window.updateUI();
 }
 
-// ------------------------------------------------------------
-// v77: getters de bonus de tesoros
-// ------------------------------------------------------------
 function getSetQuality(setId) {
   const set = TREASURE_SETS.find(s => s.id === setId);
   if (!set) return -1;
@@ -342,13 +303,8 @@ function getTreasureBonus(kind, unitIdx) {
     const ef = set.effect;
     if (ef.kind !== kind) continue;
     if (ef.kind === 'allDmgMult') { total += ef.base * mult; continue; }
-    if (ef.kind === 'unitAoeMult') {
-      if (Array.isArray(ef.units) && ef.units.includes(unitIdx)) total += ef.base * mult;
-      continue;
-    }
-    if (ef.units === 'all' || (Array.isArray(ef.units) && ef.units.includes(unitIdx))) {
-      total += ef.base * mult;
-    }
+    if (ef.kind === 'unitAoeMult') { if (Array.isArray(ef.units) && ef.units.includes(unitIdx)) total += ef.base * mult; continue; }
+    if (ef.units === 'all' || (Array.isArray(ef.units) && ef.units.includes(unitIdx))) total += ef.base * mult;
   }
   for (const tid in TREASURE_BOSS_EFFECTS) {
     if (!treasuresObtained[tid]) continue;
@@ -356,9 +312,7 @@ function getTreasureBonus(kind, unitIdx) {
     const mult = TREASURE_QUALITY_MULT[q];
     const ef = TREASURE_BOSS_EFFECTS[tid].effect;
     if (ef.kind !== kind) continue;
-    if (ef.kind === 'unitAoeMult' && Array.isArray(ef.units) && ef.units.includes(unitIdx)) {
-      total += ef.base * mult;
-    }
+    if (ef.kind === 'unitAoeMult' && Array.isArray(ef.units) && ef.units.includes(unitIdx)) total += ef.base * mult;
   }
   return total;
 }
@@ -382,9 +336,6 @@ function getTreasureCannonBonus() {
   return Math.floor(total);
 }
 
-// ------------------------------------------------------------
-// Stats de unidades (con bonus de tesoros)
-// ------------------------------------------------------------
 function unitStatsAt(idx, lvl) {
   const base = CAT_BASE[idx];
   const mult = Math.pow(base.upMult || 1.15, lvl - 1) * (lvl >= EVOLVE_LEVEL ? EVOLVE_MULT : 1);
@@ -419,9 +370,7 @@ function getCatStats(type) {
 function getUnitCoinCost(idx) { const l = unitLevels[idx]; return UNIT_COIN_BASE[idx] + UNIT_COIN_STEP[idx] * l * (l - 1); }
 function getWaveBonus() { return 1 + (wave - 1) * 0.03; }
 function isRanged(c) { return c.unitType === 'ranged' || c.unitType === 'roboRanged'; }
-function getWaveMult() {
-  return (1 + (wave - 1) * 0.18) * Math.pow(1.03, Math.max(0, wave - 20));
-}
+function getWaveMult() { return (1 + (wave - 1) * 0.18) * Math.pow(1.03, Math.max(0, wave - 20)); }
 function getEnemyMult() {
   if (gameMode === 'story') return STORY_LEVELS[storyLevelIdx].mult;
   if (gameMode === 'event') return EVENTS[currentEventId].levels[eventLevelIdx].mult;

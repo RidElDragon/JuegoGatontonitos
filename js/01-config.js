@@ -1,10 +1,10 @@
 // ============================================================
-// 01-config.js — Constantes y datos ESTÁTICOS del juego
-// Si añades unidades/enemigos/jefes/eventos/niveles, es AQUÍ.
-// v78b FIX: GACHA_EVENT_POOL sacada del bucle de Leyenda al scope
-//           global (estaba atrapada dentro de `for z` y rompía el
-//           banner de Evento). Cartera v78b: sin crecimiento
-//           automático + ampliación manual de pago (máx 6).
+// 01-config.js — Constantes y datos ESTÁTICOS del juego (v79g)
+// · GACHA_EVENT_POOL global (fix scope).
+// · Raro = solo Rey Gatontito [9]; Evento = solo unidades de evento.
+// · Cartera v78b (ampliación manual de pago, máx 6, sin crecimiento solo).
+// · Income v78c (mejora en partida, máx 6, +5/s).
+// · Tesoros v79e: 40% drop; si cae 60%🥉/25%🥈/15%🥇.
 // ============================================================
 const COIN = 'XP';
 const GROUND_Y = 215;
@@ -34,24 +34,20 @@ const CANNON_BASE_COOLDOWN = 1500;
 const CANNON_MIN_COOLDOWN = 1200;
 const CANNON_BOSS_LIMIT = 0.5;
 const STORY_MAX_LEVEL = 45;
-// v57: bonus permanente de 🐾 por nivel superado
 const COIN_BONUS_MAX = 10;
 const COIN_BONUS_PER_LVL = 0.10;
 const COIN_BONUS_BASE_COST = 4000;
 const COIN_BONUS_COST_STEP = 4000;
-// v58: constantes de combate
 const LEVEL_START_MONEY = 450;
 const MAGE_UNIT_IDX = 4;
 const MAGE_EVO_AOE = 130;
 const HEALER_HOME_X = 60;
-// v63: gacha / banners / almacén
 const BASE_HP_PER_LEVEL = 150;
 const BASE_GACHA_MAX = 20;
 const GACHA_LVL_MAX = 10;
-const GACHA_NORMAL_POOL = [0, 1, 2, 3, 4, 5, 6];
-const GACHA_RARE_POOL = [7, 8, 9, 10, 11, 12];
-// v78b FIX: GACHA_EVENT_POOL ahora GLOBAL (estaba mal anidada en Leyenda)
-const GACHA_EVENT_POOL = [7, 8, 10, 11, 12];
+const GACHA_NORMAL_POOL = [0, 1, 2, 3, 4, 5, 6];   // historia básica
+const GACHA_RARE_POOL = [9];                        // solo Rey Gatontito (premium historia)
+const GACHA_EVENT_POOL = [7, 8, 10, 11, 12];        // solo unidades de evento
 
 const UNIT_EMOJI = ['🐱','','⚡','','🔮','💚','👑','','🤖','','','','🎅'];
 
@@ -298,31 +294,22 @@ for (let z = 0; z < 6; z++) {
     const isBossStage = (s === 4);
     const boss = isBossStage ? (z === 5 ? LEGEND_VOID_BOSSES[s] : LEGEND_ZONE_BOSSES[z]) : null;
     LEGEND_STAGES.push({
-      level: i,
-      zone: z,
-      theme: LEGEND_ZONE_THEMES[z],
+      level: i, zone: z, theme: LEGEND_ZONE_THEMES[z],
       name: `Etapa ${i}: ${LEGEND_STAGE_NAMES[z][s]}`,
       enemyBaseHP: 40000 + i * 5000 + z * 30000,
       spawnInterval: Math.max(15, 55 - z * 5 - s * 3),
       mult: 12 + i * 0.8 + z * 3,
-      pool: LEGEND_ZONE_POOLS[z],
-      boss: boss,
+      pool: LEGEND_ZONE_POOLS[z], boss: boss,
       coins: 8000 + i * 1200 + z * 4000,
     });
   }
 }
-// v78b FIX: GACHA_EVENT_POOL movida al scope global (ver arriba, junto a los otros pools).
 
-  // ============================================================
+// ============================================================
 // v77: TESOROS + GAMATOTO
 // ============================================================
-
-// --- TESOROS: uno por cada nivel de historia (1-45) ---
-// Cada tesoro: { id, name, zone, level, set (id del combo o null para sueltos) }
 const TREASURES = [];
 const TREASURE_DEFS = [
-  // Parte 1 - Praderas del Inicio
-  // Combo "Pradera Verde" (1-7)
   { id:'t01', name:'Hoja de Trébol',    zone:1, level:1,  set:'set_prairie' },
   { id:'t02', name:'Pluma de Gorrión',  zone:1, level:2,  set:'set_prairie' },
   { id:'t03', name:'Roca de Río',       zone:1, level:3,  set:'set_prairie' },
@@ -330,7 +317,6 @@ const TREASURE_DEFS = [
   { id:'t05', name:'Espina de Zarza',   zone:1, level:5,  set:'set_prairie' },
   { id:'t06', name:'Gota de Rocío',     zone:1, level:6,  set:'set_prairie' },
   { id:'t07', name:'Raíz Antigua',      zone:1, level:7,  set:'set_prairie' },
-  // Combo "Colinas del Alba" (8-14)
   { id:'t08', name:'Cristal de Cuarzo', zone:1, level:8,  set:'set_hills' },
   { id:'t09', name:'Pico de Cuervo',    zone:1, level:9,  set:'set_hills' },
   { id:'t10', name:'Corteza de Roble',  zone:1, level:10, set:'set_hills' },
@@ -338,11 +324,7 @@ const TREASURE_DEFS = [
   { id:'t12', name:'Espora Mágica',     zone:1, level:12, set:'set_hills' },
   { id:'t13', name:'Pluma de Búho',     zone:1, level:13, set:'set_hills' },
   { id:'t14', name:'Hueso Pulido',      zone:1, level:14, set:'set_hills' },
-  // Tesoro suelto del jefe (15)
   { id:'t15', name:'Corona de Dragón',  zone:1, level:15, set:null },
-
-  // Parte 2 - Tierras del Rey
-  // Combo "Corona Real" (16-22)
   { id:'t16', name:'Cetro de Marfil',   zone:2, level:16, set:'set_crown' },
   { id:'t17', name:'Pergamino Real',    zone:2, level:17, set:'set_crown' },
   { id:'t18', name:'Gema Azul',         zone:2, level:18, set:'set_crown' },
@@ -350,7 +332,6 @@ const TREASURE_DEFS = [
   { id:'t20', name:'Moneda Antigua',    zone:2, level:20, set:'set_crown' },
   { id:'t21', name:'Sello de Cera',     zone:2, level:21, set:'set_crown' },
   { id:'t22', name:'Capa Púrpura',      zone:2, level:22, set:'set_crown' },
-  // Combo "Bosque Encantado" (23-29)
   { id:'t23', name:'Varita de Hechicero',zone:2, level:23, set:'set_enchanted' },
   { id:'t24', name:'Hoja Lunar',        zone:2, level:24, set:'set_enchanted' },
   { id:'t25', name:'Raíz de Mandrágora',zone:2, level:25, set:'set_enchanted' },
@@ -358,11 +339,7 @@ const TREASURE_DEFS = [
   { id:'t27', name:'Pluma de Fénix',    zone:2, level:27, set:'set_enchanted' },
   { id:'t28', name:'Escama Dorada',     zone:2, level:28, set:'set_enchanted' },
   { id:'t29', name:'Ojo de Halcón',     zone:2, level:29, set:'set_enchanted' },
-  // Tesoro suelto del jefe (30)
   { id:'t30', name:'Cuerno Demoníaco',  zone:2, level:30, set:null },
-
-  // Parte 3 - Desierto Prohibido
-  // Combo "Oasis Perdido" (31-37)
   { id:'t31', name:'Cactus Sagrado',    zone:3, level:31, set:'set_oasis' },
   { id:'t32', name:'Arena de Oro',      zone:3, level:32, set:'set_oasis' },
   { id:'t33', name:'Escarabajo Dorado', zone:3, level:33, set:'set_oasis' },
@@ -370,7 +347,6 @@ const TREASURE_DEFS = [
   { id:'t35', name:'Perla del Desierto',zone:3, level:35, set:'set_oasis' },
   { id:'t36', name:'Agua Cristalina',   zone:3, level:36, set:'set_oasis' },
   { id:'t37', name:'Flor de Loto',      zone:3, level:37, set:'set_oasis' },
-  // Combo "Tumba del Faraón" (38-44)
   { id:'t38', name:'Ankh de Oro',       zone:3, level:38, set:'set_pharaoh' },
   { id:'t39', name:'Ushabti de Piedra', zone:3, level:39, set:'set_pharaoh' },
   { id:'t40', name:'Papiro Sagrado',    zone:3, level:40, set:'set_pharaoh' },
@@ -378,15 +354,8 @@ const TREASURE_DEFS = [
   { id:'t42', name:'Joya Escarlata',    zone:3, level:42, set:'set_pharaoh' },
   { id:'t43', name:'Máscara Funeraria', zone:3, level:43, set:'set_pharaoh' },
   { id:'t44', name:'Cáliz de Lapislázuli', zone:3, level:44, set:'set_pharaoh' },
-  // Tesoro suelto del jefe (45)
   { id:'t45', name:'Lámpara Mágica',    zone:3, level:45, set:null },
 ];
-
-// --- COMBOS DE TESOROS + TESOROS SUELTOS ---
-// Cada combo: { id, name, zone, treasureIds:[7], desc, effect }
-// effect: { kind:'unitHpMult'|'unitDmgMult'|'unitSpeedMult'|'baseHpFlat'|'cannonDmgFlat'|'unitAoeMult'|'allDmgMult', ...params }
-// La calidad del combo = la calidad MÁS BAJA de sus 7 tesoros.
-//   🥉 bronce=0 → mult 1.0 | 🥈 plata=1 → mult 1.5 | 🥇 oro=2 → mult 2.0
 const TREASURE_SETS = [
   { id:'set_prairie',   name:'🌿 Pradera Verde',       zone:1,
     treasureIds:['t01','t02','t03','t04','t05','t06','t07'],
@@ -413,31 +382,27 @@ const TREASURE_SETS = [
     desc:'+DMG a TODAS las tropas',
     effect:{ kind:'allDmgMult', base:0.30 } },
 ];
-
-// Tesoros sueltos de jefes (no forman combo, dan efecto al obtenerlos)
 const TREASURE_BOSS_EFFECTS = {
   't15': { desc:'🐉 Corona de Dragón: +1 nivel de cañón gratis', effect:{ kind:'cannonDmgFlat', base:1 } },
   't30': { desc:'😈 Cuerno Demoníaco: +20% daño en área a todas las tropas AOE', effect:{ kind:'unitAoeMult', units:[4,9,12], base:0.20 } },
   't45': { desc:'🪔 Lámpara Mágica: +2 niveles de cañón gratis', effect:{ kind:'cannonDmgFlat', base:2 } },
 };
-
-// Calidad de tesoros
 const TREASURE_QUALITY_NAMES = ['🥉 Bronce', '🥈 Plata', '🥇 Oro'];
 const TREASURE_QUALITY_COLORS = ['#cd7f32', '#c0c0c0', '#ffd700'];
 const TREASURE_QUALITY_MULT = [1.0, 1.5, 2.0];
-// Probabilidades al obtener (al primer claro)
-const TREASURE_DROP_CHANCE = 0.40;                  // prob. de que CAIGA un tesoro al ganar nivel (60% nada)
-const TREASURE_QUALITY_CHANCE = [0.60, 0.25, 0.15]; // condicionales (si cae): bronce 60%, plata 25%, oro 15%
+// v79e: 40% de que CAIGA un tesoro al ganar nivel; si cae, calidad condicional.
+const TREASURE_DROP_CHANCE = 0.40;
+const TREASURE_QUALITY_CHANCE = [0.60, 0.25, 0.15]; // bronce 60%, plata 25%, oro 15%
 
-// --- GAMATOTO ---
 const GAMATOTO_DURATIONS = [
   { hours:1,  label:'1 hora',  xpMin:200,  xpMax:600,   rewards:[{t:'normal',ch:0.30},{t:'none',ch:0.70}] },
   { hours:3,  label:'3 horas', xpMin:800,  xpMax:2000,  rewards:[{t:'normal',ch:0.55},{t:'rare',ch:0.25},{t:'none',ch:0.20}] },
   { hours:8,  label:'8 horas', xpMin:2500, xpMax:6000,  rewards:[{t:'rare',ch:0.60},{t:'event',ch:0.25},{t:'normal',ch:0.15}] },
   { hours:24, label:'24 horas',xpMin:8000, xpMax:20000, rewards:[{t:'event',ch:0.70},{t:'rare',ch:0.25},{t:'rare2',ch:0.05}] },
 ];
+
 // ============================================================
-// v78: CONSUMIBLES + CARTERA (WALLET)
+// v78/v78c: CONSUMIBLES + CARTERA + INCOME EN PARTIDA
 // ============================================================
 const CONSUMABLE_DEFS = {
   speed:      { id:'speed',      name:'Acelerador',     emoji:'⚡', desc:'Desbloquea la velocidad x3 en batalla (la x2 es gratis).' },
@@ -449,26 +414,34 @@ const CONSUMABLE_DEFS = {
 };
 const CONSUMABLE_IDS = ['speed','radar','rich','cpu','sabelotodo','sniper'];
 
-// Cartera (máximo de dinero acumulable en partida)
-const WALLET_BASE = 4500;                 // cap base sin mejoras ni tesoros
-const WALLET_UPGRADE_PER_LVL = 200;       // +200 por nivel de mejora
-const WALLET_UPGRADE_MAX = 10;            // 10 niveles = +2000 (total 6500 sin tesoros)
-const WALLET_GOLD_TREASURE_BONUS = 50;    // +50 por cada tesoro en calidad ORO
-const WALLET_BATTLE_START = 2500;         // cap inicial dentro de una batalla
-// v78b: ampliación MANUAL de pago dentro de la partida (el cap ya NO crece solo)
-const WALLET_BATTLE_MAX_UPGRADES = 6;     // nº de ampliaciones manuales por partida
-const WALLET_UPGRADE_BASE_PRICE  = 500;   // precio de la 1ª ampliación
-const WALLET_UPGRADE_PRICE_STEP  = 500;   // +500 a partir de la 2ª (500,1000,...,3000)
-
-// Mejora de cartera (menú de mejoras)
+const WALLET_BASE = 4500;
+const WALLET_UPGRADE_PER_LVL = 200;
+const WALLET_UPGRADE_MAX = 10;
+const WALLET_GOLD_TREASURE_BONUS = 50;
+const WALLET_BATTLE_START = 2500;
+const WALLET_BATTLE_MAX_UPGRADES = 6;
+const WALLET_UPGRADE_BASE_PRICE  = 500;
+const WALLET_UPGRADE_PRICE_STEP  = 500;
 function getWalletUpgradeCostAt(l) { return 6000 + 4000 * l; }
+// v80: nuevas mejoras permanentes (Defensa / Investigación / Recompensa)
+const BASE_DEF_MAX = 10;
+const BASE_DEF_PER_LVL = 1000;      // +1000 HP máx de base por nivel
+const BASE_DEF_BASE_COST = 2000;
+const BASE_DEF_COST_STEP = 2000;
+const RESEARCH_MAX = 10;
+const RESEARCH_PER_LVL = 0.05;      // -5% cooldown de spawn por nivel
+const RESEARCH_BASE_COST = 2000;
+const RESEARCH_COST_STEP = 2000;
+const REWARD_MAX = 10;
+const REWARD_PER_LVL = 0.05;        // +5% drop de enemigos por nivel
+const REWARD_BASE_COST = 2000;
+const REWARD_COST_STEP = 2000;
 
-// v78c: mejora de INCOME solo en partida (de pago, máx 6, +5/s c/u)
+// v78c: income en partida (de pago, máx 6, +5/s c/u)
 const INCOME_BATTLE_MAX_UPGRADES = 6;
-const INCOME_BATTLE_STEP         = 5;    // +5 income/s por nivel
-const INCOME_BATTLE_BASE_PRICE   = 600;  // precio = 600 * (n+1) → 600,1200,...,3600
+const INCOME_BATTLE_STEP         = 5;
+const INCOME_BATTLE_BASE_PRICE   = 600;
 
-// Gatotirador (sniper)
-const SNIPER_INTERVAL_FRAMES = 180;       // dispara cada ~3s
-const SNIPER_DMG_PERCENT = 0.02;          // 2% de la vida máx del objetivo
-const SNIPER_KNOCKBACK = 45;              // px que empuja hacia atrás
+const SNIPER_INTERVAL_FRAMES = 180;
+const SNIPER_DMG_PERCENT = 0.02;
+const SNIPER_KNOCKBACK = 45;
