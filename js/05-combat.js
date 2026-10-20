@@ -879,9 +879,10 @@ function update() {
   // ---------------- MUERTES ----------------
   enemies = enemies.filter(e => {
     if (e.hp <= 0) {
-      if (!isTest()) addMoney(e.reward);   // v79g: clamp al cap (NO money +=)
+      const gained = Math.floor(e.reward * getRewardMult());   // v80: Recompensa mejorada
+      if (!isTest()) addMoney(gained);
       addParticle(e.x, e.y, 'rgb(100,100,100)', 5, 3);
-      addFloatingText(e.x, e.y - 25, `+${e.reward}💰`, '#ffd700');
+      addFloatingText(e.x, e.y - 25, `+${gained}💰`, '#ffd700');
       if (e.isBoss) addFloatingText(450, 100, '👑 ¡' + e.name + ' DERROTADO! 👑', '#ff0000');
       return false;
     }
