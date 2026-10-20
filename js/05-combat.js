@@ -255,9 +255,10 @@ function awardTreasureForLevel(levelNum) {
   if (!tdef) return null;
   let q;
   if (battleFlags.radar) {
-    q = 2;
+    q = 2;                                   // 📡 Radar: caída garantizada + ORO
   } else {
-    const r = Math.random();
+    if (Math.random() >= TREASURE_DROP_CHANCE) return null;   // 60%: no suelta nada
+    const r = Math.random();                 // si cae, calidad condicional
     if (r < TREASURE_QUALITY_CHANCE[2]) q = 2;
     else if (r < TREASURE_QUALITY_CHANCE[2] + TREASURE_QUALITY_CHANCE[1]) q = 1;
     else q = 0;

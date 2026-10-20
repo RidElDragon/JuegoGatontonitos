@@ -1,8 +1,8 @@
 // ============================================================
-// 12-gamatoto.js — v79: GAMATOTO (expediciones)
-// · v79: las recompensas pueden incluir CONSUMIBLES directamente.
-// · Envías una tropa por 1h/3h/8h/24h → vuelve con XP + tickets
-//   + (a veces) un consumible.
+// 12-gamatoto.js — v79e: GAMATOTO (expediciones)
+// · Gamatoto NO es unidad y VIAJA SOLO: no hay selector de tropa.
+//   La expedición se lanza eligiendo únicamente la duración.
+// · Recompensas: XP + tickets + consumibles (escalán con duración).
 // ============================================================
 (function () {
   let gScreen = null;
@@ -14,6 +14,13 @@
     gScreen.style.display = 'none';
     gScreen.innerHTML =
       '<h2>🎲 GAMATOTO</h2>' +
+      '<div style="display:flex;align-items:center;gap:10px;justify-content:center;margin:4px 0 8px">' +
+        '<span style="font-size:34px">🎲</span>' +
+        '<div style="text-align:left">' +
+          '<div style="font-weight:bold;color:#ffd700">Gamatoto — gestor de expediciones</div>' +
+          '<div class="sb-info" style="font-size:11px">Se queda en la base organizando los envíos. No se despliega, no se selecciona y no cambia de forma.</div>' +
+        '</div>' +
+      '</div>' +
       '<div class="menu-info" id="gamaInfo"></div>' +
       '<div id="gamaBody" class="upgrade-grid" style="max-width:980px"></div>' +
       '<div class="best-foot"></div>';
@@ -37,7 +44,7 @@
     return (h > 0 ? h + 'h ' : '') + m + 'm ' + sec + 's';
   }
 
-  // v79: consumible aleatorio según duración
+  // consumible aleatorio según duración
   function rollConsumable(dur) {
     let chance = 0, pool = [];
     if (dur.hours === 1)      { chance = 0.15; pool = ['speed','radar']; }
@@ -53,7 +60,7 @@
   }
 
   function rollReward(dur) {
-    const coins = dur.xpMin + Math.floor(Math.random() * (dur.xpMax - dur.xpMin + 1));
+    const coinsReward = dur.xpMin + Math.floor(Math.random() * (dur.xpMax - dur.xpMin + 1));
     let ticketType = null, ticketCount = 0;
     let roll = Math.random();
     for (const r of dur.rewards) {
@@ -66,7 +73,7 @@
         break;
       }
     }
-    return { coins: coins, ticketType: ticketType, ticketCount: ticketCount, consumable: rollConsumable(dur) };
+    return { coins: coinsReward, ticketType: ticketType, ticketCount: ticketCount, consumable: rollConsumable(dur) };
   }
 
   function render() {
@@ -76,18 +83,18 @@
     body.innerHTML = '';
     info.innerHTML = isDevMode()
       ? '🔧 <b>Modo dev:</b> puedes probar sin esperar, y nada se guarda al salir.'
-      : 'Envía una tropa de expedición. A más larga la espera, mejores recompensas (XP, tickets y consumibles).';
+      : 'Gamatoto parte de expedición. Elige cuánto tiempo estará fuera: a más espera, mejores recompensas (XP, tickets y consumibles).';
 
+    // --- Expedición en curso: Gamatoto viaja solo ---
     if (expedition) {
       const left = timeLeft();
-      const u = CAT_BASE[expedition.catIdx];
       const card = document.createElement('div');
       card.className = 'upg-card';
       card.style.minWidth = '340px';
       card.style.textAlign = 'left';
       card.innerHTML =
         '<div class="best-name">🧳 Expedición en curso</div>' +
-        '<div class="sb-info">Tropa enviada: ' + (UNIT_EMOJI[expedition.catIdx] || '🐱') + ' <b>' + u.name + '</b></div>' +
+        '<div class="sb-info">Enviado: 🎲 <b>Gamatoto</b> (solo, como siempre)</div>' +
         '<div class="sb-info">Duración: <b>' + expedition.durationHours + 'h</b></div>' +
         '<div class="sb-info" style="font-size:16px;color:#ffd700">⏳ Tiempo restante: <b id="gamaCountdown">' + fmtTime(left) + '</b></div>';
       const btn = document.createElement('button');
@@ -111,28 +118,14 @@
       return;
     }
 
-    const unlockedTroops = [];
-    for (let i = 0; i < NUM_UNITS; i++) if (isUnitUnlocked(i)) unlockedTroops.push(i);
+    // --- Sin expedición: solo duración (sin tropa) ---
     const card = document.createElement('div');
     card.className = 'upg-card';
     card.style.minWidth = '340px';
     card.style.textAlign = 'left';
     card.innerHTML = '<div class="best-name">🧭 Nueva expedición</div>' +
-      '<div class="sb-info">Elige la tropa que enviarás y el tiempo que durará el viaje.</div>' +
-      '<div class="sb-info" style="margin-top:10px"><b>1. Tropa:</b></div>';
-    const troopSel = document.createElement('select');
-    troopSel.style.cssText = 'width:100%;padding:8px;font-size:14px;background:#222233;color:#fff;border:2px solid #4488ff;border-radius:6px;';
-    unlockedTroops.forEach(i => {
-      const u = CAT_BASE[i];
-      const opt = document.createElement('option');
-      opt.value = i;
-      opt.textContent = (UNIT_EMOJI[i] || '🐱') + ' ' + u.name + ' (Nv.' + unitLevels[i] + ')';
-      troopSel.appendChild(opt);
-    });
-    card.appendChild(troopSel);
-    const lbl2 = document.createElement('div');
-    lbl2.className = 'sb-info'; lbl2.style.marginTop = '10px'; lbl2.innerHTML = '<b>2. Duración:</b>';
-    card.appendChild(lbl2);
+      '<div class="sb-info">Gamatoto se va solo. Tú solo decides cuánto tiempo estará fuera.</div>' +
+      '<div class="sb-info" style="margin-top:10px"><b>Duración del viaje:</b></div>';
     const durSel = document.createElement('select');
     durSel.style.cssText = 'width:100%;padding:8px;font-size:14px;background:#222233;color:#fff;border:2px solid #4488ff;border-radius:6px;';
     GAMATOTO_DURATIONS.forEach((d, i) => {
@@ -145,12 +138,11 @@
     const go = document.createElement('button');
     go.className = 'save-btn';
     go.style.cssText = 'margin-top:14px;padding:10px 20px;font-size:15px;width:100%;background:linear-gradient(135deg,#88ff88,#228822);color:#111;font-weight:bold;';
-    go.textContent = '🚀 Enviar tropa';
+    go.textContent = '🚀 Enviar a Gamatoto';
     go.onclick = () => {
-      const catIdx = parseInt(troopSel.value);
       const durIdx = parseInt(durSel.value);
       const dur = GAMATOTO_DURATIONS[durIdx];
-      expedition = { catIdx: catIdx, durationHours: dur.hours, startTime: Date.now(), reward: rollReward(dur) };
+      expedition = { durationHours: dur.hours, startTime: Date.now(), reward: rollReward(dur) };
       if (!isDevMode()) saveMeta();
       render();
     };
@@ -168,7 +160,6 @@
       else if (rew.ticketType === 'rare') { ticketsRare += rew.ticketCount; msg += ' +' + rew.ticketCount + ' 💠'; }
       else if (rew.ticketType === 'event') { ticketsEvent += rew.ticketCount; msg += ' +' + rew.ticketCount + ' 🎟'; }
     }
-    // v79: consumible
     if (rew.consumable && window.addConsumable) {
       window.addConsumable(rew.consumable.id, rew.consumable.count);
       const d = CONSUMABLE_DEFS[rew.consumable.id];
@@ -202,7 +193,11 @@
   window.openGamatoto = showGamatoto;
   window.claimExpedition = claimExpedition;
 
-  function wrap(name, after) { const orig = window[name]; if (typeof orig !== 'function') return; window[name] = function () { const r = orig.apply(this, arguments); try { after.apply(this, arguments); } catch (e) {} return r; }; }
+  function wrap(name, after) {
+    const orig = window[name];
+    if (typeof orig !== 'function') return;
+    window[name] = function () { const r = orig.apply(this, arguments); try { after.apply(this, arguments); } catch (e) {} return r; };
+  }
   wrap('hideScreens', () => { if (gScreen) gScreen.style.display = 'none'; });
 
   buildUI();

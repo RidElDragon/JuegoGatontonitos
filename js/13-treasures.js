@@ -137,8 +137,8 @@
     footer.innerHTML =
       '<div class="best-name">ℹ️ Calidades de tesoros</div>' +
       '<div class="sb-info">🥉 Bronce · 🥈 Plata · 🥇 Oro</div>' +
-      '<div class="sb-info">Al ganar un tesoro por primera vez: 55% bronce / 32% plata / 13% oro.</div>' +
-      '<div class="sb-info">Rejugar un nivel puede mejorar la calidad del tesoro si tienes suerte.</div>' +
+      '<div class="sb-info">Al ganar un nivel: <b>40%</b> de que caiga un tesoro (60% nada). Si cae: <b>60%</b> 🥉 bronce / <b>25%</b> 🥈 plata / <b>15%</b> 🥇 oro.</div>' +
+      '<div class="sb-info">Rejugar un nivel puede mejorar la calidad (mismo 40% de drop). El 📡 Radar garantiza caída + 🥇 ORO.</div>' +
       '<div class="sb-info" style="color:#ffd700">El bonus del combo se calcula con la calidad MÁS BAJA del set, así que ¡mejora los 7!</div>';
     body.appendChild(footer);
   }

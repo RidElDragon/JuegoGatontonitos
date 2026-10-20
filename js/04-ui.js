@@ -1,7 +1,12 @@
 // ============================================================
-// 04-ui.js — v78: NAVEGACIÓN COMPLETA + TOAST + CANDADOS + MÚSICA
-//   + bonus de TESOROS en panel y cañón + 💼 CARTERA en mejoras.
+// 04-ui.js — v79d
+// · Medallas de tesoro en Historia: 🥇/🥈/🥉/○
+// · Gamatoto NO aparece en tropas (solo vive en 12-gamatoto.js)
+// · Cartera + Income en partida reflejados en HUD/panel
+// · Navegación, ajustes, mejoras, historia, eventos, leyenda, tropas
+// · Toast, candados, música de menú al salir de batalla
 // ============================================================
+
 // -------------------- RAREZAS --------------------
 const RARITIES = {
   normal:     { name:'Normal',     color:'#b8c0c8', glow:false },
@@ -210,10 +215,6 @@ function setSettingSfx(v) { if (window.audioControls) window.audioControls.setSf
 function toggleSettingMusicMute() { if (window.audioControls) { window.audioControls.muteMusic(); syncSettingsUI(); } }
 function toggleSettingSfxMute() { if (window.audioControls) { window.audioControls.muteSfx(); syncSettingsUI(); } }
 function testSettingSound() { if (window.audioControls) window.audioControls.test(); }
-function updateDevModeButton() {
-  const b = document.getElementById('setDevBtn');
-  if (b) b.textContent = 'Modo desarrollador: ' + (devMode ? 'ON' : 'OFF');
-}
 
 // -------------------- DESBLOQUEOS --------------------
 function isUnitUnlocked(idx) {
@@ -303,7 +304,6 @@ function buyCoinBonus() {
   if (!isDevMode()) saveMeta();
   buildUpgradeScreen();
 }
-// v78: mejora permanente de cartera (máximo de dinero en partida)
 function buyWallet() {
   if (walletLevel >= WALLET_UPGRADE_MAX) return;
   if (!isDevMode()) { const c = getWalletUpgradeCost(); if (coins < c) return; coins -= c; }
@@ -409,25 +409,51 @@ function buildStoryGrid() {
   const part = hubState.chapter;
   const info = document.getElementById('storyInfo');
   if (info) info.textContent = part ? ('Parte ' + part + ' — ' + STORY_PART_NAMES[part - 1]) : 'Todas las partes';
+
   STORY_LEVELS.forEach((L, idx) => {
     if (part && L.part !== part) return;
+
     const unlocked = isDevMode() || idx <= storyProgress;
     const done = idx < storyProgress;
     const unlock = unlockAtLevel(idx + 1);
+
     const b = document.createElement('button');
     b.className = 'story-btn';
     b.disabled = !unlocked;
+
+    // v79: medalla de tesoro encima del nivel
+    const tdef = TREASURE_DEFS.find(t => t.level === idx + 1);
+    let medalHtml = '';
+    if (tdef) {
+      const q = treasuresObtained[tdef.id];
+      if (q === undefined || q === null) {
+        medalHtml =
+          '<div style="text-align:right;font-size:14px;line-height:1;margin:-3px 0 2px;color:#667788" ' +
+          'title="Tesoro pendiente: ' + tdef.name + '">○</div>';
+      } else {
+        const sym = q === 2 ? '🥇' : (q === 1 ? '🥈' : '🥉');
+        const col = TREASURE_QUALITY_COLORS[q];
+        medalHtml =
+          '<div style="text-align:right;font-size:15px;line-height:1;margin:-3px 0 2px;text-shadow:0 0 5px ' + col + '" ' +
+          'title="' + tdef.name + ' · ' + TREASURE_QUALITY_NAMES[q] + '">' + sym + '</div>';
+      }
+    }
+
     const rewardInfo =
       '<span class="sb-info">' + COIN + ' 1ª:' + coinRewardFor(L.coins, true) + ' / rep:' + coinRewardFor(L.coins, false) +
       (coinBonusLevel > 0 ? ' <span class="up">(+' + Math.round(getCoinBonusPercent() * 100) + '%)</span>' : '') +
       '</span>';
+
     const devTag = isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '';
+
     b.innerHTML =
+      medalHtml +
       (done ? '✅' : unlocked ? '▶' : '🔒') + ' ' + L.name + (L.boss >= 0 ? ' 👑' : '') +
       '<span class="sb-info">Base: ' + L.enemyBaseHP + ' HP · ×' + L.mult.toFixed(2) + '</span>' +
       rewardInfo +
       (unlock ? '<span class="sb-info unlock">Desbloquea: ' + unlock + '</span>' : '') +
       devTag;
+
     if (unlocked) b.onclick = () => startStory(idx);
     grid.appendChild(b);
   });
@@ -618,7 +644,12 @@ function buildMetaInfoPanel() {
     const totalLvl = unitLevels[idx] + (gachaLevels[idx] || 0);
     html += UNIT_EMOJI[idx] + ' <span style="color:' + r.color + '">' + CAT_BASE[idx].name + '</span>: <b>Nv.' + totalLvl + '/' + (unitLevelCap() + GACHA_LVL_MAX) + '</b>' + (formIsEvo(idx) ? ' ✨' : '') + (gachaLevels[idx] ? ' <span style="color:#ff88ff">+' + gachaLevels[idx] + '🎰</span>' : '') + '<br>';
   });
-  html += '<hr style="border-color:#444">💵 Income: <b>Nv.' + incomeLevel + '/' + MAX_INCOME_LEVEL + '</b><br>';
+  html += '<hr style="border-color:#444">';
+  html += '💵 Income: <b>Nv.' + incomeLevel + '/' + MAX_INCOME_LEVEL + '</b>';
+  if (typeof battleFlags !== 'undefined' && battleFlags.incomeUpgrades > 0) {
+    html += ' <span style="color:#88ff88">(+' + (battleFlags.incomeUpgrades * INCOME_BATTLE_STEP) + '/s)</span>';
+  }
+  html += '<br>';
   html += '💣 Cañón: <b>D' + cannonDmgLevel + ' R' + cannonRangeLevel + ' C' + cannonCdLevel + '</b>';
   const eff = getEffectiveCannonDmgLevel();
   if (eff > cannonDmgLevel) html += ' <span style="color:#ffd700">(+' + (eff - cannonDmgLevel) + '💎)</span>';
@@ -628,9 +659,7 @@ function buildMetaInfoPanel() {
   html += '🏰 Base: <b>Nv.' + baseLevel + '/' + BASE_GACHA_MAX + '</b> (+' + baseLevel * BASE_HP_PER_LEVEL;
   if (baseBonusFlat > 0) html += ' +<span style="color:#ffd700">' + baseBonusFlat + '💎</span>';
   html += ' HP máx)<br>';
-  // v78: cartera
-  html += '💼 Cartera: <b>Nv.' + walletLevel + '/' + WALLET_UPGRADE_MAX + '</b> (cap ' + getWalletMax() + '💰)<br>';
-  // v77: bonus activos de tesoros
+  html += '💼 Cartera: <b>Nv.' + walletLevel + '/' + WALLET_UPGRADE_MAX + '</b> (cap actual ' + (isTest() ? '∞' : Math.floor(currentWalletCap())) + '/' + getWalletMax() + '💰)<br>';
   html += '<hr style="border-color:#444"><b style="color:#ffd700">💎 TESOROS ACTIVOS:</b><br>';
   const treasureCount = Object.keys(treasuresObtained).length;
   html += '<span style="color:#aabbcc">· ' + treasureCount + '/45 tesoros obtenidos</span><br>';
@@ -767,6 +796,12 @@ function openMissions() { if (window.showMissions) window.showMissions(); else s
 function openBook() { if (window.showBestiary) window.showBestiary(); else setStatus('❌ Módulo de biblioteca no cargado', '#ff6666'); }
 function openGamatoto() { if (window.showGamatoto) window.showGamatoto(); else setStatus('❌ Módulo de Gamatoto no cargado', '#ff6666'); }
 
+// Aliases para 05-combat.js
+function showEvents() { showEventScreen(); }
+function showLegend() { showLegendScreen(); }
+window.showEvents = showEvents;
+window.showLegend = showLegend;
+
 // ============================================================
 // v72: AVISOS VISIBLES + CANDADOS EN EL HUB + BACK DE LOGROS
 // ============================================================
@@ -842,6 +877,7 @@ function openGamatoto() { if (window.showGamatoto) window.showGamatoto(); else s
 
 // ============================================================
 // v75: música de menú al salir de batalla
+// (NO envuelve retryLevel/nextLevel para no pisar la música de batalla)
 // ============================================================
 (function () {
   function menuMusic() {
@@ -849,7 +885,7 @@ function openGamatoto() { if (window.showGamatoto) window.showGamatoto(); else s
       if (window.AudioSys && typeof AudioSys.setMusic === 'function') { AudioSys.setMusic('menu'); return; }
     } catch (e) {}
   }
-  ['goMenu', 'showHub', 'showTitle', 'showCarousel', 'showChapters', 'showUpgrades', 'showTroops', 'retryLevel', 'nextLevel'].forEach(f => {
+  ['goMenu', 'showHub', 'showTitle', 'showCarousel', 'showChapters', 'showUpgrades', 'showTroops', 'showStoryScreen', 'showEventScreen', 'showLegendScreen', 'showEvents', 'showLegend'].forEach(f => {
     const orig = window[f];
     if (typeof orig !== 'function') return;
     window[f] = function () {

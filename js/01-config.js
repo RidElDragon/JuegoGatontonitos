@@ -426,7 +426,8 @@ const TREASURE_QUALITY_NAMES = ['🥉 Bronce', '🥈 Plata', '🥇 Oro'];
 const TREASURE_QUALITY_COLORS = ['#cd7f32', '#c0c0c0', '#ffd700'];
 const TREASURE_QUALITY_MULT = [1.0, 1.5, 2.0];
 // Probabilidades al obtener (al primer claro)
-const TREASURE_QUALITY_CHANCE = [0.55, 0.32, 0.13]; // bronce 55%, plata 32%, oro 13%
+const TREASURE_DROP_CHANCE = 0.40;                  // prob. de que CAIGA un tesoro al ganar nivel (60% nada)
+const TREASURE_QUALITY_CHANCE = [0.60, 0.25, 0.15]; // condicionales (si cae): bronce 60%, plata 25%, oro 15%
 
 // --- GAMATOTO ---
 const GAMATOTO_DURATIONS = [

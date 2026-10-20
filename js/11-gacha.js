@@ -1,9 +1,11 @@
 // ============================================================
-// 11-gacha.js — v79: BANNERS, 📦 ALMACÉN y 📜 MISIONES
-// · v79: las misiones pueden otorgar CONSUMIBLES vía campo `items`.
-//        (se añaden misiones nuevas; las antiguas NO se tocan).
-// · Banner Normal 🎫 · Raro 💠 · Evento 🎟.
-// · Premios al 📦 Almacén (aplicar/descartar).
+// 11-gacha.js — v79f: BANNERS, 📦 ALMACÉN y 📜 MISIONES
+// · v79f: CADA BOTÓN DEL HUB ABRE SOLO SU BANNER (1 tarjeta por
+//   pantalla), en vez de los 3 juntos. Gatobolas→Normal (por
+//   defecto), Bolas raras→Raro, Bolas de evento→Evento.
+// · v79e: cada ítem recuerda su banner de origen; el 📦 Almacén
+//   los agrupa por banner.
+// · v79: misiones con CONSUMIBLES vía campo `items`.
 // · 🧪 sandbox bloqueado · 🔧 dev prueba sin guardar.
 // ============================================================
 (function () {
@@ -13,7 +15,7 @@ const UNLOCK_LEVEL = 10;
 let storage = loadStorage();
 let mis = loadMissions();
 let storageSnapshot = null;
-let focusBanner = null;
+let focusBanner = 'normal';
 function loadStorage() { try { const o = JSON.parse(localStorage.getItem(STORE_KEY)); return Array.isArray(o) ? o : []; } catch (e) { return []; } }
 function saveStorage() { if (isDevMode()) return; try { localStorage.setItem(STORE_KEY, JSON.stringify(storage)); } catch (e) {} }
 function loadMissions() {
@@ -26,7 +28,7 @@ function gachaUnlocked() { return isDevMode() || storyProgress >= UNLOCK_LEVEL; 
 function snapshotStorage() { storageSnapshot = storage.map(s => Object.assign({}, s)); }
 function restoreStorage() { if (storageSnapshot) { storage = storageSnapshot.map(s => Object.assign({}, s)); storageSnapshot = null; } }
 function storedCount(kind, idx) { let n = 0; for (const s of storage) if (s.kind === kind && (idx === undefined || s.idx === idx)) n++; return n; }
-function mkItem(kind, idx) { return { uid: Date.now() + '-' + Math.random().toString(36).slice(2, 8), kind: kind, idx: idx }; }
+function mkItem(kind, idx, banner) { return { uid: Date.now() + '-' + Math.random().toString(36).slice(2, 8), kind: kind, idx: idx, banner: banner || null }; }
 function itemLabel(it) {
   if (it.kind === 'unlock') return '🔓 Desbloquear tropa: ' + (UNIT_EMOJI[it.idx] || '🐱') + ' ' + CAT_BASE[it.idx].name;
   if (it.kind === 'unitLvl') return '⬆️ +1 nivel EXTRA: ' + (UNIT_EMOJI[it.idx] || '🐱') + ' ' + CAT_BASE[it.idx].name + ' (llevas +' + (gachaLevels[it.idx] || 0) + '/' + GACHA_LVL_MAX + ')';
@@ -37,33 +39,36 @@ function itemRefund(it) {
   if (it.kind === 'unlock') return 1200;
   return (GACHA_RARE_POOL.includes(it.idx) || GACHA_EVENT_POOL.includes(it.idx)) ? 1500 : 400;
 }
-function rollItem(pool) {
+function rollItem(pool, banner) {
   const r = Math.random();
   if (r < 0.72) {
     const idx = pool[Math.floor(Math.random() * pool.length)];
     const willUnlock = !isUnitUnlocked(idx) && !gachaUnlocked[idx] && storedCount('unlock', idx) === 0;
-    if (willUnlock) return mkItem('unlock', idx);
-    if ((gachaLevels[idx] || 0) + storedCount('unitLvl', idx) < GACHA_LVL_MAX) return mkItem('unitLvl', idx);
-    if (baseLevel + storedCount('base') < BASE_GACHA_MAX) return mkItem('base');
-    return mkItem('unitLvl', idx);
+    if (willUnlock) return mkItem('unlock', idx, banner);
+    if ((gachaLevels[idx] || 0) + storedCount('unitLvl', idx) < GACHA_LVL_MAX) return mkItem('unitLvl', idx, banner);
+    if (baseLevel + storedCount('base') < BASE_GACHA_MAX) return mkItem('base', undefined, banner);
+    return mkItem('unitLvl', idx, banner);
   }
-  if (baseLevel + storedCount('base') < BASE_GACHA_MAX) return mkItem('base');
-  return mkItem('unitLvl', pool[Math.floor(Math.random() * pool.length)]);
+  if (baseLevel + storedCount('base') < BASE_GACHA_MAX) return mkItem('base', undefined, banner);
+  return mkItem('unitLvl', pool[Math.floor(Math.random() * pool.length)], banner);
 }
-let lastPull = null;
+const BANNER_META = {
+  normal: { icon:'🎫', title:'🎫 Banner Normal',    pool:GACHA_NORMAL_POOL, grad:'linear-gradient(135deg,#88aacc,#335577)', desc:'Gatos normales. 72% tropa · 28% base.' },
+  rare:   { icon:'💠', title:'💠 Banner Raro',      pool:GACHA_RARE_POOL,   grad:'linear-gradient(135deg,#cc88ff,#552288)', desc:'Unidades especiales. 72% tropa · 28% base.' },
+  event:  { icon:'🎟', title:'🎟 Banner de Evento', pool:GACHA_EVENT_POOL,  grad:'linear-gradient(135deg,#ff8866,#882200)', desc:'Tropas exclusivas de eventos. 72% tropa · 28% base.' },
+};
+function ticketsFor(key) { return isDevMode() ? Infinity : (key === 'rare' ? ticketsRare : (key === 'event' ? ticketsEvent : ticketsNormal)); }
 function doPull(banner) {
   if (blocked()) { setStatus('❌ En sandbox los banners no están disponibles', '#ff6666'); return; }
-  const isRare = banner === 'rare', isEvent = banner === 'event';
   if (!isDevMode()) {
-    if (isEvent) { if (ticketsEvent <= 0) { setStatus('❌ No te quedan tickets 🎟', '#ff6666'); return; } ticketsEvent--; }
-    else if (isRare) { if (ticketsRare <= 0) { setStatus('❌ No te quedan tickets 💠', '#ff6666'); return; } ticketsRare--; }
+    if (banner === 'event') { if (ticketsEvent <= 0) { setStatus('❌ No te quedan tickets 🎟', '#ff6666'); return; } ticketsEvent--; }
+    else if (banner === 'rare') { if (ticketsRare <= 0) { setStatus('❌ No te quedan tickets 💠', '#ff6666'); return; } ticketsRare--; }
     else { if (ticketsNormal <= 0) { setStatus('❌ No te quedan tickets 🎫', '#ff6666'); return; } ticketsNormal--; }
   }
   mis.stats.pulls++; saveMissions();
-  const pool = isEvent ? GACHA_EVENT_POOL : (isRare ? GACHA_RARE_POOL : GACHA_NORMAL_POOL);
-  const item = rollItem(pool);
+  const meta = BANNER_META[banner];
+  const item = rollItem(meta.pool, banner);
   storage.push(item); saveStorage(); saveMeta();
-  lastPull = { item: item, rare: isRare, event: isEvent };
   if (window.sfx) { sfx('spawn'); setTimeout(() => sfx('upgrade'), 200); }
   renderBanners();
 }
@@ -76,7 +81,7 @@ function applyItem(uid) {
   else if (it.kind === 'base') baseLevel++;
   storage.splice(i, 1); mis.stats.applies++; saveMissions(); saveStorage(); saveMeta();
   if (window.sfx) sfx('upgrade');
-  renderStorage();
+  renderStorage(); renderBanners();
 }
 function discardItem(uid) {
   if (blocked()) { setStatus('❌ En sandbox el almacén no está disponible', '#ff6666'); return; }
@@ -84,12 +89,11 @@ function discardItem(uid) {
   coins += itemRefund(storage[i]); storage.splice(i, 1);
   saveStorage(); saveMeta();
   if (window.sfx) sfx('coin');
-  renderStorage();
+  renderStorage(); renderBanners();
 }
 function achBossKills() { try { const o = JSON.parse(localStorage.getItem('catBattleAch')); return (o && o.stats && o.stats.bossKills) || 0; } catch (e) { return 0; } }
 function anyEventDone() { return Object.values(EVENTS).some(ev => (eventProgress[ev.id] || 0) >= ev.levels.length); }
 
-// v79: campo `items` = consumibles otorgados al reclamar
 const MISSIONS = [
   { id:'m_story5', name:'📖 Primeros Pasos', desc:'Supera el Nivel 5 de Historia.', coins:3000, tn:1, tr:0, check:() => storyProgress >= 5 },
   { id:'m_story15', name:'📖 Héroe en Formación', desc:'Supera el Nivel 15 de Historia.', coins:8000, tn:2, tr:0, check:() => storyProgress >= 15 },
@@ -106,7 +110,6 @@ const MISSIONS = [
   { id:'m_pull20', name:'🎰 Adicto al Gacha', desc:'Usa 20 tickets en los banners.', coins:15000, tn:0, tr:2, check:() => mis.stats.pulls >= 20 },
   { id:'m_apply5', name:'📦 Logística Felina', desc:'Aplica 5 mejoras del Almacén.', coins:6000, tn:1, tr:0, check:() => mis.stats.applies >= 5 },
   { id:'m_rich50', name:'💰 Ahorrador', desc:'Ten 50.000 XP a la vez.', coins:0, tn:0, tr:2, check:() => coins >= 50000 },
-  // ---- v79: NUEVAS misiones que otorgan consumibles ----
   { id:'m_story10', name:'📖 Explorador', desc:'Supera el Nivel 10 de Historia.', coins:6000, tn:1, tr:0, items:{ radar:1 }, check:() => storyProgress >= 10 },
   { id:'m_story20', name:'📖 Veterano', desc:'Supera el Nivel 20 de Historia.', coins:12000, tn:0, tr:1, items:{ speed:1 }, check:() => storyProgress >= 20 },
   { id:'m_story40', name:'📖 Casi Leyenda', desc:'Supera el Nivel 40 de Historia.', coins:30000, tn:0, tr:1, items:{ rich:1, sabelotodo:1 }, check:() => storyProgress >= 40 },
@@ -119,7 +122,6 @@ function claimMission(id) {
   if (!m || mis.claimed[id] || !m.check()) return;
   mis.claimed[id] = Date.now();
   coins += m.coins; ticketsNormal += m.tn; ticketsRare += m.tr;
-  // v79: otorgar consumibles
   let itemMsg = '';
   if (m.items && window.addConsumable) {
     for (const k in m.items) {
@@ -149,10 +151,12 @@ function buildUI() {
   mScreen = mkScreen('📜 MISIONES', 'missionList');
 }
 function hideAll() { if (gScreen) gScreen.style.display = 'none'; if (sScreen) sScreen.style.display = 'none'; if (mScreen) mScreen.style.display = 'none'; }
+
+// v79f: cada botón del hub abre SOLO su banner
 function showBanners(focus) {
   leaveTestIfNeeded();
   if (!gachaUnlocked()) { setStatus('🔒 Se desbloquea al superar Historia Nivel ' + UNLOCK_LEVEL, '#ffaa00'); return; }
-  focusBanner = focus || null;
+  focusBanner = focus || 'normal';
   screen = 'gacha'; playing = false; hideScreens(); gScreen.style.display = 'flex'; renderBanners();
 }
 function showStorage() {
@@ -165,58 +169,97 @@ function showMissions() {
   if (!gachaUnlocked()) { setStatus('🔒 Se desbloquea al superar Historia Nivel ' + UNLOCK_LEVEL, '#ffaa00'); return; }
   screen = 'missions'; playing = false; hideScreens(); mScreen.style.display = 'flex'; renderMissions();
 }
+
+function storageCard(it) {
+  const card = document.createElement('div');
+  card.className = 'upg-card'; card.style.textAlign = 'left'; card.style.minWidth = '300px';
+  card.innerHTML = '<div class="best-name">' + itemLabel(it) + '</div><div class="sb-info">Descarte: +' + itemRefund(it) + ' XP</div>';
+  const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;';
+  const ap = document.createElement('button'); ap.className = 'save-btn'; ap.style.background = 'linear-gradient(135deg,#88ff88,#228822)'; ap.textContent = '✅ Aplicar'; ap.disabled = blocked(); ap.onclick = () => applyItem(it.uid);
+  const di = document.createElement('button'); di.className = 'save-btn'; di.style.background = 'linear-gradient(135deg,#ff8844,#884400)'; di.textContent = '🗑️ Descartar (+' + itemRefund(it) + ' XP)'; di.disabled = blocked(); di.onclick = () => discardItem(it.uid);
+  row.appendChild(ap); row.appendChild(di); card.appendChild(row);
+  return card;
+}
+
+// v79f: UNA sola tarjeta (la del banner enfocado), centrada
+function buildBannerCard(key) {
+  const bn = BANNER_META[key];
+  const tickets = ticketsFor(key);
+  const card = document.createElement('div');
+  card.className = 'upg-card'; card.id = 'banner-' + key;
+  card.style.background = bn.grad; card.style.minWidth = '300px'; card.style.maxWidth = '520px';
+  card.style.margin = '0 auto'; card.style.textAlign = 'left';
+  card.innerHTML =
+    '<div class="best-name">' + bn.title + '</div>' +
+    '<div class="sb-info">' + bn.desc + '</div>' +
+    '<div class="sb-info">Pool: ' + bn.pool.map(i => UNIT_EMOJI[i] || '🐱').join(' ') + '</div>' +
+    '<div class="sb-info">Tickets de este banner: <b>' + (isDevMode() ? '∞' : tickets) + '</b></div>';
+  const pull = document.createElement('button');
+  pull.className = 'save-btn'; pull.style.cssText = 'margin-top:6px;font-size:13px;padding:8px 14px;';
+  pull.disabled = blocked(); pull.textContent = '🎰 Usar 1 ticket (' + bn.icon + ')';
+  pull.onclick = () => doPull(key);
+  card.appendChild(pull);
+  const pend = storage.filter(s => s.banner === key);
+  const box = document.createElement('div');
+  box.style.cssText = 'margin-top:8px;border-top:1px solid rgba(255,255,255,.3);padding-top:5px';
+  if (!pend.length) {
+    box.innerHTML = '<div class="sb-info" style="opacity:.75">Sin premios pendientes de este banner.</div>';
+  } else {
+    box.innerHTML = '<div class="sb-info" style="font-weight:bold;color:#fff">📦 Pendientes de este banner (' + pend.length + '):</div>';
+    pend.forEach(it => {
+      const d = document.createElement('div');
+      d.className = 'sb-info'; d.style.cssText = 'font-size:11px;padding:2px 0;border-bottom:1px dotted rgba(255,255,255,.18);color:#fff';
+      d.textContent = itemLabel(it);
+      box.appendChild(d);
+    });
+    const goBtn = document.createElement('button');
+    goBtn.className = 'save-btn'; goBtn.style.cssText = 'margin-top:6px;font-size:11px;padding:5px 10px;background:linear-gradient(135deg,#223344,#112233);color:#fff';
+    goBtn.textContent = '📦 Gestionar en el Almacén';
+    goBtn.onclick = () => showStorage();
+    box.appendChild(goBtn);
+  }
+  card.appendChild(box);
+  return card;
+}
 function renderBanners() {
+  const key = focusBanner || 'normal';
+  const bn = BANNER_META[key];
   const info = document.getElementById('gachaListInfo');
   if (info) {
-    const tN = isDevMode() ? '∞' : ticketsNormal, tR = isDevMode() ? '∞' : ticketsRare, tE = isDevMode() ? '∞' : ticketsEvent;
-    let html = 'Tickets: 🎫 <b>' + tN + '</b> · 💠 <b>' + tR + '</b> · 🎟 <b>' + tE + '</b> · Los premios van al 📦 Almacén.';
-    if (isDevMode()) html += ' <span style="color:#ff88ff">🔧 Modo dev: tickets ∞, nada se guarda.</span>';
-    info.innerHTML = html;
+    const tickets = isDevMode() ? '∞' : ticketsFor(key);
+    info.innerHTML = bn.title + ' · Tickets disponibles: <b>' + tickets + '</b> · Cada premio que saques se guarda en el 📦 Almacén.' +
+      (isDevMode() ? ' <span style="color:#ff88ff">🔧 Modo dev: tickets ∞, nada se guarda.</span>' : '');
   }
   const list = document.getElementById('gachaList'); if (!list) return;
   list.innerHTML = '';
-  const banners = [
-    { key:'normal', title:'🎫 Banner Normal', pool:GACHA_NORMAL_POOL, grad:'linear-gradient(135deg,#88aacc,#335577)', desc:'Gatos normales. 72% tropa · 28% base.' },
-    { key:'rare', title:'💠 Banner Raro', pool:GACHA_RARE_POOL, grad:'linear-gradient(135deg,#cc88ff,#552288)', desc:'Unidades especiales. 72% tropa · 28% base.' },
-    { key:'event', title:'🎟 Banner de Evento', pool:GACHA_EVENT_POOL, grad:'linear-gradient(135deg,#ff8866,#882200)', desc:'Tropas exclusivas de eventos. 72% tropa · 28% base.' },
-  ];
-  banners.forEach(bn => {
-    const tickets = isDevMode() ? Infinity : (bn.key === 'rare' ? ticketsRare : (bn.key === 'event' ? ticketsEvent : ticketsNormal));
-    const icon = bn.key === 'rare' ? '💠' : (bn.key === 'event' ? '🎟' : '🎫');
-    const card = document.createElement('div');
-    card.className = 'upg-card'; card.id = 'banner-' + bn.key;
-    card.style.background = bn.grad; card.style.minWidth = '300px'; card.style.textAlign = 'left';
-    card.innerHTML = '<div class="best-name">' + bn.title + '</div><div class="sb-info">' + bn.desc + '</div><div class="sb-info">Pool: ' + bn.pool.map(i => UNIT_EMOJI[i] || '🐱').join(' ') + '</div><div class="sb-info">Tickets: <b>' + (isDevMode() ? '∞' : tickets) + '</b></div>';
-    const pull = document.createElement('button');
-    pull.className = 'save-btn'; pull.style.cssText = 'margin-top:6px;font-size:13px;padding:8px 14px;';
-    pull.disabled = blocked(); pull.textContent = '🎰 Usar 1 ticket (' + icon + ')';
-    pull.onclick = () => doPull(bn.key);
-    card.appendChild(pull); list.appendChild(card);
-  });
-  if (lastPull) {
-    const icon = lastPull.event ? '🎟' : (lastPull.rare ? '💠' : '🎫');
-    const res = document.createElement('div');
-    res.className = 'upg-card maxed'; res.style.minWidth = '300px'; res.style.textAlign = 'left';
-    res.innerHTML = '<div class="best-name">' + icon + ' Último premio:</div><div class="sb-info">' + itemLabel(lastPull.item) + '</div><div class="sb-info">→ En el 📦 Almacén (sin aplicar).</div>';
-    list.appendChild(res);
-  }
-  if (focusBanner) { const el = document.getElementById('banner-' + focusBanner); if (el && el.scrollIntoView) el.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'center' }); focusBanner = null; }
+  list.appendChild(buildBannerCard(key));
 }
 function renderStorage() {
   const info = document.getElementById('storageListInfo');
-  if (info) info.innerHTML = 'Pendientes: <b>' + storage.length + '</b> · Aplica (permanente) o descarta por XP.' + (isDevMode() ? ' <span style="color:#ff88ff">🔧 Modo dev: nada se guarda.</span>' : '');
+  if (info) info.innerHTML = 'Pendientes: <b>' + storage.length + '</b> · Agrupados por banner de origen. Aplica (permanente) o descarta por XP.' + (isDevMode() ? ' <span style="color:#ff88ff">🔧 Modo dev: nada se guarda.</span>' : '');
   const list = document.getElementById('storageList'); if (!list) return;
   list.innerHTML = '';
   if (!storage.length) { const h = document.createElement('div'); h.className = 'best-section'; h.textContent = 'Almacén vacío: usa tickets en los 🎰 Banners.'; list.appendChild(h); return; }
-  storage.forEach(it => {
-    const card = document.createElement('div');
-    card.className = 'upg-card'; card.style.textAlign = 'left'; card.style.minWidth = '300px';
-    card.innerHTML = '<div class="best-name">' + itemLabel(it) + '</div><div class="sb-info">Descarte: +' + itemRefund(it) + ' XP</div>';
-    const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;';
-    const ap = document.createElement('button'); ap.className = 'save-btn'; ap.style.background = 'linear-gradient(135deg,#88ff88,#228822)'; ap.textContent = '✅ Aplicar'; ap.disabled = blocked(); ap.onclick = () => applyItem(it.uid);
-    const di = document.createElement('button'); di.className = 'save-btn'; di.style.background = 'linear-gradient(135deg,#ff8844,#884400)'; di.textContent = '🗑️ Descartar (+' + itemRefund(it) + ' XP)'; di.disabled = blocked(); di.onclick = () => discardItem(it.uid);
-    row.appendChild(ap); row.appendChild(di); card.appendChild(row); list.appendChild(card);
+  const groups = [
+    { key:'normal', title:'🎫 Banner Normal' },
+    { key:'rare',   title:'💠 Banner Raro' },
+    { key:'event',  title:'🎟 Banner de Evento' },
+  ];
+  let any = false;
+  groups.forEach(g => {
+    const items = storage.filter(s => s.banner === g.key);
+    if (!items.length) return;
+    any = true;
+    const h = document.createElement('div'); h.className = 'best-section'; h.textContent = g.title + ' (' + items.length + ')'; list.appendChild(h);
+    items.forEach(it => list.appendChild(storageCard(it)));
   });
+  const legacy = storage.filter(s => !s.banner);
+  if (legacy.length) {
+    any = true;
+    const h = document.createElement('div'); h.className = 'best-section'; h.textContent = '📦 Sin clasificar (antiguos) (' + legacy.length + ')'; list.appendChild(h);
+    legacy.forEach(it => list.appendChild(storageCard(it)));
+  }
+  if (!any) { const h = document.createElement('div'); h.className = 'best-section'; h.textContent = 'Almacén vacío.'; list.appendChild(h); }
 }
 function renderMissions() {
   const info = document.getElementById('missionListInfo');
@@ -250,7 +293,7 @@ const origToggleDevMode = window.toggleDevMode;
 window.toggleDevMode = function () {
   const wasDev = isDevMode(); origToggleDevMode(); const isNowDev = isDevMode();
   if (!wasDev && isNowDev) snapshotStorage();
-  else if (wasDev && !isNowDev) { restoreStorage(); lastPull = null; if (screen === 'gacha') renderBanners(); if (screen === 'storage') renderStorage(); if (screen === 'missions') renderMissions(); }
+  else if (wasDev && !isNowDev) { restoreStorage(); if (screen === 'gacha') renderBanners(); if (screen === 'storage') renderStorage(); if (screen === 'missions') renderMissions(); }
 };
 function setBattleChrome(on) { document.body.classList.toggle('in-battle', !!on); }
 ['showTitle','showCarousel','showChapters','showHub','showUpgrades','showTroops','showAch','showBookMenu','showGatopedia','showEnemyBook','showBanners','showStorage','showMissions'].forEach(f => wrap(f, () => { if (window.AudioSys && AudioSys.setMusic) AudioSys.setMusic('menu'); setBattleChrome(false); }));
