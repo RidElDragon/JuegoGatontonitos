@@ -1,10 +1,6 @@
 // ============================================================
-// 04-ui.js — v74: NAVEGACIÓN COMPLETA + TOAST + CANDADOS + MÚSICA
-// · v74: música de menú al salir de batalla (goMenu/showHub/etc).
-// · v73: hideScreens universal (oculta TODAS las .screen).
-// · v72: toast global visible + candados en el hub + back de logros.
-// · v70: reenvíos seguros (openBanners/Storage/Missions/Book).
-// · v69: navegación Título → Carrusel → Capítulos → Hub.
+// 04-ui.js — v78: NAVEGACIÓN COMPLETA + TOAST + CANDADOS + MÚSICA
+//   + bonus de TESOROS en panel y cañón + 💼 CARTERA en mejoras.
 // ============================================================
 // -------------------- RAREZAS --------------------
 const RARITIES = {
@@ -166,7 +162,11 @@ function renderHub() {
   }
   if (modeEl) modeEl.textContent = title;
   if (xp) xp.textContent = coins;
-  if (cannon) cannon.innerHTML = 'ℹ️ Rango <b>' + getCannonRange() + '</b>';
+  if (cannon) {
+    const eff = getEffectiveCannonDmgLevel();
+    const bonus = eff > cannonDmgLevel ? ' (+' + (eff - cannonDmgLevel) + '💎)' : '';
+    cannon.innerHTML = 'ℹ️ Cañón Nv.' + cannonDmgLevel + bonus + ' · Rango <b>' + getCannonRange() + '</b>';
+  }
 }
 function hubStart() {
   leaveTestIfNeeded();
@@ -185,7 +185,7 @@ function hubBack() {
 }
 function eventBallsSoon() { setStatus('🔮 Las Bolas de evento llegarán en una futura actualización', '#ffaa00'); }
 
-// -------------------- AJUSTES (modal) --------------------
+// -------------------- AJUSTES --------------------
 function openSettings() {
   syncSettingsUI();
   const o = document.getElementById('settingsOverlay');
@@ -303,6 +303,14 @@ function buyCoinBonus() {
   if (!isDevMode()) saveMeta();
   buildUpgradeScreen();
 }
+// v78: mejora permanente de cartera (máximo de dinero en partida)
+function buyWallet() {
+  if (walletLevel >= WALLET_UPGRADE_MAX) return;
+  if (!isDevMode()) { const c = getWalletUpgradeCost(); if (coins < c) return; coins -= c; }
+  walletLevel++;
+  if (!isDevMode()) saveMeta();
+  buildUpgradeScreen();
+}
 function buildUpgradeScreen() {
   document.getElementById('upgCoins').textContent = isDevMode() ? coins + ' (DEV)' : coins;
   const ug = document.getElementById('upgradeUnitGrid');
@@ -370,6 +378,8 @@ function buildUpgradeScreen() {
       preview:getIncomeAt(incomeLevel).toFixed(0) + '/s→<span class="up">' + getIncomeAt(incomeLevel + 1).toFixed(0) + '/s</span>' },
     { label:'⭐ Bonus de XP', info:'Nv ' + coinBonusLevel + '/' + COIN_BONUS_MAX, max:coinBonusLevel >= COIN_BONUS_MAX, cost:getCoinBonusCost(), fn:'buyCoinBonus()',
       preview:'Ganas +' + Math.round(getCoinBonusPercentAt(coinBonusLevel) * 100) + '% → <span class="up">+' + Math.round(getCoinBonusPercentAt(coinBonusLevel + 1) * 100) + '%</span> de XP por nivel' },
+    { label:'💼 Cartera', info:'Nv ' + walletLevel + '/' + WALLET_UPGRADE_MAX, max:walletLevel >= WALLET_UPGRADE_MAX, cost:getWalletUpgradeCost(), fn:'buyWallet()',
+      preview:'Cap máx en partida: ' + getWalletMax() + '💰→<span class="up">' + (getWalletMax() + WALLET_UPGRADE_PER_LVL) + '💰</span>' },
   ];
   misc.forEach(m => {
     const b = document.createElement('button');
@@ -531,7 +541,7 @@ function troopStatsLine(idx) {
   const stats = getCatStats(idx);
   let line = u.cost + '💰 · HP:' + stats.hp + ' · ';
   line += u.healAmt ? 'Cura:' + stats.healAmt : 'DMG:' + stats.dmg;
-  line += ' · SPD:' + stats.speed;
+  line += ' · SPD:' + stats.speed.toFixed(2);
   if (stats.aoeRadius) line += ' · AOE:' + stats.aoeRadius;
   if (u.healAmt) line += ' · RNG:' + stats.range;
   else if (stats.type === 'ranged' || stats.type === 'roboRanged') line += ' · RNG:' + stats.range;
@@ -609,9 +619,36 @@ function buildMetaInfoPanel() {
     html += UNIT_EMOJI[idx] + ' <span style="color:' + r.color + '">' + CAT_BASE[idx].name + '</span>: <b>Nv.' + totalLvl + '/' + (unitLevelCap() + GACHA_LVL_MAX) + '</b>' + (formIsEvo(idx) ? ' ✨' : '') + (gachaLevels[idx] ? ' <span style="color:#ff88ff">+' + gachaLevels[idx] + '🎰</span>' : '') + '<br>';
   });
   html += '<hr style="border-color:#444">💵 Income: <b>Nv.' + incomeLevel + '/' + MAX_INCOME_LEVEL + '</b><br>';
-  html += '💣 Cañón: <b>D' + cannonDmgLevel + ' R' + cannonRangeLevel + ' C' + cannonCdLevel + '</b><br>';
+  html += '💣 Cañón: <b>D' + cannonDmgLevel + ' R' + cannonRangeLevel + ' C' + cannonCdLevel + '</b>';
+  const eff = getEffectiveCannonDmgLevel();
+  if (eff > cannonDmgLevel) html += ' <span style="color:#ffd700">(+' + (eff - cannonDmgLevel) + '💎)</span>';
+  html += '<br>';
   html += '⭐ Bonus XP: <b>+' + Math.round(getCoinBonusPercent() * 100) + '%</b> (Nv.' + coinBonusLevel + '/' + COIN_BONUS_MAX + ')<br>';
-  html += '🏰 Base: <b>Nv.' + baseLevel + '/' + BASE_GACHA_MAX + '</b> (+' + baseLevel * BASE_HP_PER_LEVEL + ' HP máx)';
+  const baseBonusFlat = getTreasureFlatBaseHP();
+  html += '🏰 Base: <b>Nv.' + baseLevel + '/' + BASE_GACHA_MAX + '</b> (+' + baseLevel * BASE_HP_PER_LEVEL;
+  if (baseBonusFlat > 0) html += ' +<span style="color:#ffd700">' + baseBonusFlat + '💎</span>';
+  html += ' HP máx)<br>';
+  // v78: cartera
+  html += '💼 Cartera: <b>Nv.' + walletLevel + '/' + WALLET_UPGRADE_MAX + '</b> (cap ' + getWalletMax() + '💰)<br>';
+  // v77: bonus activos de tesoros
+  html += '<hr style="border-color:#444"><b style="color:#ffd700">💎 TESOROS ACTIVOS:</b><br>';
+  const treasureCount = Object.keys(treasuresObtained).length;
+  html += '<span style="color:#aabbcc">· ' + treasureCount + '/45 tesoros obtenidos</span><br>';
+  let activeBuffs = 0;
+  for (const set of TREASURE_SETS) {
+    const q = getSetQuality(set.id);
+    if (q < 0) continue;
+    activeBuffs++;
+    html += '<span style="color:' + TREASURE_QUALITY_COLORS[q] + '">· ' + set.name + ' (' + TREASURE_QUALITY_NAMES[q] + ')</span><br>';
+    html += '<span style="color:#aabbcc;font-size:10px">  → ' + set.desc + '</span><br>';
+  }
+  for (const tid in TREASURE_BOSS_EFFECTS) {
+    if (!treasuresObtained[tid]) continue;
+    const q = treasuresObtained[tid];
+    activeBuffs++;
+    html += '<span style="color:' + TREASURE_QUALITY_COLORS[q] + '">· ' + TREASURE_BOSS_EFFECTS[tid].desc + '</span><br>';
+  }
+  if (activeBuffs === 0) html += '<span style="color:#8899aa">· Ningún bonus activo (consigue tesoros en Historia)</span><br>';
   el.innerHTML = html;
 }
 function buildUnitButtons() {
@@ -644,13 +681,15 @@ function setTestControlsVisible(v) {
 // -------------------- HUD --------------------
 function updateUI() {
   document.getElementById('money').textContent = isTest() ? '∞' : Math.floor(money);
+  const wcEl = document.getElementById('walletCap');
+  if (wcEl) wcEl.textContent = isTest() ? '∞' : Math.floor(currentWalletCap());
   document.getElementById('baseHP').textContent = isTest() ? '∞' : Math.floor(baseHP);
   document.getElementById('enemyHP').textContent = Math.floor(enemyBaseHP);
   document.getElementById('waveLabel').textContent = gameMode === 'story' ? '📖 Nivel:' : (isTest() ? '🧪 Oleada:' : (isEvent() ? '🎃 Nivel:' : (gameMode === 'legend' ? '🌟 Etapa:' : '🌊 Oleada:')));
   document.getElementById('wave').textContent = gameMode === 'story' ? (storyLevelIdx + 1) : (isEvent() ? (eventLevelIdx + 1) : (gameMode === 'legend' ? (legendLevelIdx + 1) : wave));
   document.getElementById('catCount').textContent = cats.length;
   document.getElementById('enemyCount').textContent = enemies.length;
-  document.getElementById('income').textContent = isTest() ? '∞' : getIncome().toFixed(1);
+  document.getElementById('income').textContent = isTest() ? '∞' : getEffectiveIncome().toFixed(1);
   document.getElementById('incomeLevel').textContent = incomeLevel;
   const list = activeUnitList();
   for (const i of list) {
@@ -713,7 +752,7 @@ function updateUI() {
 // -------------------- RESULTADOS --------------------
 function showResult(victory, text) {
   document.getElementById('resultTitle').textContent = victory ? '🎉 ¡VICTORIA!' : '💀 DERROTA';
-  document.getElementById('resultText').textContent = text;
+  document.getElementById('resultText').innerHTML = text;
   document.getElementById('retryBtn').style.display = 'inline-block';
   document.getElementById('nextBtn').style.display = victory ? 'inline-block' : 'none';
   document.getElementById('resultOverlay').style.display = 'flex';
@@ -726,6 +765,7 @@ function openBanners(focus) { if (window.showBanners) window.showBanners(focus);
 function openStorage() { if (window.showStorage) window.showStorage(); else setStatus('❌ Módulo de almacén no cargado', '#ff6666'); }
 function openMissions() { if (window.showMissions) window.showMissions(); else setStatus('❌ Módulo de misiones no cargado', '#ff6666'); }
 function openBook() { if (window.showBestiary) window.showBestiary(); else setStatus('❌ Módulo de biblioteca no cargado', '#ff6666'); }
+function openGamatoto() { if (window.showGamatoto) window.showGamatoto(); else setStatus('❌ Módulo de Gamatoto no cargado', '#ff6666'); }
 
 // ============================================================
 // v72: AVISOS VISIBLES + CANDADOS EN EL HUB + BACK DE LOGROS
@@ -738,7 +778,7 @@ function openBook() { if (window.showBestiary) window.showBestiary(); else setSt
       tEl.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#222233;color:#fff;border:3px solid #ffd700;border-radius:12px;padding:10px 22px;z-index:400;font-size:14px;font-weight:bold;box-shadow:0 4px 14px rgba(0,0,0,.5);max-width:80vw;text-align:center;';
       document.body.appendChild(tEl);
     }
-    tEl.textContent = text;
+    tEl.innerHTML = text;
     tEl.style.borderColor = color || '#ffd700';
     tEl.style.display = 'block';
     clearTimeout(tT);
@@ -788,7 +828,7 @@ function openBook() { if (window.showBestiary) window.showBestiary(); else setSt
 })();
 
 // ============================================================
-// v73: hideScreens universal (oculta TODAS las .screen)
+// v73: hideScreens universal
 // ============================================================
 (function () {
   const orig = window.hideScreens;

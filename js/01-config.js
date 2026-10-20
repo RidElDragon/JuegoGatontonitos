@@ -1,6 +1,10 @@
 // ============================================================
 // 01-config.js — Constantes y datos ESTÁTICOS del juego
 // Si añades unidades/enemigos/jefes/eventos/niveles, es AQUÍ.
+// v78b FIX: GACHA_EVENT_POOL sacada del bucle de Leyenda al scope
+//           global (estaba atrapada dentro de `for z` y rompía el
+//           banner de Evento). Cartera v78b: sin crecimiento
+//           automático + ampliación manual de pago (máx 6).
 // ============================================================
 const COIN = 'XP';
 const GROUND_Y = 215;
@@ -46,6 +50,8 @@ const BASE_GACHA_MAX = 20;
 const GACHA_LVL_MAX = 10;
 const GACHA_NORMAL_POOL = [0, 1, 2, 3, 4, 5, 6];
 const GACHA_RARE_POOL = [7, 8, 9, 10, 11, 12];
+// v78b FIX: GACHA_EVENT_POOL ahora GLOBAL (estaba mal anidada en Leyenda)
+const GACHA_EVENT_POOL = [7, 8, 10, 11, 12];
 
 const UNIT_EMOJI = ['🐱','','⚡','','🔮','💚','👑','','🤖','','','','🎅'];
 
@@ -304,10 +310,10 @@ for (let z = 0; z < 6; z++) {
       coins: 8000 + i * 1200 + z * 4000,
     });
   }
-  // v68: banner de evento (unidades exclusivas de eventos)
-const GACHA_EVENT_POOL = [7, 8, 10, 11, 12];
 }
-// ============================================================
+// v78b FIX: GACHA_EVENT_POOL movida al scope global (ver arriba, junto a los otros pools).
+
+  // ============================================================
 // v77: TESOROS + GAMATOTO
 // ============================================================
 
@@ -429,3 +435,39 @@ const GAMATOTO_DURATIONS = [
   { hours:8,  label:'8 horas', xpMin:2500, xpMax:6000,  rewards:[{t:'rare',ch:0.60},{t:'event',ch:0.25},{t:'normal',ch:0.15}] },
   { hours:24, label:'24 horas',xpMin:8000, xpMax:20000, rewards:[{t:'event',ch:0.70},{t:'rare',ch:0.25},{t:'rare2',ch:0.05}] },
 ];
+// ============================================================
+// v78: CONSUMIBLES + CARTERA (WALLET)
+// ============================================================
+const CONSUMABLE_DEFS = {
+  speed:      { id:'speed',      name:'Acelerador',     emoji:'⚡', desc:'Desbloquea la velocidad x3 en batalla (la x2 es gratis).' },
+  radar:      { id:'radar',      name:'Radar de Tesoros',emoji:'📡', desc:'Garantiza un tesoro 🥇 ORO al ganar un nivel de Historia.' },
+  rich:       { id:'rich',       name:'Gato Ricachón',  emoji:'💰', desc:'Llena tu dinero al máximo de la cartera en esta partida.' },
+  cpu:        { id:'cpu',        name:'Gatomático',     emoji:'🤖', desc:'1 click: auto-invoca tropas. 2 click: auto-gana el nivel (solo si ya lo superaste).' },
+  sabelotodo: { id:'sabelotodo', name:'Sabelotodo',     emoji:'📚', desc:'+50% XP al completar el nivel en que lo usas.' },
+  sniper:     { id:'sniper',     name:'Gatotirador',    emoji:'🎯', desc:'Torreta en tu base: dispara 2% de la vida máx del enemigo y lo empuja.' },
+};
+const CONSUMABLE_IDS = ['speed','radar','rich','cpu','sabelotodo','sniper'];
+
+// Cartera (máximo de dinero acumulable en partida)
+const WALLET_BASE = 4500;                 // cap base sin mejoras ni tesoros
+const WALLET_UPGRADE_PER_LVL = 200;       // +200 por nivel de mejora
+const WALLET_UPGRADE_MAX = 10;            // 10 niveles = +2000 (total 6500 sin tesoros)
+const WALLET_GOLD_TREASURE_BONUS = 50;    // +50 por cada tesoro en calidad ORO
+const WALLET_BATTLE_START = 2500;         // cap inicial dentro de una batalla
+// v78b: ampliación MANUAL de pago dentro de la partida (el cap ya NO crece solo)
+const WALLET_BATTLE_MAX_UPGRADES = 6;     // nº de ampliaciones manuales por partida
+const WALLET_UPGRADE_BASE_PRICE  = 500;   // precio de la 1ª ampliación
+const WALLET_UPGRADE_PRICE_STEP  = 500;   // +500 a partir de la 2ª (500,1000,...,3000)
+
+// Mejora de cartera (menú de mejoras)
+function getWalletUpgradeCostAt(l) { return 6000 + 4000 * l; }
+
+// v78c: mejora de INCOME solo en partida (de pago, máx 6, +5/s c/u)
+const INCOME_BATTLE_MAX_UPGRADES = 6;
+const INCOME_BATTLE_STEP         = 5;    // +5 income/s por nivel
+const INCOME_BATTLE_BASE_PRICE   = 600;  // precio = 600 * (n+1) → 600,1200,...,3600
+
+// Gatotirador (sniper)
+const SNIPER_INTERVAL_FRAMES = 180;       // dispara cada ~3s
+const SNIPER_DMG_PERCENT = 0.02;          // 2% de la vida máx del objetivo
+const SNIPER_KNOCKBACK = 45;              // px que empuja hacia atrás

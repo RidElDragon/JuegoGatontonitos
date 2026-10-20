@@ -1,7 +1,7 @@
 // ============================================================
-// 11-gacha.js — v71: BANNERS, 📦 ALMACÉN y 📜 MISIONES
-// · v71: showMissions/renderMissions con try-catch + toast de
-//        diagnóstico (si algo falla, lo verás en pantalla).
+// 11-gacha.js — v79: BANNERS, 📦 ALMACÉN y 📜 MISIONES
+// · v79: las misiones pueden otorgar CONSUMIBLES vía campo `items`.
+//        (se añaden misiones nuevas; las antiguas NO se tocan).
 // · Banner Normal 🎫 · Raro 💠 · Evento 🎟.
 // · Premios al 📦 Almacén (aplicar/descartar).
 // · 🧪 sandbox bloqueado · 🔧 dev prueba sin guardar.
@@ -88,6 +88,8 @@ function discardItem(uid) {
 }
 function achBossKills() { try { const o = JSON.parse(localStorage.getItem('catBattleAch')); return (o && o.stats && o.stats.bossKills) || 0; } catch (e) { return 0; } }
 function anyEventDone() { return Object.values(EVENTS).some(ev => (eventProgress[ev.id] || 0) >= ev.levels.length); }
+
+// v79: campo `items` = consumibles otorgados al reclamar
 const MISSIONS = [
   { id:'m_story5', name:'📖 Primeros Pasos', desc:'Supera el Nivel 5 de Historia.', coins:3000, tn:1, tr:0, check:() => storyProgress >= 5 },
   { id:'m_story15', name:'📖 Héroe en Formación', desc:'Supera el Nivel 15 de Historia.', coins:8000, tn:2, tr:0, check:() => storyProgress >= 15 },
@@ -104,6 +106,12 @@ const MISSIONS = [
   { id:'m_pull20', name:'🎰 Adicto al Gacha', desc:'Usa 20 tickets en los banners.', coins:15000, tn:0, tr:2, check:() => mis.stats.pulls >= 20 },
   { id:'m_apply5', name:'📦 Logística Felina', desc:'Aplica 5 mejoras del Almacén.', coins:6000, tn:1, tr:0, check:() => mis.stats.applies >= 5 },
   { id:'m_rich50', name:'💰 Ahorrador', desc:'Ten 50.000 XP a la vez.', coins:0, tn:0, tr:2, check:() => coins >= 50000 },
+  // ---- v79: NUEVAS misiones que otorgan consumibles ----
+  { id:'m_story10', name:'📖 Explorador', desc:'Supera el Nivel 10 de Historia.', coins:6000, tn:1, tr:0, items:{ radar:1 }, check:() => storyProgress >= 10 },
+  { id:'m_story20', name:'📖 Veterano', desc:'Supera el Nivel 20 de Historia.', coins:12000, tn:0, tr:1, items:{ speed:1 }, check:() => storyProgress >= 20 },
+  { id:'m_story40', name:'📖 Casi Leyenda', desc:'Supera el Nivel 40 de Historia.', coins:30000, tn:0, tr:1, items:{ rich:1, sabelotodo:1 }, check:() => storyProgress >= 40 },
+  { id:'m_boss10', name:'💀 Cazajefes', desc:'Derrota 10 jefes (acumulado).', coins:15000, tn:0, tr:1, items:{ cpu:1 }, check:() => achBossKills() >= 10 },
+  { id:'m_legend10', name:'🌟 Explorador Legendario', desc:'Supera 10 Etapas de Leyenda.', coins:30000, tn:0, tr:2, items:{ sniper:1 }, check:() => legendProgress >= 10 },
 ];
 function claimMission(id) {
   if (blocked()) { setStatus('❌ En sandbox las misiones no están disponibles', '#ff6666'); return; }
@@ -111,8 +119,18 @@ function claimMission(id) {
   if (!m || mis.claimed[id] || !m.check()) return;
   mis.claimed[id] = Date.now();
   coins += m.coins; ticketsNormal += m.tn; ticketsRare += m.tr;
+  // v79: otorgar consumibles
+  let itemMsg = '';
+  if (m.items && window.addConsumable) {
+    for (const k in m.items) {
+      window.addConsumable(k, m.items[k]);
+      const d = CONSUMABLE_DEFS[k];
+      if (d) itemMsg += ' ' + d.emoji + 'x' + m.items[k];
+    }
+  }
   saveMissions(); saveMeta();
   if (window.sfx) { sfx('coin'); setTimeout(() => sfx('upgrade'), 150); }
+  if (itemMsg && window.toastMsg) window.toastMsg('🎁 Recompensa extra:' + itemMsg, '#88ff88');
   renderMissions();
 }
 function claimableCount() { return MISSIONS.filter(m => !mis.claimed[m.id] && m.check()).length; }
@@ -142,15 +160,10 @@ function showStorage() {
   if (!gachaUnlocked()) { setStatus('🔒 Se desbloquea al superar Historia Nivel ' + UNLOCK_LEVEL, '#ffaa00'); return; }
   screen = 'storage'; playing = false; hideScreens(); sScreen.style.display = 'flex'; renderStorage();
 }
-// v71: misiones con diagnóstico
 function showMissions() {
   leaveTestIfNeeded();
-  if (!gachaUnlocked()) { setStatus('🔒 Misiones se desbloquean al superar Historia Nivel ' + UNLOCK_LEVEL, '#ffaa00'); return; }
-  screen = 'missions'; playing = false;
-  hideScreens();
-  if (!mScreen) { setStatus('❌ Pantalla de misiones no creada', '#ff6666'); return; }
-  mScreen.style.display = 'flex';
-  try { renderMissions(); } catch (e) { setStatus('❌ Error al pintar misiones: ' + e.message, '#ff6666'); console.error(e); }
+  if (!gachaUnlocked()) { setStatus('🔒 Se desbloquea al superar Historia Nivel ' + UNLOCK_LEVEL, '#ffaa00'); return; }
+  screen = 'missions'; playing = false; hideScreens(); mScreen.style.display = 'flex'; renderMissions();
 }
 function renderBanners() {
   const info = document.getElementById('gachaListInfo');
@@ -208,7 +221,7 @@ function renderStorage() {
 function renderMissions() {
   const info = document.getElementById('missionListInfo');
   const done = MISSIONS.filter(m => mis.claimed[m.id]).length;
-  if (info) info.innerHTML = 'Completadas: <b>' + done + '/' + MISSIONS.length + '</b> · Reclama XP y tickets.' + (isDevMode() ? ' <span style="color:#ff88ff">🔧 Modo dev: nada se guarda.</span>' : '');
+  if (info) info.innerHTML = 'Completadas: <b>' + done + '/' + MISSIONS.length + '</b> · Reclama XP, tickets y consumibles.' + (isDevMode() ? ' <span style="color:#ff88ff">🔧 Modo dev: nada se guarda.</span>' : '');
   const list = document.getElementById('missionList'); if (!list) return;
   list.innerHTML = '';
   MISSIONS.forEach(m => {
@@ -217,8 +230,15 @@ function renderMissions() {
     try { ready = m.check(); } catch (e) { ready = false; }
     const card = document.createElement('div');
     card.className = 'upg-card' + (claimed ? ' maxed' : ''); card.style.textAlign = 'left'; card.style.minWidth = '300px';
-    const reward = []; if (m.coins) reward.push(m.coins + ' XP'); if (m.tn) reward.push(m.tn + ' 🎫'); if (m.tr) reward.push(m.tr + ' 💠');
-    card.innerHTML = '<div class="best-name">' + (claimed ? '✅' : ready ? '🎯' : '🔒') + ' ' + m.name + '</div><div class="sb-info">' + m.desc + '</div><div class="sb-info">Recompensa: ' + reward.join(' · ') + '</div>';
+    const reward = [];
+    if (m.coins) reward.push(m.coins + ' XP');
+    if (m.tn) reward.push(m.tn + ' 🎫');
+    if (m.tr) reward.push(m.tr + ' 💠');
+    if (m.items) { for (const k in m.items) { const d = CONSUMABLE_DEFS[k]; if (d) reward.push(d.emoji + 'x' + m.items[k]); } }
+    card.innerHTML =
+      '<div class="best-name">' + (claimed ? '✅' : ready ? '🎯' : '🔒') + ' ' + m.name + '</div>' +
+      '<div class="sb-info">' + m.desc + '</div>' +
+      '<div class="sb-info">Recompensa: ' + reward.join(' · ') + '</div>';
     if (ready && !claimed) { const b = document.createElement('button'); b.className = 'save-btn'; b.style.background = 'linear-gradient(135deg,#ffd700,#aa7700)'; b.style.color = '#221100'; b.textContent = '🎁 Reclamar'; b.onclick = () => claimMission(m.id); card.appendChild(b); }
     else if (claimed) { const s = document.createElement('span'); s.className = 'sb-info'; s.style.color = '#88ff88'; s.textContent = '¡Reclamada!'; card.appendChild(s); }
     list.appendChild(card);

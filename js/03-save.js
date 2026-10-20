@@ -1,15 +1,14 @@
 // ============================================================
-// 03-save.js — Persistencia en localStorage (v62)
-// · v62: validación anti-basura + copia de seguridad automática
-// · v63: persistencia de tickets, baseLevel, gachaLevels, gachaUnlocked
-// · 🔧 El modo desarrollador bloquea TODOS los guardados.
+// 03-save.js — Persistencia en localStorage (v78)
+// · v78: persistencia de CONSUMIBLES y walletLevel.
+// · v77: tesoros y gamatoto.
+// · v62: validación anti-basura + copia de seguridad automática.
 // ============================================================
 let memorySave = null;
 let localStorageOK = true;
 const META_KEY = 'catBattleMeta';
 const META_BAK_KEY = 'catBattleMetaBak';
 
-// ---------------- Validación de meta ----------------
 function metaObjIsValid(m) {
   if (!m || typeof m !== 'object') return false;
   if (typeof m.coins !== 'number' || !isFinite(m.coins) || m.coins < 0) return false;
@@ -49,26 +48,35 @@ function applyMetaObj(m) {
   cannonRangeLevel = clamp(m.cannonRangeLevel, 1, CANNON_RANGE_MAX);
   cannonCdLevel    = clamp(m.cannonCdLevel, 1, CANNON_CD_MAX);
   coinBonusLevel   = clamp(m.coinBonusLevel || 0, 0, COIN_BONUS_MAX);
+  walletLevel      = clamp(m.walletLevel || 0, 0, WALLET_UPGRADE_MAX);
   ticketsNormal = (typeof m.ticketsNormal === 'number' && m.ticketsNormal >= 0) ? m.ticketsNormal : 3;
   ticketsRare = (typeof m.ticketsRare === 'number' && m.ticketsRare >= 0) ? m.ticketsRare : 1;
   ticketsEvent = (typeof m.ticketsEvent === 'number' && m.ticketsEvent >= 0) ? m.ticketsEvent : 1;
   baseLevel = clamp(m.baseLevel || 0, 0, BASE_GACHA_MAX);
   if (Array.isArray(m.gachaLevels)) { for (let i = 0; i < NUM_UNITS; i++) gachaLevels[i] = clamp(m.gachaLevels[i] || 0, 0, GACHA_LVL_MAX); }
   if (Array.isArray(m.gachaUnlocked)) { for (let i = 0; i < NUM_UNITS; i++) gachaUnlocked[i] = !!m.gachaUnlocked[i]; }
+  if (m.treasuresObtained && typeof m.treasuresObtained === 'object') treasuresObtained = m.treasuresObtained;
+  else treasuresObtained = {};
+  expedition = (m.expedition && typeof m.expedition === 'object') ? m.expedition : null;
+  if (m.consumables && typeof m.consumables === 'object') {
+    consumables = Object.assign({ speed:0, radar:0, rich:0, cpu:0, sabelotodo:0, sniper:0 }, m.consumables);
+  }
 }
 
-// --- Meta ---
 function saveMeta() {
   if (isTest()) return;
   if (isDevMode()) return;
   const obj = {
     coins, unitLevels: unitLevels.slice(), incomeLevel,
-    cannonDmgLevel, cannonRangeLevel, cannonCdLevel, coinBonusLevel,
+    cannonDmgLevel, cannonRangeLevel, cannonCdLevel, coinBonusLevel, walletLevel,
     ticketsNormal, ticketsRare, ticketsEvent, baseLevel,
-    gachaLevels: gachaLevels.slice(), gachaUnlocked: gachaUnlocked.slice()
+    gachaLevels: gachaLevels.slice(), gachaUnlocked: gachaUnlocked.slice(),
+    treasuresObtained: Object.assign({}, treasuresObtained),
+    expedition: expedition ? Object.assign({}, expedition) : null,
+    consumables: Object.assign({}, consumables)
   };
   if (!metaObjIsValid(obj)) {
-    setStatus('️ Guardado de mejoras omitido (datos inválidos)', '#ffaa00');
+    setStatus('⚠️ Guardado de mejoras omitido (datos inválidos)', '#ffaa00');
     return;
   }
   baseMeta = snapshotMeta();
@@ -90,7 +98,7 @@ function loadMeta() {
   if (bak) {
     applyMetaObj(bak);
     try { localStorage.setItem(META_KEY, JSON.stringify(bak)); } catch (e) {}
-    setTimeout(() => setStatus(' Mejoras restauradas desde la copia de seguridad', '#88ccff'), 400);
+    setTimeout(() => setStatus('🩹 Mejoras restauradas desde la copia de seguridad', '#88ccff'), 400);
     return;
   }
 }
@@ -102,7 +110,6 @@ window.restoreMetaBackup = function () {
   setStatus('🩹 Copia de seguridad aplicada', '#88ff88');
 };
 
-// --- Guardado de batalla ---
 function buildSaveData() {
   return { version: 35, money, baseHP, enemyBaseHP, enemyBaseMaxHP, wave, timestamp: Date.now() };
 }
@@ -143,6 +150,7 @@ function loadGame() {
   spawnTimers = new Array(NUM_UNITS).fill(0);
   gameOver = false; frameCount = 0; waveTimer = 0; enemySpawnTimer = 120;
   cannonCooldown = 0; bossSpawnedThisWave = false; bossWarningTimer = 0; autoSaveTimer = 0;
+  resetBattleFlags();
   setStatus(`📂 Cargado: Ol.${wave}, ${Math.floor(money)}💰`, '#88ccff');
   updateUI();
   return true;
@@ -161,7 +169,6 @@ function deleteSave() {
   }
 }
 
-// --- Progreso de historia ---
 function loadStoryProgress() {
   try {
     const raw = localStorage.getItem('catBattleStory');
@@ -174,8 +181,6 @@ function saveStoryProgress() {
   if (isDevMode()) return;
   try { localStorage.setItem('catBattleStory', String(storyProgress)); } catch (e) {}
 }
-
-// --- Progreso de eventos ---
 function loadEventProgress() {
   try { const o = JSON.parse(localStorage.getItem('catBattleEvents')); return (o && typeof o === 'object') ? o : {}; } catch (e) { return {}; }
 }
@@ -183,8 +188,6 @@ function saveEventProgress() {
   if (isDevMode()) return;
   try { localStorage.setItem('catBattleEvents', JSON.stringify(eventProgress)); } catch (e) {}
 }
-
-// --- Progreso de Etapas de Leyenda ---
 function loadLegendProgress() {
   try {
     const raw = localStorage.getItem('catBattleLegend');
@@ -197,8 +200,6 @@ function saveLegendProgress() {
   if (isDevMode()) return;
   try { localStorage.setItem('catBattleLegend', String(legendProgress)); } catch (e) {}
 }
-
-// --- Escuadrón ---
 function loadLoadout() {
   let arr = null;
   try {
@@ -215,15 +216,15 @@ function saveLoadout() {
   try { localStorage.setItem('catBattleLoadout', JSON.stringify(loadout)); } catch (e) {}
 }
 
-// --- Reinicio total ---
-// --- Reinicio total ---
 function resetAllProgress() {
   const msg = '⚠️ ¿Seguro? Se borrará TODO el progreso:\n' +
-    '· 🐾 Gatontito Coins y todas las mejoras (y su copia de seguridad)\n' +
+    '· XP y todas las mejoras (y su copia de seguridad)\n' +
     '· 📖 Progreso de Historia\n' +
-    '· 🎃🛸🎄 Progreso de Eventos y tropas desbloqueadas\n' +
+    '· 🎃🛸 Progreso de Eventos y tropas desbloqueadas\n' +
     '· 🌟 Progreso de Etapas de Leyenda\n' +
     '· 🎟 Tickets, Almacén y Misiones\n' +
+    '· 💎 Tesoros y Gamatoto\n' +
+    '· 🎒 Consumibles\n' +
     '· 📖 Bestiario (enemigos descubiertos)\n' +
     '· 💾 Guardado de la partida infinita\n' +
     '· 🎖 Escuadrón seleccionado\n' +
@@ -242,29 +243,32 @@ function resetAllProgress() {
     localStorage.removeItem('catBattleSave');
     localStorage.removeItem('catBattleStorage');
     localStorage.removeItem('catBattleMissions');
-    localStorage.removeItem('catBattleBestiary');   // v69: bestiario
+    localStorage.removeItem('catBattleBestiary');
+    localStorage.removeItem('catBattleGamatoto');
   } catch (e) {}
   coins = 0;
   for (let i = 0; i < NUM_UNITS; i++) unitLevels[i] = 1;
   incomeLevel = 1; cannonDmgLevel = 1; cannonRangeLevel = 1; cannonCdLevel = 1;
-  coinBonusLevel = 0;
+  coinBonusLevel = 0; walletLevel = 0;
   storyProgress = 0;
   eventProgress = {};
   legendProgress = 0;
   ticketsNormal = 3; ticketsRare = 1; ticketsEvent = 1; baseLevel = 0;
   gachaLevels.fill(0); gachaUnlocked.fill(false);
+  treasuresObtained = {}; expedition = null;
+  consumables = { speed:0, radar:0, rich:0, cpu:0, sabelotodo:0, sniper:0 };
   loadout = [0];
   tempLoadout = [0];
   spawnTimers = new Array(NUM_UNITS).fill(0);
   cats = []; enemies = []; projectiles = []; particles = []; floatingTexts = [];
   money = 400; baseHP = 1500; enemyBaseHP = 2000; enemyBaseMaxHP = 2000; wave = 1;
   cannonCooldown = 0;
+  resetBattleFlags();
   gameMode = 'infinite';
-  if (window.resetBestiary) window.resetBestiary();   // v69: limpia en memoria
+  if (window.resetBestiary) window.resetBestiary();
   showMenu();
 }
 
-// --- Guardado automático al cerrar/ocultar ---
 window.addEventListener('beforeunload', () => {
   if (!isDevMode()) {
     saveMeta();

@@ -1,16 +1,13 @@
 // ============================================================
 // 05-combat.js — Lógica de batalla: spawns, update, modos, cañón
-// v63: · start...() usan getBaseMaxHP() para HP inicial de base
-// v59: · Modo ETAPAS DE LEYENDA: startLegend, spawnLegendEnemy,
-//        legendVictory/legendDefeat y ramas de update()/spawns.
-// v58: · Todo nivel empieza con LEVEL_START_MONEY (450).
-//      · El daño masivo (proyectil aoe y melee aoe) salpica a la
-//        base enemiga si la explosión la alcanza.
-//      · Sanador: SIEMPRE detrás de la tropa no-sanadora más
-//        avanzada; sin tropas, retrocede a la base aliada.
-// v57: · storyVictory/eventVictory usan coinRewardFor() (bonus 🐾)
-//        y respetan el modo desarrollador (nada se guarda).
-// v47: · FLECHAS PERFORANTES del Arquero evolucionado.
+// v78b: la cartera NO crece sola; se amplía con el botón de pago.
+// v78: RADAR (oro), SABELOTODO (+50%), GATOMÁTICO, GATOTIRADOR,
+//      AUTO-WIN, límite de dinero por cap.
+// v77: awardTreasureForLevel + storyVictory muestra el tesoro.
+// v63: start...() usan getBaseMaxHP().
+// v59: modo LEYENDA.
+// v58: LEVEL_START_MONEY, splash a base, sanador atrás.
+// v47: FLECHAS PERFORANTES del Arquero evolucionado.
 // ============================================================
 function sfxNow(name) { if (window.sfx) window.sfx(name); }
 const ARCHER_PIERCE_COUNT = 5;
@@ -40,8 +37,7 @@ function addRing(x, y, color, radius) {
   particles.push({ x, y, vx:0, vy:0, life:15, maxLife:15, color, ring:true, radius:0, maxRadius:radius });
 }
 function findTarget(unit, targets) {
-  let target = null;
-  let minDist = Infinity;
+  let target = null, minDist = Infinity;
   for (let i = 0; i < targets.length; i++) {
     const t = targets[i];
     const d = Math.abs(t.x - unit.x);
@@ -93,7 +89,7 @@ function spawnCat(type) {
   });
   if (CAT_BASE[type].visual === 'king')      { addFloatingText(120, 120, '👑 ¡El Rey Gatontito ha llegado! 👑', '#ffd700'); addParticle(80, GROUND_Y, 'rgb(255,215,0)', 20, 5); }
   if (CAT_BASE[type].visual === 'demon')      { addFloatingText(120, 120, '😈 ¡El Gato Demoníaco acecha! 😈', '#ff2222'); addParticle(80, GROUND_Y, 'rgb(255,0,0)', 20, 5); }
-  if (CAT_BASE[type].visual === 'headless')   { addFloatingText(120, 120, ' ¡El Gato Sin Cabeza cabalga en la noche! 🎃', '#88ffaa'); addParticle(80, GROUND_Y, 'rgb(136,255,170)', 20, 5); }
+  if (CAT_BASE[type].visual === 'headless')   { addFloatingText(120, 120, '🎃 ¡El Gato Sin Cabeza cabalga en la noche!', '#88ffaa'); addParticle(80, GROUND_Y, 'rgb(136,255,170)', 20, 5); }
   if (CAT_BASE[type].visual === 'gatoclaus')  { addFloatingText(120, 120, '🎅 ¡Gatoclaus trae nieve y castigo! 🎄', '#ffffff'); addParticle(80, GROUND_Y, 'rgb(255,255,255)', 20, 5); }
 }
 
@@ -153,18 +149,15 @@ function spawnWaveEnemy() {
   else if (wave < 6) {
     if (roll < 0.28) type = 0; else if (roll < 0.52) type = 1; else if (roll < 0.68) type = 2;
     else if (roll < 0.84) type = 3; else type = 7;
-  }
-  else if (wave < 12) {
+  } else if (wave < 12) {
     if (roll < 0.22) type = 0; else if (roll < 0.40) type = 1; else if (roll < 0.52) type = 2;
     else if (roll < 0.64) type = 3; else if (roll < 0.74) type = 4; else if (roll < 0.86) type = 7;
     else type = 8;
-  }
-  else if (wave < 25) {
+  } else if (wave < 25) {
     if (roll < 0.18) type = 0; else if (roll < 0.32) type = 1; else if (roll < 0.42) type = 2;
     else if (roll < 0.52) type = 3; else if (roll < 0.62) type = 4; else if (roll < 0.70) type = 5;
     else if (roll < 0.80) type = 7; else if (roll < 0.90) type = 8; else type = 10;
-  }
-  else {
+  } else {
     if (roll < 0.13) type = 0; else if (roll < 0.24) type = 1; else if (roll < 0.33) type = 2;
     else if (roll < 0.42) type = 3; else if (roll < 0.51) type = 4; else if (roll < 0.59) type = 5;
     else if (roll < 0.67) type = 6; else if (roll < 0.75) type = 7; else if (roll < 0.83) type = 8;
@@ -181,7 +174,7 @@ function fireCannon() {
   const range = getCannonRange();
   addRing(MY_BASE_X, 170, 'rgb(255,200,0)', range);
   addParticle(MY_BASE_X, 170, 'rgb(255,200,0)', 20, 6);
-  addFloatingText(MY_BASE_X + 60, 100, '💣 ¡CAÑONAZO! ', '#ff4444');
+  addFloatingText(MY_BASE_X + 60, 100, '💣 ¡CAÑONAZO!', '#ff4444');
   let totalDamage = 0, hitCount = 0, bossLimited = false;
   for (let i = 0; i < enemies.length; i++) {
     const e = enemies[i];
@@ -198,9 +191,86 @@ function fireCannon() {
       addParticle(e.x, e.y, 'rgb(255,200,0)', 5, 3);
     }
   }
-  if (bossLimited) addFloatingText(450, 150, '️ Jefe: el cañón máx. baja al 50%', '#ffaa00');
+  if (bossLimited) addFloatingText(450, 150, '🛡️ Jefe: el cañón máx. baja al 50%', '#ffaa00');
   addFloatingText(MY_BASE_X + range/2, 130, `${hitCount} enemigos | ${totalDamage} dmg`, '#ffaa00');
   updateUI();
+}
+
+// ============================================================
+// v78: GATOTIRADOR (sniper) — torreta en tu base
+// ============================================================
+function sniperShot() {
+  if (enemies.length === 0) return;
+  let target = enemies[0];
+  for (const e of enemies) if (e.x < target.x) target = e;
+  const dmg = Math.max(1, Math.floor(target.maxHp * SNIPER_DMG_PERCENT));
+  target.hp -= dmg;
+  target.x += SNIPER_KNOCKBACK;
+  addParticle(MY_BASE_X + 20, 150, 'rgb(255,80,80)', 4, 3);
+  addParticle(target.x, target.y, 'rgb(255,80,80)', 6, 3);
+  addFloatingText(target.x, target.y - 30, '🎯 -' + dmg, '#ff6666');
+  if (window.sfx) window.sfx('shoot_bullet');
+}
+
+// ============================================================
+// v78: GATOMÁTICO — auto-invoca tropas disponibles
+// ============================================================
+function cpuAutoSpawn() {
+  const list = activeUnitList();
+  if (!list.length) return;
+  const order = list.slice();
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = order[i]; order[i] = order[j]; order[j] = t;
+  }
+  for (const idx of order) {
+    if (spawnTimers[idx] > 0) continue;
+    const cost = getCatStats(idx).cost;
+    if (money < cost) continue;
+    spawnCat(idx);
+    return;
+  }
+}
+
+// ============================================================
+// v78: AUTO-WIN — solo niveles ya superados
+// ============================================================
+function levelAlreadyCleared() {
+  if (gameMode === 'story')  return storyLevelIdx < storyProgress;
+  if (gameMode === 'event')  return eventLevelIdx < (eventProgress[currentEventId] || 0);
+  if (gameMode === 'legend') return legendLevelIdx < legendProgress;
+  return false;
+}
+function autoWinLevel() {
+  if (!levelAlreadyCleared()) return false;
+  if (gameMode === 'story')  { storyVictory();  return true; }
+  if (gameMode === 'event')  { eventVictory();  return true; }
+  if (gameMode === 'legend') { legendVictory(); return true; }
+  return false;
+}
+
+// --- v77: otorgar tesoro del nivel de historia ---
+function awardTreasureForLevel(levelNum) {
+  const tdef = TREASURE_DEFS.find(t => t.level === levelNum);
+  if (!tdef) return null;
+  let q;
+  if (battleFlags.radar) {
+    q = 2;
+  } else {
+    const r = Math.random();
+    if (r < TREASURE_QUALITY_CHANCE[2]) q = 2;
+    else if (r < TREASURE_QUALITY_CHANCE[2] + TREASURE_QUALITY_CHANCE[1]) q = 1;
+    else q = 0;
+  }
+  const prev = treasuresObtained[tdef.id];
+  let upgraded = false;
+  if (prev !== undefined && prev >= q) {
+    return { id: tdef.id, name: tdef.name, quality: prev, upgraded: false, isNew: false };
+  }
+  if (prev !== undefined) upgraded = true;
+  treasuresObtained[tdef.id] = q;
+  saveMeta();
+  return { id: tdef.id, name: tdef.name, quality: q, upgraded: upgraded, isNew: prev === undefined };
 }
 
 // --- Oleadas y jefes ---
@@ -242,6 +312,7 @@ function clearBattle() {
   cannonCooldown = 0; bossWarningTimer = 0; bossSpawnedThisWave = false; pendingBoss = 0;
   pendingEventBoss = ''; pendingLegendBoss = ''; storyBossSpawned = false; storyBossTimer = 0;
   autoSaveTimer = 0;
+  resetBattleFlags();
 }
 function startInfinite(fresh) {
   leaveTestIfNeeded();
@@ -306,7 +377,7 @@ function startEvent(eventId, levelIdx) {
   showGame();
   setTestControlsVisible(false);
   playing = true;
-  setStatus(' Evento: ' + L.name, '#ff6600');
+  setStatus('🎃 Evento: ' + L.name, '#ff6600');
   updateUI();
 }
 function startLegend(idx) {
@@ -326,7 +397,7 @@ function startLegend(idx) {
   showGame();
   setTestControlsVisible(false);
   playing = true;
-  setStatus(' Leyenda: ' + L.name, '#ffcc00');
+  setStatus('🌟 Leyenda: ' + L.name, '#ffcc00');
   updateUI();
 }
 function startTest() {
@@ -342,7 +413,7 @@ function startTest() {
   showGame();
   setTestControlsVisible(true);
   playing = true;
-  setStatus(' Modo pruebas: dinero ∞, oleadas infinitas, base invulnerable, TODAS las unidades', '#cc66ff');
+  setStatus('🧪 Modo pruebas: dinero ∞, oleadas infinitas, base invulnerable, TODAS las unidades', '#cc66ff');
   updateUI();
 }
 function reset() {
@@ -363,7 +434,7 @@ function testSpawnBoss() {
 function testClearEnemies() {
   for (let i = 0; i < enemies.length; i++) addParticle(enemies[i].x, enemies[i].y, 'rgb(150,150,150)', 4, 3);
   enemies = [];
-  addFloatingText(450, 120, ' Enemigos eliminados', '#88ccff');
+  addFloatingText(450, 120, '🧹 Enemigos eliminados', '#88ccff');
 }
 function testMaxUpgrades() {
   for (let i = 0; i < NUM_UNITS; i++) unitLevels[i] = Math.min(MAX_UNIT_LEVEL, unitLevelCap());
@@ -391,7 +462,6 @@ function nextLevel() {
   } else if (gameMode === 'event') {
     const ev = EVENTS[currentEventId];
     const prog = eventProgress[currentEventId] || 0;
-    ticketsEvent++;   // v68: +1 ticket de evento por primer claro
     if (eventLevelIdx + 1 < ev.levels.length && eventLevelIdx + 1 <= prog) startEvent(currentEventId, eventLevelIdx + 1);
     else showEvents();
   } else if (gameMode === 'legend') {
@@ -406,7 +476,8 @@ function storyVictory() {
   if (!isDevMode()) {
     const before = storyProgress;
     const firstClear = storyLevelIdx === storyProgress;
-    const earned = coinRewardFor(L.coins, firstClear);
+    let earned = coinRewardFor(L.coins, firstClear);
+    if (battleFlags.sabelotodo) earned = Math.floor(earned * 1.5);
     coins += earned;
     let unlockText = '';
     if (firstClear) {
@@ -419,14 +490,24 @@ function storyVictory() {
           newUnlocks.push(`${UNIT_EMOJI[i] || '🐱'} ${CAT_BASE[i].name}`);
         }
       }
-      if (newUnlocks.length) unlockText = `  ¡Nueva tropa: ${newUnlocks.join(', ')}! (añádela en 🎖)`;
+      if (newUnlocks.length) unlockText = ` 🎉 ¡Nueva tropa: ${newUnlocks.join(', ')}! (añádela en 🎖)`;
     }
     saveMeta();
     const last = storyLevelIdx === STORY_LEVELS.length - 1;
     const bonusTxt = coinBonusLevel > 0 ? ` (🐾 +${Math.round(getCoinBonusPercent() * 100)}%)` : '';
+    const sabeTxt = battleFlags.sabelotodo ? ' 📚(+50% XP)' : '';
+    const treasureResult = awardTreasureForLevel(storyLevelIdx + 1);
+    let treasureText = '';
+    if (treasureResult) {
+      const qName = TREASURE_QUALITY_NAMES[treasureResult.quality];
+      const qColor = TREASURE_QUALITY_COLORS[treasureResult.quality];
+      if (treasureResult.isNew) treasureText = ` 💎 ¡Nuevo tesoro <span style="color:${qColor}">${qName}</span>: ${treasureResult.name}!`;
+      else if (treasureResult.upgraded) treasureText = ` 💎 ¡Tesoro mejorado a <span style="color:${qColor}">${qName}</span>: ${treasureResult.name}!`;
+      else treasureText = ` 💎 Tesoro: ${treasureResult.name} (ya lo tienes en <span style="color:${qColor}">${qName}</span>).`;
+    }
     showResult(true,
-      `Completaste ${L.name}. ¡+${earned} ${COIN}!${bonusTxt}${firstClear ? '' : ' (repetición)'}` +
-      `${unlockText}${last ? '  ¡HISTORIA COMPLETADA!' : ' 📖 Siguiente nivel desbloqueado.'}`);
+      `Completaste ${L.name}. ¡+${earned} ${COIN}!${bonusTxt}${sabeTxt}${firstClear ? '' : ' (repetición)'}` +
+      `${treasureText}${unlockText}${last ? ' 🏆 ¡HISTORIA COMPLETADA!' : ' 📖 Siguiente nivel desbloqueado.'}`);
   } else {
     showResult(true, `Completaste ${L.name}. [DEV: nada guardado]`);
   }
@@ -442,7 +523,8 @@ function eventVictory() {
   if (!isDevMode()) {
     const prog = eventProgress[currentEventId] || 0;
     const firstClear = eventLevelIdx === prog;
-    const earned = coinRewardFor(L.coins, firstClear);
+    let earned = coinRewardFor(L.coins, firstClear);
+    if (battleFlags.sabelotodo) earned = Math.floor(earned * 1.5);
     coins += earned;
     let unlockText = '';
     if (firstClear) {
@@ -455,9 +537,10 @@ function eventVictory() {
     saveMeta();
     const last = eventLevelIdx === ev.levels.length - 1;
     const bonusTxt = coinBonusLevel > 0 ? ` (🐾 +${Math.round(getCoinBonusPercent() * 100)}%)` : '';
+    const sabeTxt = battleFlags.sabelotodo ? ' 📚(+50% XP)' : '';
     showResult(true,
-      `¡${L.name} completado! ¡+${earned} ${COIN}!${bonusTxt}${firstClear ? '' : ' (repetición)'}` +
-      `${unlockText}${last ? ` ${ev.name} ¡COMPLETADO!` : ' 📖 Siguiente nivel desbloqueado.'}`);
+      `¡${L.name} completado! ¡+${earned} ${COIN}!${bonusTxt}${sabeTxt}${firstClear ? '' : ' (repetición)'}` +
+      `${unlockText}${last ? ` 🎃 ${ev.name} ¡COMPLETADO!` : ' 📖 Siguiente nivel desbloqueado.'}`);
   } else {
     showResult(true, `¡${L.name} completado! [DEV: nada guardado]`);
   }
@@ -473,7 +556,8 @@ function legendVictory() {
   if (!isDevMode()) {
     const prog = legendProgress;
     const firstClear = legendLevelIdx === prog;
-    const earned = coinRewardFor(L.coins, firstClear);
+    let earned = coinRewardFor(L.coins, firstClear);
+    if (battleFlags.sabelotodo) earned = Math.floor(earned * 1.5);
     coins += earned;
     let unlockText = '';
     if (firstClear) {
@@ -486,9 +570,10 @@ function legendVictory() {
     saveMeta();
     const last = legendLevelIdx === LEGEND_STAGES.length - 1;
     const bonusTxt = coinBonusLevel > 0 ? ` (🐾 +${Math.round(getCoinBonusPercent() * 100)}%)` : '';
+    const sabeTxt = battleFlags.sabelotodo ? ' 📚(+50% XP)' : '';
     showResult(true,
-      `¡${L.name} superada! ¡+${earned} ${COIN}!${bonusTxt}${firstClear ? '' : ' (repetición)'}` +
-      `${unlockText}${last ? '  ¡LEYENDA COMPLETADA!' : ' 📖 Siguiente etapa desbloqueada.'}`);
+      `¡${L.name} superada! ¡+${earned} ${COIN}!${bonusTxt}${sabeTxt}${firstClear ? '' : ' (repetición)'}` +
+      `${unlockText}${last ? ' 🏆 ¡LEYENDA COMPLETADA!' : ' 📖 Siguiente etapa desbloqueada.'}`);
   } else {
     showResult(true, `¡${L.name} superada! [DEV: nada guardado]`);
   }
@@ -504,7 +589,34 @@ function legendDefeat() {
 function update() {
   if (gameOver || !playing) return;
   frameCount++;
-  if (!isTest()) money += getIncome() / 60;
+  if (!isTest()) money += getEffectiveIncome() / 60;   // v78c: incluye bonus de partida
+
+  // ---- v78b: CARTERA (wallet) — NO crece sola ----
+  if (!isTest()) {
+    // el cap nunca queda por debajo del dinero actual (evita recortes al cargar)
+    battleFlags.walletCap = Math.max(battleFlags.walletCap, Math.min(getWalletMax(), Math.floor(money)));
+    // el dinero no supera el cap actual
+    money = Math.min(money, currentWalletCap());
+  }
+
+  // ---- v78: GATOMÁTICO (auto-spawn) ----
+  if (battleFlags.cpu && !battleFlags.cpuAutoWin && !isTest()) {
+    battleFlags.cpuTimer--;
+    if (battleFlags.cpuTimer <= 0) {
+      battleFlags.cpuTimer = 30;
+      cpuAutoSpawn();
+    }
+  }
+
+  // ---- v78: GATOTIRADOR (sniper) ----
+  if (battleFlags.sniper) {
+    battleFlags.sniperTimer--;
+    if (battleFlags.sniperTimer <= 0) {
+      battleFlags.sniperTimer = SNIPER_INTERVAL_FRAMES;
+      sniperShot();
+    }
+  }
+
   for (let i = 0; i < NUM_UNITS; i++) if (spawnTimers[i] > 0) spawnTimers[i]--;
   if (gameMode === 'infinite') {
     autoSaveTimer++;
@@ -572,20 +684,16 @@ function update() {
         projectiles.push({ x:c.x, y:c.y, target:hurtAlly, dmg:c.healAmt, type:'heal', isHeal:true, owner:'cat', speed:5 });
         c.cdTimer = c.cooldown; c.attackAnim = 8;
       }
-      let frontX = 0;
-      let hasTroop = false;
+      let frontX = 0, hasTroop = false;
       for (let j = 0; j < cats.length; j++) {
         const ally = cats[j];
         if (ally === c || ally.unitType === 'healer') continue;
         hasTroop = true;
         if (ally.x > frontX) frontX = ally.x;
       }
-      let desired;
-      if (hasTroop) {
-        desired = Math.min(frontX - HEALER_BACK_DIST, ENEMY_BASE_X - HEALER_SAFE_DIST);
-      } else {
-        desired = HEALER_HOME_X;
-      }
+      let desired = hasTroop
+        ? Math.min(frontX - HEALER_BACK_DIST, ENEMY_BASE_X - HEALER_SAFE_DIST)
+        : HEALER_HOME_X;
       if (desired < HEALER_HOME_X) desired = HEALER_HOME_X;
       const gap = desired - c.x;
       const mult = (hasTroop && Math.abs(gap) > HEALER_CATCHUP_GAP) ? HEALER_CATCHUP_MULT : 1;
@@ -599,31 +707,19 @@ function update() {
       if (c.cdTimer <= 0) {
         if (isRanged(c)) {
           projectiles.push({
-            x: c.x + 12, y: c.y - 4,
-            vx: (c.projSpeed || 6),
-            dmg: c.dmg,
+            x: c.x + 12, y: c.y - 4, vx: (c.projSpeed || 6), dmg: c.dmg,
             type: c.unitType === 'roboRanged' ? 'bullet' : 'arrow',
-            owner: 'cat',
-            speed: c.projSpeed || 6,
-            aoeRadius: 0,
-            projRange: projRangeOf(c),
-            traveled: 0,
-            canHitBase: true,
-            pierce: (c.type === 3 && isEvolved(c)) ? ARCHER_PIERCE_COUNT : 0,
-            hitSet: null
+            owner: 'cat', speed: c.projSpeed || 6, aoeRadius: 0,
+            projRange: projRangeOf(c), traveled: 0, canHitBase: true,
+            pierce: (c.type === 3 && isEvolved(c)) ? ARCHER_PIERCE_COUNT : 0, hitSet: null
           });
         } else if (c.unitType === 'aoe') {
           projectiles.push({
-            x: c.x + 12, y: c.y - 4,
-            vx: (c.projSpeed || 5),
-            dmg: c.dmg,
+            x: c.x + 12, y: c.y - 4, vx: (c.projSpeed || 5), dmg: c.dmg,
             type: c.visual === 'gatoclaus' ? 'snow' : 'magic',
-            owner: 'cat',
-            speed: c.projSpeed || 5,
-            aoeRadius: c.aoeRadius || 0,
-            projRange: projRangeOf(c),
-            traveled: 0,
-            canHitBase: !front && baseInRange
+            owner: 'cat', speed: c.projSpeed || 5,
+            aoeRadius: c.aoeRadius || 0, projRange: projRangeOf(c),
+            traveled: 0, canHitBase: !front && baseInRange
           });
         } else if (front) {
           front.hp -= c.dmg;
@@ -669,8 +765,7 @@ function update() {
       if (e.cdTimer <= 0) {
         if (e.unitType === 'ranged') {
           projectiles.push({
-            x: e.x - 12, y: e.y - 4,
-            vx: -(e.projSpeed || 4),
+            x: e.x - 12, y: e.y - 4, vx: -(e.projSpeed || 4),
             dmg: e.dmg, type: 'magic', owner: 'enemy',
             speed: e.projSpeed || 4, aoeRadius: 0,
             projRange: projRangeOf(e), traveled: 0, canHitBase: false

@@ -1,10 +1,7 @@
 // ============================================================
-// 10-bestiary.js — v70: BIBLIOTECA (menú del libro) + galerías
-// · v70: · El icono 📖 del hub abre un MENÚ INTERMEDIO con 3 opciones:
-//          🐱 Gatopedia (bestiario de gatos) · 👹 Bestiario (enemigos)
-//          · 💎 Tesoros (placeholder, mecánica futura).
-//        · Cada galería conserva pestañas ✅ Descubiertos / 📚 Todos
-//          y su botón ⬅ vuelve al menú del libro (no al hub).
+// 10-bestiary.js — v77: BIBLIOTECA (menú del libro) + galerías
+// · v77: el botón 💎 Tesoros llama a showTreasuresScreen (de 13-treasures.js).
+// · v70: menú del libro con 3 puertas (Gatopedia / Bestiario / Tesoros) + 🏆 Logros.
 // · v69: window.resetBestiary() para el Reinicio Total.
 // · v65: enemigos/jefes de LEYENDA registrados y mostrados.
 // · v56: entradas a prueba de null + safeEntry (nunca lista en blanco).
@@ -256,6 +253,7 @@ function enemyPortrait(id, cv) {
       hp: 1, maxHp: 1, color: t.color, color2: t.color2,
       unitType: t.type, isBoss: isBoss, bossStyle: t.bossStyle || null,
       desertStyle: t.desertStyle || null, xmasStyle: t.xmasStyle || null,
+      legendStyle: t.legendStyle || null,
       name: t.name, walkCycle: 0.9, attackAnim: 0, spawnAnim: 0, hurtFlash: 0, poisonTimer: 0
     }, { hideHud: true });
   }, cv);
@@ -270,8 +268,8 @@ function formStatsLine(idx, lvl) {
 
 // ---------------- Estado de vistas ----------------
 let bookScreen = null, bScreen = null, bList = null, bTitle = null;
-let mode = 'seen';        // 'seen' | 'all'
-let view = 'enemies';     // 'cats' | 'enemies'
+let mode = 'seen';
+let view = 'enemies';
 
 function seenCount() {
   if (isDevMode()) return allEnemyIds().length;
@@ -285,7 +283,7 @@ function troopCount() {
 
 // ---------------- Construcción de pantallas ----------------
 function buildUI() {
-  // Menú del libro (📚) con las 3 puertas
+  // Menú del libro (📚) con las 4 puertas (Gatopedia, Bestiario, Tesoros, Logros)
   bookScreen = document.createElement('div');
   bookScreen.className = 'screen';
   bookScreen.style.display = 'none';
@@ -294,7 +292,7 @@ function buildUI() {
     '<div class="menu-info">Consulta todo lo que has descubierto en tus aventuras.</div>' +
     '<button class="menu-btn" style="background:linear-gradient(135deg,#88ff88,#228822)" onclick="showGatopedia()">🐱 Gatopedia</button>' +
     '<button class="menu-btn" style="background:linear-gradient(135deg,#ff8866,#aa2200)" onclick="showEnemyBook()">👹 Bestiario</button>' +
-    '<button class="menu-btn" style="background:linear-gradient(135deg,#ffd700,#aa7700);color:#221100" onclick="showTesoros()">💎 Tesoros</button>' +
+    '<button class="menu-btn" style="background:linear-gradient(135deg,#ffd700,#aa7700);color:#221100" onclick="showTreasuresScreen()">💎 Tesoros</button>' +
     '<button class="menu-btn" style="background:linear-gradient(135deg,#ffcc44,#886600);color:#221100" onclick="showAch()">🏆 Logros</button>' +
     '<div class="best-foot"></div>';
   const bf = bookScreen.querySelector('.best-foot');
@@ -355,13 +353,15 @@ function showEnemyBook() {
   render();
 }
 function showTesoros() {
-  setStatus('💎 Tesoros: mecánica que añadiremos más adelante', '#ffaa00');
+  // Fallback por si queda un onclick antiguo
+  if (window.showTreasuresScreen) window.showTreasuresScreen();
+  else setStatus('❌ Módulo de tesoros no cargado', '#ff6666');
 }
-// El icono 📖 del hub abre el menú del libro
 window.showBestiary = showBookMenu;
 window.showGatopedia = showGatopedia;
 window.showEnemyBook = showEnemyBook;
 window.showBookMenu = showBookMenu;
+window.showTesoros = showTesoros;
 
 // v69: hook para que resetAllProgress() limpie también en memoria
 window.resetBestiary = function () {
@@ -475,7 +475,7 @@ function render() {
   const info = document.getElementById('bestInfo');
   if (info) {
     if (view === 'cats') {
-      info.innerHTML = 'Tropas: <b style="color:#88ff88">' + troopCount() + '/' + NUM_UNITS + '</b> · <span style="font-size:11px">Cada tropa muestra su forma 🐱 Normal y  Evolucionada con sus stats reales.</span>' + (isDevMode() ? ' <span style="color:#ff88ff">🔧 MODO DEV.</span>' : '');
+      info.innerHTML = 'Tropas: <b style="color:#88ff88">' + troopCount() + '/' + NUM_UNITS + '</b> · <span style="font-size:11px">Cada tropa muestra su forma 🐱 Normal y ✨ Evolucionada con sus stats reales.</span>' + (isDevMode() ? ' <span style="color:#ff88ff">🔧 MODO DEV.</span>' : '');
     } else {
       info.innerHTML = 'Enemigos: <b style="color:#88ccee">' + seenCount() + '/' + allEnemyIds().length + '</b> · <span style="font-size:11px">Se registra al aparecer en batalla (no en 🧪 sandbox ni 🔧 dev).</span>' + (isDevMode() ? ' <span style="color:#ff88ff">🔧 MODO DEV: todo visible.</span>' : '');
     }
