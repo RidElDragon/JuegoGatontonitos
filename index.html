@@ -55,10 +55,12 @@
 <!-- ============ CARRUSEL DE MODOS ============ -->
 <div id="carouselScreen" class="screen carousel-screen" style="display:none">
 <h1 class="game-title">Cat Battle</h1>
-<button class="close-x float-x" onclick="showTitle()">✖</button>
 <div class="carousel-wrap">
 <button class="carousel-arrow" onclick="scrollCarousel(-1)">⬅</button>
+<div class="carousel-shell">
+<button class="close-x band-x" onclick="showTitle()">✖</button>
 <div class="carousel-band" id="modeBand"></div>
+</div>
 <button class="carousel-arrow" onclick="scrollCarousel(1)">➡</button>
 </div>
 </div>
@@ -66,10 +68,12 @@
 <!-- ============ CAPÍTULOS ============ -->
 <div id="chapterScreen" class="screen carousel-screen" style="display:none">
 <h1 class="game-title">Cat Battle</h1>
-<button class="close-x float-x" onclick="showTitle()">✖</button>
 <div class="carousel-wrap">
 <button class="carousel-arrow" onclick="scrollChapters(-1)">⬅</button>
+<div class="carousel-shell">
+<button class="close-x band-x" onclick="showTitle()">✖</button>
 <div class="carousel-band" id="chapterBand"></div>
+</div>
 <button class="carousel-arrow" onclick="scrollChapters(1)">➡</button>
 </div>
 </div>

@@ -1,3 +1,13 @@
+/* ============================================================
+   Cat Battle — style.css CONSOLIDADO (v87)
+   · Base + layout + colores de juego (original).
+   · Decoración de menús (fondos, brillos, títulos dorados).
+   · X de cierre anclada al vértice del contenedor, centrada,
+     y hover que NO la desplaza.
+   · Textos de la barra del hub en color claro.
+   ============================================================ */
+
+/* ================= BASE / LAYOUT ================= */
 body { margin:0; background:#1a1a2e; font-family:Arial; color:#fff; text-align:center; overflow-x:hidden; }
 #game { background:#87CEEB; display:block; margin:0 auto; border:3px solid #000; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.5); cursor:crosshair; }
 #layout { display:flex; justify-content:center; align-items:flex-start; gap:10px; flex-wrap:wrap; padding:0 10px; }
@@ -7,9 +17,12 @@ body { margin:0; background:#1a1a2e; font-family:Arial; color:#fff; text-align:c
 .grid-header { flex-basis:100%; font-size:15px; color:#ffd700; font-weight:bold; margin-top:6px; }
 .side { width:100%; font-size:12px; padding:6px 8px; min-width:0 !important; }
 .row { display:flex; flex-wrap:wrap; justify-content:center; gap:5px; margin:0; }
+
+/* Hover genérico de botones. Se EXCLUYE .close-x para que la X no salte. */
 button { padding:8px 12px; font-size:13px; cursor:pointer; border:none; border-radius:5px; font-weight:bold; transition:transform 0.1s; color:#fff; position:relative; }
-button:hover:not(:disabled) { transform:scale(1.03); }
+button:hover:not(:disabled):not(.close-x) { transform:scale(1.03); }
 button:disabled { opacity:0.5; cursor:not-allowed; }
+
 .cat1 { background:linear-gradient(135deg, #ffcc66, #ff9933); }
 .cat2 { background:linear-gradient(135deg, #99ccff, #3366cc); }
 .cat3 { background:linear-gradient(135deg, #ff9999, #cc3333); }
@@ -36,7 +49,6 @@ h2 { margin:8px; font-size:20px; }
 .price { display:block; font-size:10px; margin-top:2px; opacity:0.9; }
 .stats { display:block; font-size:9px; margin-top:2px; opacity:0.85; line-height:1.2; }
 .cd { display:block; font-size:9px; color:#ffee88; margin-top:1px; min-height:11px; }
-#fps { position:fixed; top:10px; right:10px; background:rgba(0,0,0,0.7); padding:5px 10px; border-radius:5px; font-size:12px; z-index:50; }
 .cannon-bar { position:absolute; bottom:0; left:0; height:4px; background:#00ff00; border-radius:2px; transition:width 0.1s; }
 .cannon-container { position:relative; }
 .save-status { font-size:11px; color:#88ff88; margin-left:8px; }
@@ -48,6 +60,7 @@ h2 { margin:8px; font-size:20px; }
 .down { color:#ff8888; font-weight:bold; }
 .locked { color:#999; }
 .unlock { color:#88ff88; }
+
 .screen { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:20px; }
 .menu-btn { font-size:18px; padding:14px 30px; min-width:320px; border-radius:10px; }
 .story { background:linear-gradient(135deg, #66ccff, #0066aa); }
@@ -75,7 +88,8 @@ h2 { margin:8px; font-size:20px; }
 #resultOverlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; z-index:100; }
 .result-box { background:#222233; padding:30px 40px; border-radius:12px; text-align:center; border:3px solid #ffd700; }
 .result-box button { margin:6px; font-size:14px; padding:10px 18px; }
-/* ---------- BESTIARIO ---------- */
+
+/* ================= BESTIARIO ================= */
 .bestiary-screen { height:100vh; min-height:100vh; padding:0; gap:0; justify-content:flex-start; overflow:hidden; }
 .best-head { flex:0 0 auto; width:100%; padding:8px 14px 10px; background:rgba(0,0,0,0.35); border-bottom:2px solid #445566; display:flex; flex-direction:column; align-items:center; gap:6px; }
 .best-head h2 { margin:2px 0; }
@@ -94,12 +108,18 @@ h2 { margin:8px; font-size:20px; }
 .best-name.locked { color:#999; }
 .best-tag { font-size:9px; font-weight:bold; color:#b8c0c8; border:1px solid #556677; border-radius:4px; padding:0 4px; white-space:nowrap; }
 .best-foot { flex:0 0 auto; width:100%; padding:10px; background:rgba(0,0,0,0.35); border-top:2px solid #445566; }
-/* ---------- v69: TÍTULO / AJUSTES / CARRUSEL / HUB ---------- */
+
+/* ================= v69/v70: TÍTULO, AJUSTES, CARRUSEL, HUB ================= */
 #versionTag { position:fixed; top:8px; right:12px; font-size:11px; color:#8899aa; z-index:60; }
+body.in-battle #versionTag { top:auto; bottom:32px; right:8px; }
+#fps { position:fixed; top:auto; bottom:3px; right:8px; background:rgba(0,0,0,0.7); padding:2px 8px; border-radius:5px; font-size:10px; z-index:50; }
+
 .game-title { font-size:56px; margin:10px; color:#fff; text-shadow:0 3px 0 #000; }
 .big-yellow { background:linear-gradient(135deg,#ffd21f,#f0b400); color:#111; border:3px solid #000; border-radius:14px; font-size:22px; padding:12px 60px; min-width:340px; font-weight:bold; }
+
 .close-x { position:absolute; top:14px; right:18px; width:46px; height:46px; border-radius:50%; background:linear-gradient(135deg,#ffd21f,#f0b400); border:3px solid #000; color:#111; font-size:20px; font-weight:bold; z-index:5; }
 .float-x { position:fixed; }
+
 #settingsOverlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); display:flex; align-items:center; justify-content:center; z-index:150; }
 .settings-box { width:660px; max-width:94vw; background:#8a8a8a; border:3px solid #000; border-radius:14px; overflow:hidden; position:relative; }
 .settings-head { background:#d9d9d9; padding:10px; border-bottom:3px solid #000; position:relative; }
@@ -118,6 +138,7 @@ h2 { margin:8px; font-size:20px; }
 .set-title { text-align:center; color:#111; margin:6px 0 10px; }
 .set-slider { display:block; color:#111; font-size:13px; margin:8px 40px; font-weight:bold; }
 .set-slider input { width:100%; accent-color:#2c2ce0; }
+
 .carousel-screen { justify-content:flex-start; padding-top:40px; }
 .carousel-wrap { display:flex; align-items:center; gap:8px; width:100%; max-width:1200px; }
 .carousel-band { flex:1; background:rgba(150,150,150,0.30); border-radius:16px; padding:26px 12px; display:flex; gap:14px; overflow:hidden; justify-content:flex-start; }
@@ -126,6 +147,7 @@ h2 { margin:8px; font-size:20px; }
 .chapter-card { flex:0 0 230px; height:150px; border:3px solid #000; border-radius:6px; position:relative; font-weight:bold; color:#111; font-size:15px; }
 .chapter-card .ch-num { position:absolute; top:4px; left:6px; font-size:10px; }
 .chapter-card.back-card { background:linear-gradient(135deg,#ffd21f,#f0b400); flex:0 0 130px; }
+
 .hub-screen { min-height:100vh; display:flex; flex-direction:column; }
 .hub-top { background:#b0764a; border-bottom:3px solid #000; display:flex; align-items:center; justify-content:space-between; padding:8px 14px; color:#111; font-weight:bold; font-size:16px; }
 .hub-xp b { background:#f0e6b0; border:2px solid #000; border-radius:8px; padding:2px 16px; margin-left:6px; color:#c8860a; font-size:18px; }
@@ -146,7 +168,200 @@ h2 { margin:8px; font-size:20px; }
 .gacha-btn.purple { background:#a86cc8; color:#fff; border-radius:12px; padding:10px 16px; }
 .hub-back { position:absolute; left:14px; bottom:14px; width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,#ffd21f,#f0b400); border:3px solid #000; font-size:24px; color:#111; }
 .hub-bottom { background:#b0764a; border-top:3px solid #000; height:26px; }
-/* ---------- v70: FPS dentro del borde inferior; versión fuera de la barra XP ---------- */
-#fps { position:fixed; top:auto; bottom:3px; right:8px; background:rgba(0,0,0,0.7); padding:2px 8px; border-radius:5px; font-size:10px; z-index:50; }
-#versionTag { position:fixed; top:8px; right:12px; font-size:11px; color:#8899aa; z-index:60; }
-body.in-battle #versionTag { top:auto; bottom:32px; right:8px; }
+
+/* ============================================================
+   DECOR v81: fondo ambiental, brillos, relieve, scrollbars
+   ============================================================ */
+:root{
+  --v81-bg0:#0d0d16; --v81-bg1:#16162a;
+  --v81-gold:#ffd700; --v81-cyan:#4d9fff; --v81-green:#7dff8a;
+  --v81-card:#1d1d30; --v81-line:#333355;
+  --v82-stroke:2px; --v82-gold-hi:#ffe98a; --v82-gold-lo:#b8860b;
+}
+body::before{
+  content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(77,159,255,.10), transparent 60%),
+    radial-gradient(1000px 500px at 85% 110%, rgba(255,215,0,.08), transparent 60%),
+    linear-gradient(180deg, var(--v81-bg0), var(--v81-bg1));
+}
+body::after{
+  content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.5;
+  background-image: radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size: 26px 26px;
+  animation: v81drift 40s linear infinite;
+}
+@keyframes v81drift{ from{background-position:0 0} to{background-position:26px 52px} }
+
+.screen{ animation: v81fade .25s ease; }
+@keyframes v81fade{ from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none} }
+
+.menu-btn, .big-yellow, .back, .save-btn, .set-btn, .test-btn, .retreat-btn{
+  position:relative; overflow:hidden;
+  box-shadow:0 4px 14px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.18);
+  transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+}
+.menu-btn:hover, .big-yellow:hover, .back:hover, .save-btn:hover,
+.set-btn:hover, .test-btn:hover, .retreat-btn:hover{
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:0 8px 22px rgba(0,0,0,.55), 0 0 12px rgba(255,215,0,.25), inset 0 1px 0 rgba(255,255,255,.25);
+  filter: brightness(1.08);
+}
+.menu-btn:active, .big-yellow:active, .save-btn:active{ transform: translateY(0) scale(.98); }
+.menu-btn::after, .big-yellow::after{
+  content:""; position:absolute; top:0; left:-60%; width:40%; height:100%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent);
+  transform: skewX(-20deg); animation: v81shine 3.2s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes v81shine{ 0%{left:-60%} 55%{left:120%} 100%{left:120%} }
+.hub-col .big-yellow:first-child{ animation: v81pulse 2.2s ease-in-out infinite; }
+@keyframes v81pulse{ 0%,100%{box-shadow:0 0 0 0 rgba(255,215,0,0)} 50%{box-shadow:0 0 18px 2px rgba(255,215,0,.35)} }
+
+.upg-card, .story-btn, .troop-card{
+  border:2px solid var(--v81-line);
+  box-shadow:0 6px 18px rgba(0,0,0,.45);
+  transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+}
+.mode-card, .chapter-card, .event-btn{
+  border:2px solid var(--v81-line);
+  box-shadow:0 6px 18px rgba(0,0,0,.45);
+  transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+}
+.upg-card:hover, .story-btn:hover, .troop-card:hover,
+.mode-card:hover, .chapter-card:hover, .event-btn:hover{
+  transform: translateY(-3px);
+  border-color: var(--v81-gold);
+  box-shadow:0 10px 26px rgba(0,0,0,.55), 0 0 14px rgba(255,215,0,.22);
+}
+.upg-card.maxed{ border-color: var(--v81-green); box-shadow:0 0 14px rgba(125,255,138,.25); }
+.upg-card.lockedcard, .story-btn:disabled, .event-btn:disabled, .troop-card.lockedcard{ filter: grayscale(.6) brightness(.7); }
+
+.hub-pill, .coin-info, .level-badge, .best-tag{
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 2px 8px rgba(0,0,0,.4);
+}
+.grid-header, .best-section{ border-left:4px solid var(--v81-gold); padding-left:10px; letter-spacing:.5px; text-transform:uppercase; }
+.sb-info{ opacity:.92; }
+.icon-btn{ transition: transform .12s, box-shadow .12s, filter .12s; }
+.icon-btn:hover{ transform: translateY(-2px) scale(1.06); box-shadow:0 0 14px rgba(255,215,0,.35); filter:brightness(1.1); }
+.gacha-btn{ transition: transform .12s, box-shadow .12s; }
+.gacha-btn:hover{ transform: translateY(-2px); box-shadow:0 6px 16px rgba(0,0,0,.5); }
+
+#info{ backdrop-filter: blur(6px); background: rgba(15,15,26,.7); border-bottom:1px solid var(--v81-line); }
+.cannon-bar{ background: linear-gradient(90deg, var(--v81-cyan), var(--v81-green)); box-shadow:0 0 10px rgba(125,255,138,.4); }
+#resultOverlay .result-box{
+  backdrop-filter: blur(8px);
+  border:2px solid var(--v81-gold); border-radius:18px;
+  box-shadow:0 0 30px rgba(255,215,0,.25), 0 20px 60px rgba(0,0,0,.6);
+  animation: v81pop .25s ease;
+}
+@keyframes v81pop{ from{transform:scale(.9); opacity:0} to{transform:scale(1); opacity:1} }
+
+*::-webkit-scrollbar{ width:10px; height:10px; }
+*::-webkit-scrollbar-track{ background:rgba(0,0,0,.3); }
+*::-webkit-scrollbar-thumb{ background:linear-gradient(180deg,#3a3a5e,#22223a); border-radius:8px; border:2px solid rgba(0,0,0,.4); }
+*::-webkit-scrollbar-thumb:hover{ background:#4a4a7e; }
+
+/* ============================================================
+   FONDOS DE MENÚ (viñeta + acento por pantalla)
+   ============================================================ */
+.screen, .hub-screen{
+  position:relative;
+  background:
+    radial-gradient(1100px 550px at 50% -15%, rgba(77,159,255,.12), transparent 60%),
+    radial-gradient(900px 450px at 50% 115%, rgba(255,215,0,.10), transparent 60%),
+    linear-gradient(180deg, rgba(22,22,40,.60), rgba(12,12,24,.80));
+}
+.screen::before, .hub-screen::before{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background: radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(0,0,0,.50) 100%);
+}
+#titleScreen{ background: radial-gradient(900px 500px at 50% 30%, rgba(255,215,0,.16), transparent 60%), linear-gradient(180deg, rgba(24,20,40,.65), rgba(10,10,20,.85)); }
+#carouselScreen, #chapterScreen{ background: radial-gradient(900px 500px at 50% 20%, rgba(77,159,255,.16), transparent 60%), linear-gradient(180deg, rgba(16,24,44,.65), rgba(10,12,24,.85)); }
+#hubScreen{ background: radial-gradient(1000px 500px at 50% 0%, rgba(125,255,138,.10), transparent 60%), linear-gradient(180deg, rgba(18,26,22,.60), rgba(10,14,12,.85)); }
+#upgradeScreen{ background: radial-gradient(900px 500px at 50% 10%, rgba(125,255,138,.14), transparent 60%), linear-gradient(180deg, rgba(16,30,22,.60), rgba(10,16,12,.85)); }
+#storyScreen{ background: radial-gradient(900px 500px at 50% 10%, rgba(77,159,255,.14), transparent 60%), linear-gradient(180deg, rgba(16,24,44,.60), rgba(10,12,24,.85)); }
+#eventScreen{ background: radial-gradient(900px 500px at 50% 10%, rgba(255,140,60,.16), transparent 60%), linear-gradient(180deg, rgba(40,22,14,.60), rgba(20,12,8,.85)); }
+#legendScreen{ background: radial-gradient(900px 500px at 50% 10%, rgba(255,80,80,.16), transparent 60%), linear-gradient(180deg, rgba(40,16,16,.60), rgba(20,8,8,.85)); }
+#troopScreen{ background: radial-gradient(900px 500px at 50% 10%, rgba(120,200,255,.14), transparent 60%), linear-gradient(180deg, rgba(16,28,40,.60), rgba(8,14,20,.85)); }
+
+/* ============================================================
+   TÍTULOS: relleno dorado + contorno negro (sin cruz de sombras)
+   ============================================================ */
+.game-title, #gameTitle, .screen h2{
+  background: linear-gradient(180deg, var(--v82-gold-hi), var(--v81-gold) 55%, var(--v82-gold-lo));
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+  -webkit-text-stroke: var(--v82-stroke) #000;
+  text-shadow: none;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,.65));
+  letter-spacing:.5px;
+}
+#titleScreen .game-title{ filter: drop-shadow(0 3px 6px rgba(0,0,0,.65)) drop-shadow(0 0 18px rgba(255,215,0,.35)); }
+.screen h2{ position:relative; padding-bottom:10px; }
+.screen h2::after{
+  content:""; position:absolute; left:50%; transform:translateX(-50%); bottom:0;
+  width:140px; height:3px; border-radius:3px;
+  background: linear-gradient(90deg, transparent, var(--v81-gold), transparent);
+}
+
+/* ============================================================
+   X DE CIERRE: anclada al vértice del contenedor, centrada,
+   un poco más a la derecha, y hover que NO la desplaza.
+   ============================================================ */
+.carousel-shell{ position:relative; flex:1 1 auto; min-width:0; }
+.carousel-shell .carousel-band{ width:100%; flex:none; }
+
+/* Centrado del glifo dentro del círculo (tamaños los da la base) */
+.close-x{ display:grid; place-items:center; padding:0; line-height:1; }
+
+/* Ancla en el vértice superior derecho, empujada un poco fuera */
+.band-x,
+.settings-box .close-x{
+  position:absolute;
+  top:0;
+  right:-6px;
+  left:auto;
+  transform: translate(50%, -50%);
+  z-index:6;
+}
+/* Hover estable: mantiene el translate y solo escala en su sitio */
+button.close-x:hover:not(:disabled),
+button.close-x:active:not(:disabled){
+  transform: translate(50%, -50%) scale(1.10);
+  filter: brightness(1.12);
+}
+
+/* ============================================================
+   BARRA SUPERIOR DEL HUB: texto claro sobre fondo oscuro
+   ============================================================ */
+.hub-top{
+  backdrop-filter: blur(6px);
+  background: linear-gradient(180deg, rgba(20,20,35,.85), rgba(20,20,35,.55));
+  border-bottom:1px solid var(--v81-line);
+  color:#eaf2ff;
+}
+.hub-base, .hub-mode{ color:#eaf2ff; text-shadow:0 1px 2px rgba(0,0,0,.65); }
+.hub-xp{ color:#eaf2ff; }
+.hub-xp b{ color:#c8860a; text-shadow:none; }
+/* ============================================================
+   v88: X de Ajustes DENTRO de la caja.
+   La caja tiene overflow:hidden (para recortar head/foot), así que
+   la X centrada en el vértice se recortaba. Aquí se ancla al head,
+   en la esquina interior, sin salirse.
+   ============================================================ */
+.settings-box .close-x,
+.settings-head .close-x{
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  left: auto;
+  transform: none;              /* dentro, sin translate que la saque */
+  z-index: 6;
+}
+/* Hover de la X de ajustes: solo escala, sin translate */
+.settings-box button.close-x:hover:not(:disabled),
+.settings-box button.close-x:active:not(:disabled){
+  transform: scale(1.10);
+  filter: brightness(1.12);
+}
