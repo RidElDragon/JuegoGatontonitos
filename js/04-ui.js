@@ -1,10 +1,10 @@
 // ============================================================
-// 04-ui.js — v79d
-// · Medallas de tesoro en Historia: 🥇/🥈/🥉/○
-// · Gamatoto NO aparece en tropas (solo vive en 12-gamatoto.js)
-// · Cartera + Income en partida reflejados en HUD/panel
-// · Navegación, ajustes, mejoras, historia, eventos, leyenda, tropas
-// · Toast, candados, música de menú al salir de batalla
+// 04-ui.js — v80b
+// · Nivel de unidad muestra SOLO el base; cápsulas como (+🎰N).
+// · Mejoras nuevas: 🛡️ Defensa / 🔬 Investigación / 💰 Recompensa.
+// · Medallas de tesoro en Historia (🥇/🥈/🥉/○).
+// · Gamatoto NO aparece en tropas.
+// · Cartera + income de partida reflejados en HUD/panel.
 // ============================================================
 
 // -------------------- RAREZAS --------------------
@@ -341,7 +341,7 @@ function buildUpgradeScreen() {
     const baseLvl = unitLevels[idx];
     const gachaLvl = gachaLevels[idx] || 0;
     const totalLvl = baseLvl + gachaLvl;
-    const cap = unitLevelCap() + GACHA_LVL_MAX;
+    const cap = unitLevelCap();
     const maxed = baseLvl >= unitLevelCap() && gachaLvl >= GACHA_LVL_MAX;
     const canBuyNormal = baseLvl < unitLevelCap();
     const cost = getUnitCoinCost(idx);
@@ -360,14 +360,15 @@ function buildUpgradeScreen() {
       let preview;
       if (u.healAmt) preview = 'HP ' + cur.hp + '→<span class="up">' + nxt.hp + '</span> · Cura ' + cur.heal + '→<span class="up">' + nxt.heal + '</span>';
       else preview = 'HP ' + cur.hp + '→<span class="up">' + nxt.hp + '</span> · DMG ' + cur.dmg + '→<span class="up">' + nxt.dmg + '</span>';
+      // v80b: el "Nivel" muestra SOLO el base; las cápsulas van como (+🎰N)
       const lvlLabel = gachaLvl > 0
-        ? 'Nivel ' + totalLvl + '/' + cap + ' (base ' + baseLvl + ' + 🎰' + gachaLvl + ')'
-        : 'Nivel ' + totalLvl + '/' + cap;
+        ? 'Nivel ' + baseLvl + '/' + cap + ' (+🎰' + gachaLvl + ')'
+        : 'Nivel ' + baseLvl + '/' + cap;
       let statusLine;
       if (maxed) statusLine = '🏆 MAX';
       else if (!canBuyNormal) statusLine = '⬆️ Base al tope (usa 🎰 del Almacén)';
-      else if (isDevMode()) statusLine = '➡ Nv.' + (totalLvl + 1) + ': GRATIS [DEV]';
-      else statusLine = '➡ Nv.' + (totalLvl + 1) + ': ' + cost + ' ' + COIN;
+      else if (isDevMode()) statusLine = '➡ Nv.' + (baseLvl + 1) + ': GRATIS [DEV]';
+      else statusLine = '➡ Nv.' + (baseLvl + 1) + ': ' + cost + ' ' + COIN;
       b.disabled = maxed || !canBuyNormal || (!isDevMode() && coins < cost);
       b.className = 'upg-card' + (maxed ? ' maxed' : '');
       b.innerHTML =
@@ -401,12 +402,12 @@ function buildUpgradeScreen() {
       preview:'Ganas +' + Math.round(getCoinBonusPercentAt(coinBonusLevel) * 100) + '% → <span class="up">+' + Math.round(getCoinBonusPercentAt(coinBonusLevel + 1) * 100) + '%</span> de XP por nivel' },
     { label:'💼 Cartera', info:'Nv ' + walletLevel + '/' + WALLET_UPGRADE_MAX, max:walletLevel >= WALLET_UPGRADE_MAX, cost:getWalletUpgradeCost(), fn:'buyWallet()',
       preview:'Cap máx en partida: ' + getWalletMax() + '💰→<span class="up">' + (getWalletMax() + WALLET_UPGRADE_PER_LVL) + '💰</span>' },
-          { label:'🛡️ Defensa de base', info:'Nv ' + baseDefLevel + '/' + BASE_DEF_MAX, max:baseDefLevel >= BASE_DEF_MAX, cost:getBaseDefCost(), fn:'buyBaseDef()',
+    { label:'🛡️ Defensa de base', info:'Nv ' + baseDefLevel + '/' + BASE_DEF_MAX, max:baseDefLevel >= BASE_DEF_MAX, cost:getBaseDefCost(), fn:'buyBaseDef()',
       preview:'HP máx base: ' + getBaseMaxHP() + '→<span class="up">' + (getBaseMaxHP() + BASE_DEF_PER_LVL) + '</span>' },
     { label:'🔬 Investigación', info:'Nv ' + researchLevel + '/' + RESEARCH_MAX, max:researchLevel >= RESEARCH_MAX, cost:getResearchCost(), fn:'buyResearch()',
       preview:'CD spawn: -' + Math.round(researchLevel * RESEARCH_PER_LVL * 100) + '%→<span class="up">-' + Math.round((researchLevel + 1) * RESEARCH_PER_LVL * 100) + '%</span>' },
     { label:'💰 Recompensa mejorada', info:'Nv ' + rewardLevel + '/' + REWARD_MAX, max:rewardLevel >= REWARD_MAX, cost:getRewardCost(), fn:'buyReward()',
-      preview:'Drop enemigos: +' + Math.round(researchLevel * 0 + rewardLevel * REWARD_PER_LVL * 100) + '%→<span class="up">+' + Math.round((rewardLevel + 1) * REWARD_PER_LVL * 100) + '%</span>' },
+      preview:'Drop enemigos: +' + Math.round(rewardLevel * REWARD_PER_LVL * 100) + '%→<span class="up">+' + Math.round((rewardLevel + 1) * REWARD_PER_LVL * 100) + '%</span>' },
   ];
   misc.forEach(m => {
     const b = document.createElement('button');
@@ -439,11 +440,9 @@ function buildStoryGrid() {
 
   STORY_LEVELS.forEach((L, idx) => {
     if (part && L.part !== part) return;
-
     const unlocked = isDevMode() || idx <= storyProgress;
     const done = idx < storyProgress;
     const unlock = unlockAtLevel(idx + 1);
-
     const b = document.createElement('button');
     b.className = 'story-btn';
     b.disabled = !unlocked;
@@ -470,7 +469,6 @@ function buildStoryGrid() {
       '<span class="sb-info">' + COIN + ' 1ª:' + coinRewardFor(L.coins, true) + ' / rep:' + coinRewardFor(L.coins, false) +
       (coinBonusLevel > 0 ? ' <span class="up">(+' + Math.round(getCoinBonusPercent() * 100) + '%)</span>' : '') +
       '</span>';
-
     const devTag = isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '';
 
     b.innerHTML =
@@ -480,7 +478,6 @@ function buildStoryGrid() {
       rewardInfo +
       (unlock ? '<span class="sb-info unlock">Desbloquea: ' + unlock + '</span>' : '') +
       devTag;
-
     if (unlocked) b.onclick = () => startStory(idx);
     grid.appendChild(b);
   });
@@ -815,15 +812,13 @@ function showResult(victory, text) {
 }
 
 // ------------------------------------------------------------
-// v70: reenvíos seguros para los botones del hub
+// reenvíos seguros para los botones del hub
 // ------------------------------------------------------------
 function openBanners(focus) { if (window.showBanners) window.showBanners(focus); else setStatus('❌ Módulo de banners no cargado', '#ff6666'); }
 function openStorage() { if (window.showStorage) window.showStorage(); else setStatus('❌ Módulo de almacén no cargado', '#ff6666'); }
 function openMissions() { if (window.showMissions) window.showMissions(); else setStatus('❌ Módulo de misiones no cargado', '#ff6666'); }
 function openBook() { if (window.showBestiary) window.showBestiary(); else setStatus('❌ Módulo de biblioteca no cargado', '#ff6666'); }
 function openGamatoto() { if (window.showGamatoto) window.showGamatoto(); else setStatus('❌ Módulo de Gamatoto no cargado', '#ff6666'); }
-
-// Aliases para 05-combat.js
 function showEvents() { showEventScreen(); }
 function showLegend() { showLegendScreen(); }
 window.showEvents = showEvents;
@@ -904,7 +899,6 @@ window.showLegend = showLegend;
 
 // ============================================================
 // v75: música de menú al salir de batalla
-// (NO envuelve retryLevel/nextLevel para no pisar la música de batalla)
 // ============================================================
 (function () {
   function menuMusic() {
