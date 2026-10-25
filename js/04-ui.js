@@ -153,6 +153,15 @@ function renderChapterBand() {
     band.appendChild(c);
   });
 }
+// v92: Rango del jugador = suma de niveles de todas las unidades que tengas
+function getPlayerRank() {
+  let r = 0;
+  for (let i = 0; i < NUM_UNITS; i++) {
+    if (!isUnitUnlocked(i)) continue;
+    r += unitLevels[i] + (gachaLevels[i] || 0);
+  }
+  return r;
+}
 function renderHub() {
   const m = modeObj(hubState.mode);
   const base = document.getElementById('hubBase');
@@ -167,10 +176,8 @@ function renderHub() {
   }
   if (modeEl) modeEl.textContent = title;
   if (xp) xp.textContent = coins;
-  if (cannon) {
-    const eff = getEffectiveCannonDmgLevel();
-    const bonus = eff > cannonDmgLevel ? ' (+' + (eff - cannonDmgLevel) + '💎)' : '';
-    cannon.innerHTML = 'ℹ️ Cañón Nv.' + cannonDmgLevel + bonus + ' · Rango <b>' + getCannonRange() + '</b>';
+  if (cannon)   if (cannon) {
+    cannon.innerHTML = '🎖 Rango <b>' + getPlayerRank() + '</b>';
   }
 }
 function hubStart() {
