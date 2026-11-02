@@ -55,19 +55,19 @@ const UNIT_EMOJI = ['🐱','','⚡','','🔮','💚','👑','','🤖','','','','
 // UNIDADES JUGABLES
 // ------------------------------------------------------------
 const CAT_BASE = [
-{ name:'Básico',       cost:50,   hp:80,   dmg:25,  speed:1.2, range:40,  cooldown:60,  color:'#ffcc66', color2:'#ff9933', type:'melee',  spawnCd:2 },
-{ name:'Tanque',       cost:110,  hp:450,  dmg:12,  speed:0.8, range:30,  cooldown:90,  color:'#99ccff', color2:'#3366cc', type:'melee',  spawnCd:3 },
-{ name:'Rápido',       cost:170,  hp:75,   dmg:100,  speed:2.2, range:35,  cooldown:100,  color:'#ff9999', color2:'#cc3333', type:'melee',  spawnCd:5 },
-{ name:'Arquero',      cost:140,  hp:70,   dmg:50, speed:0.9, range:300, cooldown:75,  color:'#cc99ff', color2:'#6633cc', type:'ranged', projSpeed:6, spawnCd:3, projRange:400 },
-{ name:'Mago',         cost:450,  hp:90,   dmg:50,  speed:0.8, range:180, cooldown:110, color:'#99ff99', color2:'#339933', type:'aoe', aoeRadius:90, projSpeed:5, spawnCd:6 },
-{ name:'Sanador',      cost:300,  hp:100,  dmg:0,   speed:0.9, range:120, cooldown:80,  color:'#ff99cc', color2:'#cc3399', type:'healer', healAmt:50, spawnCd:8 },
-{ name:'Gigante',      cost:1000, hp:1200, dmg:55,  speed:0.4, range:40,  cooldown:120, color:'#ff6600', color2:'#993300', type:'melee',  scale:1.8, spawnCd:12 },
-{ name:'Robo-Espada',  cost:660,  hp:275,  dmg:38,  speed:1.0, range:45,  cooldown:70,  color:'#aabbcc', color2:'#667788', type:'melee',  spawnCd:5, visual:'robosword', upMult:1.20 },
-{ name:'Robo-Pistola', cost:400,  hp:90,   dmg:33,  speed:1.0, range:240, cooldown:20,  color:'#8899aa', color2:'#556677', type:'roboRanged', projSpeed:9, spawnCd:4, visual:'robogun' },
-{ name:'Rey Gatontito',cost:5500, hp:4200, dmg:170, speed:0.6, range:50,  cooldown:100, color:'#ffd700', color2:'#b8860b', type:'melee',  scale:2.4, spawnCd:60, visual:'king', aoeRadius:45 },
-{ name:'Gato Demoníaco',cost:2700,hp:1500, dmg:80,  speed:1.5, range:45,  cooldown:70,  color:'#dd1111', color2:'#770000', type:'melee',  spawnCd:25, visual:'demon' },
-{ name:'Gato Sin Cabeza',cost:900,hp:400,  dmg:37,  speed:1.5, range:45,  cooldown:60,  color:'#baffc2', color2:'#00331a', type:'melee',  spawnCd:10, visual:'headless', scale:1.15 },
-{ name:'Gatoclaus',    cost:3100, hp:750, dmg:90,  speed:1,   range:260, cooldown:150, color:'#ee2222', color2:'#8a0f0f', type:'aoe', aoeRadius:100, projSpeed:7, spawnCd:30, scale:1.6, visual:'gatoclaus' },
+  { name:'Básico',       cost:50,   hp:80,   dmg:25,  speed:1.2, range:40,  cooldown:60,  color:'#ffcc66', color2:'#ff9933', type:'melee',  spawnCd:2, knockbackForce:2 },
+  { name:'Tanque',       cost:110,  hp:450,  dmg:12,  speed:0.8, range:30,  cooldown:90,  color:'#99ccff', color2:'#3366cc', type:'melee',  spawnCd:3, knockbacks:0 },
+  { name:'Rápido',       cost:170,  hp:75,   dmg:100,  speed:2.2, range:35,  cooldown:100,  color:'#ff9999', color2:'#cc3333', type:'melee',  spawnCd:5, knockbackForce:4 },
+  { name:'Arquero',      cost:140,  hp:70,   dmg:50, speed:0.9, range:300, cooldown:75,  color:'#cc99ff', color2:'#6633cc', type:'ranged', projSpeed:6, spawnCd:3, projRange:400, knockbackForce:3 },
+  { name:'Mago',         cost:450,  hp:90,   dmg:50,  speed:0.8, range:180, cooldown:110, color:'#99ff99', color2:'#339933', type:'aoe', aoeRadius:90, projSpeed:5, spawnCd:6, knockbackForce:3 },
+  { name:'Sanador',      cost:300,  hp:100,  dmg:0,   speed:0.9, range:120, cooldown:80,  color:'#ff99cc', color2:'#cc3399', type:'healer', healAmt:50, spawnCd:8, knockbackForce:2 },
+  { name:'Gigante',      cost:1000, hp:1200, dmg:55,  speed:0.4, range:40,  cooldown:120, color:'#ff6600', color2:'#993300', type:'melee',  scale:1.8, spawnCd:12, knockbackForce:1 },
+  { name:'Robo-Espada',  cost:660,  hp:275,  dmg:38,  speed:1.0, range:45,  cooldown:70,  color:'#aabbcc', color2:'#667788', type:'melee',  spawnCd:5, visual:'robosword', upMult:1.20, knockbackForce:2 },
+  { name:'Robo-Pistola', cost:400,  hp:90,   dmg:33,  speed:1.0, range:240, cooldown:20,  color:'#8899aa', color2:'#556677', type:'roboRanged', projSpeed:9, spawnCd:4, visual:'robogun', knockbackForce:2 },
+  { name:'Rey Gatontito',cost:5500, hp:4200, dmg:170, speed:0.6, range:50,  cooldown:100, color:'#ffd700', color2:'#b8860b', type:'melee',  scale:2.4, spawnCd:60, visual:'king', aoeRadius:45, knockbackForce:1 },
+  { name:'Gato Demoníaco',cost:2700,hp:1500, dmg:80,  speed:1.5, range:45,  cooldown:70,  color:'#dd1111', color2:'#770000', type:'melee',  spawnCd:25, visual:'demon', knockbackForce:3 },
+  { name:'Gato Sin Cabeza',cost:900,hp:400,  dmg:37,  speed:1.5, range:45,  cooldown:60,  color:'#baffc2', color2:'#00331a', type:'melee',  spawnCd:10, visual:'headless', scale:1.15, knockbackForce:5 },
+  { name:'Gatoclaus',    cost:3100, hp:750, dmg:90,  speed:1,   range:260, cooldown:150, color:'#ee2222', color2:'#8a0f0f', type:'aoe', aoeRadius:100, projSpeed:7, spawnCd:30, scale:1.6, visual:'gatoclaus', knockbackForce:4 },
 ];
 
 const UNIT_UNLOCK = [
@@ -93,34 +93,34 @@ const UNIT_COIN_STEP = [2000, 3000, 4000, 4000, 6000, 5000, 9000, 7000, 6000, 20
 // ENEMIGOS NORMALES
 // ------------------------------------------------------------
 const ENEMY_TYPES = [
-{ name:'Orco',          hp:100,  dmg:15, speed:0.8,  range:30,  cooldown:70,  color:'#666',    color2:'#333',    reward:60,  type:'melee' },
-{ name:'Tanque',        hp:250,  dmg:25, speed:0.5,  range:35,  cooldown:90,  color:'#444',    color2:'#222',    reward:120, type:'melee' },
-{ name:'Corredor',      hp:60,   dmg:10, speed:2.0,  range:25,  cooldown:40,  color:'#993300', color2:'#662200', reward:80,  type:'melee' },
-{ name:'Volador',       hp:80,   dmg:20, speed:1.2,  range:40,  cooldown:60,  color:'#6633cc', color2:'#330099', reward:100, type:'flying', flyY:120 },
-{ name:'Mago Oscuro',   hp:120,  dmg:30, speed:0.6,  range:180, cooldown:100, color:'#330033', color2:'#000',    reward:140, type:'ranged', projSpeed:4 },
-{ name:'Venomoso',      hp:150,  dmg:10, speed:0.9,  range:35,  cooldown:80,  color:'#339933', color2:'#006600', reward:110, type:'poison', poisonDmg:5, poisonDur:120 },
-{ name:'Gigante',       hp:1000, dmg:60, speed:0.3,  range:50,  cooldown:130, color:'#333',    color2:'#111',    reward:300, type:'melee', scale:1.8 },
-{ name:'Bruto',         hp:400,  dmg:45, speed:0.6,  range:40,  cooldown:100, color:'#8B4513', color2:'#5a2d0c', reward:160, type:'melee' },
-{ name:'Escorpión',     hp:120,  dmg:15, speed:1.6,  range:30,  cooldown:50,  color:'#2e8b57', color2:'#145a32', reward:150, type:'poison', poisonDmg:8, poisonDur:150 },
-{ name:'Fantasma',      hp:70,   dmg:25, speed:1.8,  range:35,  cooldown:55,  color:'#b0c4de', color2:'#778899', reward:130, type:'flying', flyY:110 },
-{ name:'Gólem',         hp:800,  dmg:40, speed:0.35, range:45,  cooldown:120, color:'#708090', color2:'#2f4f4f', reward:250, type:'melee', scale:1.6 },
-{ name:'Momia',         hp:600,  dmg:45, speed:0.5,  range:35,  cooldown:95,  color:'#e8d9a0', color2:'#8a7a45', reward:220, type:'melee', desertStyle:'mummy' },
-{ name:'Escarabajo',    hp:220,  dmg:30, speed:1.7,  range:30,  cooldown:55,  color:'#1a1a2e', color2:'#4b0082', reward:180, type:'melee', desertStyle:'beetle' },
-{ name:'Djinn Menor',   hp:300,  dmg:55, speed:1.3,  range:150, cooldown:85,  color:'#ffaa33', color2:'#aa5500', reward:260, type:'ranged', projSpeed:5, desertStyle:'djinn' },
-{ name:'Cáctus Animado',hp:900,  dmg:35, speed:0.4,  range:38,  cooldown:105, color:'#2e8b57', color2:'#006400', reward:240, type:'poison', poisonDmg:10, poisonDur:150, desertStyle:'cactus' },
-{ name:'Esqueleto Ankh',hp:450,  dmg:60, speed:0.9,  range:38,  cooldown:75,  color:'#f5f5dc', color2:'#b8a060', reward:280, type:'melee', desertStyle:'ankh' },
+  { name:'Orco',          hp:100,  dmg:15, speed:0.8,  range:30,  cooldown:70,  color:'#666',    color2:'#333',    reward:60,  type:'melee', knockbackForce:2 },
+  { name:'Tanque',        hp:250,  dmg:25, speed:0.5,  range:35,  cooldown:90,  color:'#444',    color2:'#222',    reward:120, type:'melee', knockbacks:0 },
+  { name:'Corredor',      hp:60,   dmg:10, speed:2.0,  range:25,  cooldown:40,  color:'#993300', color2:'#662200', reward:80,  type:'melee', knockbackForce:5 },
+  { name:'Volador',       hp:80,   dmg:20, speed:1.2,  range:40,  cooldown:60,  color:'#6633cc', color2:'#330099', reward:100, type:'flying', flyY:120, knockbackForce:3 },
+  { name:'Mago Oscuro',   hp:120,  dmg:30, speed:0.6,  range:180, cooldown:100, color:'#330033', color2:'#000',    reward:140, type:'ranged', projSpeed:4, knockbackForce:2 },
+  { name:'Venomoso',      hp:150,  dmg:10, speed:0.9,  range:35,  cooldown:80,  color:'#339933', color2:'#006600', reward:110, type:'poison', poisonDmg:5, poisonDur:120, knockbackForce:2 },
+  { name:'Gigante',       hp:1000, dmg:60, speed:0.3,  range:50,  cooldown:130, color:'#333',    color2:'#111',    reward:300, type:'melee', scale:1.8, knockbackForce:1 },
+  { name:'Bruto',         hp:400,  dmg:45, speed:0.6,  range:40,  cooldown:100, color:'#8B4513', color2:'#5a2d0c', reward:160, type:'melee', knockbackForce:2 },
+  { name:'Escorpión',     hp:120,  dmg:15, speed:1.6,  range:30,  cooldown:50,  color:'#2e8b57', color2:'#145a32', reward:150, type:'poison', poisonDmg:8, poisonDur:150, knockbackForce:3 },
+  { name:'Fantasma',      hp:70,   dmg:25, speed:1.8,  range:35,  cooldown:55,  color:'#b0c4de', color2:'#778899', reward:130, type:'flying', flyY:110, knockbackForce:4 },
+  { name:'Gólem',         hp:800,  dmg:40, speed:0.35, range:45,  cooldown:120, color:'#708090', color2:'#2f4f4f', reward:250, type:'melee', scale:1.6, knockbackForce:1 },
+  { name:'Momia',         hp:600,  dmg:45, speed:0.5,  range:35,  cooldown:95,  color:'#e8d9a0', color2:'#8a7a45', reward:220, type:'melee', desertStyle:'mummy', knockbackForce:2 },
+  { name:'Escarabajo',    hp:220,  dmg:30, speed:1.7,  range:30,  cooldown:55,  color:'#1a1a2e', color2:'#4b0082', reward:180, type:'melee', desertStyle:'beetle', knockbackForce:4 },
+  { name:'Djinn Menor',   hp:300,  dmg:55, speed:1.3,  range:150, cooldown:85,  color:'#ffaa33', color2:'#aa5500', reward:260, type:'ranged', projSpeed:5, desertStyle:'djinn', knockbackForce:3 },
+  { name:'Cáctus Animado',hp:900,  dmg:35, speed:0.4,  range:38,  cooldown:105, color:'#2e8b57', color2:'#006400', reward:240, type:'poison', poisonDmg:10, poisonDur:150, desertStyle:'cactus', knockbackForce:1 },
+  { name:'Esqueleto Ankh',hp:450,  dmg:60, speed:0.9,  range:38,  cooldown:75,  color:'#f5f5dc', color2:'#b8a060', reward:280, type:'melee', desertStyle:'ankh', knockbackForce:3 },
 ];
 
 // ------------------------------------------------------------
 // JEFES
 // ------------------------------------------------------------
 const BOSS_TYPES = [
-{ name:'JEFE DRAGÓN',      hp:15000,  dmg:180, speed:0.4, range:60, cooldown:150, color:'#ff0000', color2:'#880000', reward:3000,  type:'boss', scale:2.5, bossStyle:'dragon' },
-{ name:'TITÁN DE HIELO',   hp:22000,  dmg:140, speed:0.3, range:70, cooldown:160, color:'#00bfff', color2:'#006080', reward:5000,  type:'boss', scale:2.8, bossStyle:'titan' },
-{ name:'REY DEMONIO',      hp:35000,  dmg:240, speed:0.5, range:60, cooldown:140, color:'#800080', color2:'#300030', reward:9000,  type:'boss', scale:3.0, bossStyle:'demon' },
-{ name:'FARAÓN MOMIFICADO',hp:50000,  dmg:280, speed:0.4, range:65, cooldown:145, color:'#ffd700', color2:'#8a7a45', reward:12000, type:'boss', scale:2.9, bossStyle:'pharaoh' },
-{ name:'COLOSO DE ARENA',  hp:70000,  dmg:320, speed:0.3, range:70, cooldown:155, color:'#daa520', color2:'#8b6914', reward:18000, type:'boss', scale:3.1, bossStyle:'sandgolem' },
-{ name:'DJINN DEL DESIERTO',hp:100000,dmg:420, speed:0.5, range:80, cooldown:135, color:'#ff9933', color2:'#cc5500', reward:30000, type:'boss', scale:3.3, bossStyle:'djinnboss' },
+  { name:'JEFE DRAGÓN',      hp:15000,  dmg:180, speed:0.4, range:60, cooldown:150, color:'#ff0000', color2:'#880000', reward:3000,  type:'boss', scale:2.5, bossStyle:'dragon', knockbackForce:1 },
+  { name:'TITÁN DE HIELO',   hp:22000,  dmg:140, speed:0.3, range:70, cooldown:160, color:'#00bfff', color2:'#006080', reward:5000,  type:'boss', scale:2.8, bossStyle:'titan', knockbackForce:1 },
+  { name:'REY DEMONIO',      hp:35000,  dmg:240, speed:0.5, range:60, cooldown:140, color:'#800080', color2:'#300030', reward:9000,  type:'boss', scale:3.0, bossStyle:'demon', knockbackForce:1 },
+  { name:'FARAÓN MOMIFICADO',hp:50000,  dmg:280, speed:0.4, range:65, cooldown:145, color:'#ffd700', color2:'#8a7a45', reward:12000, type:'boss', scale:2.9, bossStyle:'pharaoh', knockbackForce:1 },
+  { name:'COLOSO DE ARENA',  hp:70000,  dmg:320, speed:0.3, range:70, cooldown:155, color:'#daa520', color2:'#8b6914', reward:18000, type:'boss', scale:3.1, bossStyle:'sandgolem', knockbackForce:1 },
+  { name:'DJINN DEL DESIERTO',hp:100000,dmg:420, speed:0.5, range:80, cooldown:135, color:'#ff9933', color2:'#cc5500', reward:30000, type:'boss', scale:3.3, bossStyle:'djinnboss', knockbackForce:1 },
 ];
 
 // ------------------------------------------------------------
@@ -445,3 +445,12 @@ const INCOME_BATTLE_BASE_PRICE   = 600;
 const SNIPER_INTERVAL_FRAMES = 180;
 const SNIPER_DMG_PERCENT = 0.02;
 const SNIPER_KNOCKBACK = 45;
+// v94: Knockback (empuje al recibir daño)
+// Knockback por umbrales de vida (como The Battle Cats):
+//  · knockbacks:N en una unidad = cuántas veces retrocede. 0 = nunca (muere antes de retroceder)
+//  · con N knockbacks retrocede al cruzar N/(N+1), (N-1)/(N+1) ... 1/(N+1) de su vida máxima
+//    (N=1 → al 50%, N=2 → al 67% y al 33%, N=3 → 75%, 50% y 25%)
+//  · knockbackForce:X en una unidad = píxeles que retrocede por frame
+const KNOCKBACK_DEFAULT_COUNT = 1; // knockbacks por defecto si la unidad no define "knockbacks"
+const KNOCKBACK_FORCE = 3;         // píxeles de retroceso por frame por defecto
+const KNOCKBACK_DURATION = 15;     // frames que dura el retroceso (la unidad no actúa mientras tanto)

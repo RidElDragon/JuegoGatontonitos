@@ -279,16 +279,6 @@ const AudioSys = (function () {
     overlay.style.display = 'flex';
   }
   function injectButtons() {
-    const menu = document.getElementById('menuScreen');
-    if (menu) {
-      const b = document.createElement('button');
-      b.className = 'menu-btn';
-      b.style.background = 'linear-gradient(135deg, #556677, #223344)';
-      b.textContent = '⚙ Opciones de sonido';
-      b.onclick = openOptions;
-      const resetBtn = menu.querySelector('.reset-all');
-      if (resetBtn) menu.insertBefore(b, resetBtn); else menu.appendChild(b);
-    }
     const rows = document.querySelectorAll('#centerPanel .row');
     if (rows.length) {
       const b = document.createElement('button');

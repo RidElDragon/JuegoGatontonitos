@@ -1,0 +1,7 @@
+{
+  "sky":    { "frames": 4, "fps": 8, "scroll": 6 },
+  "far":    { "scroll": 2 },
+  "mid":    { "scroll": 0, "bob": 3, "bobSpeed": 0.8 },
+  "ground": { "scroll": 0 },
+  "fg":     { "scroll": 0, "alpha": 1 }
+}
