@@ -4,6 +4,7 @@
 //      tocar walletCap) + addMoney() en toda ganancia + SIN el bloque
 //      viejo que perseguía el cap. Resultado: el cap JAMÁS sube solo;
 //      solo lo mueve buyWalletUpgrade() (botón 💼).
+// v80: Investigación reduce CD de spawn, Recompensa aumenta drop.
 // v78c: income en partida (getEffectiveIncome).
 // v78: RADAR (oro), SABELOTODO (+50%), GATOMÁTICO, GATOTIRADOR, AUTO-WIN.
 // v77: awardTreasureForLevel + storyVictory muestra el tesoro.
@@ -38,6 +39,19 @@ function addParticle(x, y, color, count, size) {
 function addRing(x, y, color, radius) {
   if (particles.length >= MAX_PARTICLES) particles.shift();
   particles.push({ x, y, vx:0, vy:0, life:15, maxLife:15, color, ring:true, radius:0, maxRadius:radius });
+}
+// Knockback por umbrales de vida (como The Battle Cats). Se revisa una vez por frame,
+// después de todo el daño (cuerpo a cuerpo, proyectiles, veneno...). Una unidad con N
+// knockbacks retrocede cada vez que su vida cruza N/(N+1), (N-1)/(N+1)... 1/(N+1) de su
+// vida máxima. Si el golpe la mata, muere sin retroceder. Si un golpe cruza varios
+// umbrales a la vez, los consume todos y retrocede una sola vez.
+function checkKnockback(u) {
+  const n = (u.knockbacks === undefined) ? KNOCKBACK_DEFAULT_COUNT : u.knockbacks;
+  if (!n || u.hp <= 0) return;
+  if (!u.kbUsed) u.kbUsed = 0;
+  let crossed = false;
+  while (u.kbUsed < n && u.hp <= u.maxHp * (n - u.kbUsed) / (n + 1)) { u.kbUsed++; crossed = true; }
+  if (crossed) u.knockbackTimer = KNOCKBACK_DURATION;
 }
 function findTarget(unit, targets) {
   let target = null, minDist = Infinity;
@@ -75,21 +89,25 @@ function spawnCat(type) {
   money -= stats.cost;
   if (!isTest()) spawnTimers[type] = getSpawnCdFrames(type);   // v80: Investigación reduce el CD
   const waveBonus = getWaveBonus();
-  cats.push({
-    x: 80, y: GROUND_Y, type,
-    hp: Math.min(Math.floor(stats.hp * waveBonus), MAX_STATS),
-    maxHp: Math.min(Math.floor(stats.hp * waveBonus), MAX_STATS),
-    dmg: Math.min(Math.floor(stats.dmg * waveBonus), MAX_STATS),
-    speed: stats.speed, range: stats.range,
-    cooldown: stats.cooldown, cdTimer: 0, color: stats.color, color2: stats.color2,
-    facing: 1, attackAnim: 0, scale: stats.scale || 1,
-    unitType: stats.type, projSpeed: stats.projSpeed, aoeRadius: stats.aoeRadius,
-    healAmt: Math.min(Math.floor(stats.healAmt * waveBonus), MAX_STATS),
-    visual: stats.visual || null,
-    poison: 0, poisonTimer: 0, walkCycle: Math.random() * Math.PI * 2,
-    level: unitLevels[type] + (gachaLevels[type] || 0),
-    evo: formIsEvo(type)
-  });
+cats.push({
+  x: 80, y: GROUND_Y, type,
+  hp: Math.min(Math.floor(stats.hp * waveBonus), MAX_STATS),
+  maxHp: Math.min(Math.floor(stats.hp * waveBonus), MAX_STATS),
+  dmg: Math.min(Math.floor(stats.dmg * waveBonus), MAX_STATS),
+  speed: stats.speed, range: stats.range,
+  cooldown: stats.cooldown, cdTimer: 0, color: stats.color, color2: stats.color2,
+  facing: 1, attackAnim: 0, scale: stats.scale || 1,
+  unitType: stats.type, projSpeed: stats.projSpeed, aoeRadius: stats.aoeRadius,
+  healAmt: Math.min(Math.floor(stats.healAmt * waveBonus), MAX_STATS),
+  visual: stats.visual || null,
+  poison: 0, poisonTimer: 0, walkCycle: Math.random() * Math.PI * 2,
+  level: unitLevels[type] + (gachaLevels[type] || 0),
+  evo: formIsEvo(type),
+  knockbackTimer: 0,
+  knockbackForce: CAT_BASE[type].knockbackForce !== undefined ? CAT_BASE[type].knockbackForce : KNOCKBACK_FORCE,
+  knockbacks: CAT_BASE[type].knockbacks !== undefined ? CAT_BASE[type].knockbacks : KNOCKBACK_DEFAULT_COUNT,
+  kbUsed: 0
+});
   if (CAT_BASE[type].visual === 'king')      { addFloatingText(120, 120, '👑 ¡El Rey Gatontito ha llegado! 👑', '#ffd700'); addParticle(80, GROUND_Y, 'rgb(255,215,0)', 20, 5); }
   if (CAT_BASE[type].visual === 'demon')      { addFloatingText(120, 120, '😈 ¡El Gato Demoníaco acecha! 😈', '#ff2222'); addParticle(80, GROUND_Y, 'rgb(255,0,0)', 20, 5); }
   if (CAT_BASE[type].visual === 'headless')   { addFloatingText(120, 120, '🎃 ¡El Gato Sin Cabeza cabalga en la noche!', '#88ffaa'); addParticle(80, GROUND_Y, 'rgb(136,255,170)', 20, 5); }
@@ -100,19 +118,23 @@ function spawnCat(type) {
 function pushEnemy(t, typeKey, isBoss) {
   const flyY = t.flyY || GROUND_Y;
   const m = getEnemyMult();
-  enemies.push({
-    x: 880, y: flyY, type: typeKey,
-    hp: Math.min(Math.floor(t.hp * m), MAX_STATS),
-    maxHp: Math.min(Math.floor(t.hp * m), MAX_STATS),
-    dmg: Math.min(Math.floor(t.dmg * m), MAX_STATS),
-    speed: t.speed, range: t.range,
-    cooldown: t.cooldown, cdTimer: 0, color: t.color, color2: t.color2,
-    facing: -1, attackAnim: 0, scale: t.scale || 1,
-    unitType: t.type, reward: Math.min(Math.floor(t.reward * m), MAX_STATS), projSpeed: t.projSpeed || 0,
-    poisonDmg: t.poisonDmg || 0, poisonDur: t.poisonDur || 0,
-    poison: 0, poisonTimer: 0, flyY: flyY, walkCycle: Math.random() * Math.PI * 2,
-    isBoss: isBoss, name: t.name, bossStyle: t.bossStyle || null, desertStyle: t.desertStyle || null, xmasStyle: t.xmasStyle || null
-  });
+enemies.push({
+  x: 880, y: flyY, type: typeKey,
+  hp: Math.min(Math.floor(t.hp * m), MAX_STATS),
+  maxHp: Math.min(Math.floor(t.hp * m), MAX_STATS),
+  dmg: Math.min(Math.floor(t.dmg * m), MAX_STATS),
+  speed: t.speed, range: t.range,
+  cooldown: t.cooldown, cdTimer: 0, color: t.color, color2: t.color2,
+  facing: -1, attackAnim: 0, scale: t.scale || 1,
+  unitType: t.type, reward: Math.min(Math.floor(t.reward * m), MAX_STATS), projSpeed: t.projSpeed || 0,
+  poisonDmg: t.poisonDmg || 0, poisonDur: t.poisonDur || 0,
+  poison: 0, poisonTimer: 0, flyY: flyY, walkCycle: Math.random() * Math.PI * 2,
+  isBoss: isBoss, name: t.name, bossStyle: t.bossStyle || null, desertStyle: t.desertStyle || null, xmasStyle: t.xmasStyle || null,
+  knockbackTimer: 0,
+  knockbackForce: t.knockbackForce !== undefined ? t.knockbackForce : KNOCKBACK_FORCE,
+  knockbacks: t.knockbacks !== undefined ? t.knockbacks : KNOCKBACK_DEFAULT_COUNT,
+  kbUsed: 0
+});
 }
 function spawnEnemy(typeIdx, bossIdx) {
   if (enemies.length >= MAX_ENEMIES) return;
@@ -670,7 +692,13 @@ function update() {
   for (let i = 0; i < cats.length; i++) {
     const c = cats[i];
     c.cdTimer--;
+    c.moving = false;   // el avance lo vuelve a poner en true
     if (c.poisonTimer > 0) { c.poisonTimer--; if (frameCount % 30 === 0) c.hp -= c.poison; }
+    if (c.knockbackTimer > 0) {   // empujada: retrocede y no puede actuar
+      c.knockbackTimer--;
+      c.x = Math.max(MY_BASE_X, c.x - (c.knockbackForce !== undefined ? c.knockbackForce : KNOCKBACK_FORCE));
+      continue;
+    }
     if (c.unitType === 'healer') {
       let hurtAlly = null; let minHP = Infinity;
       for (let j = 0; j < cats.length; j++) {
@@ -697,6 +725,7 @@ function update() {
       if (desired < HEALER_HOME_X) desired = HEALER_HOME_X;
       const gap = desired - c.x;
       const mult = (hasTroop && Math.abs(gap) > HEALER_CATCHUP_GAP) ? HEALER_CATCHUP_MULT : 1;
+      c.moving = Math.abs(gap) > c.speed;
       if (gap > 0) c.x += c.speed * mult;
       else if (gap < 0) c.x -= c.speed;
       continue;
@@ -722,9 +751,9 @@ function update() {
             traveled: 0, canHitBase: !front && baseInRange
           });
         } else if (front) {
-          front.hp -= c.dmg;
-          addParticle(front.x, front.y, 'rgb(255,100,100)', 2, 2);
-          sfxNow('melee');
+            front.hp -= c.dmg;
+            addParticle(front.x, front.y, 'rgb(255,100,100)', 2, 2);
+            sfxNow('melee');
           if (c.aoeRadius) {
             addRing(front.x, front.y, 'rgb(255,215,0)', c.aoeRadius);
             for (let j = 0; j < enemies.length; j++) {
@@ -752,6 +781,7 @@ function update() {
         c.attackAnim = 8;
       }
     } else {
+      c.moving = true;
       c.x += c.speed;
     }
   }
@@ -759,7 +789,13 @@ function update() {
   for (let i = 0; i < enemies.length; i++) {
     const e = enemies[i];
     e.cdTimer--;
+    e.moving = false;   // el avance lo vuelve a poner en true
     if (e.poisonTimer > 0) { e.poisonTimer--; if (frameCount % 30 === 0) e.hp -= e.poison; }
+    if (e.knockbackTimer > 0) {   // empujado: retrocede y no puede actuar
+      e.knockbackTimer--;
+      e.x = Math.min(ENEMY_BASE_X + 30, e.x + (e.knockbackForce !== undefined ? e.knockbackForce : KNOCKBACK_FORCE));
+      continue;
+    }
     const frontCat = findFrontCat(e, e.range);
     if (frontCat) {
       if (e.cdTimer <= 0) {
@@ -775,13 +811,14 @@ function update() {
           addParticle(frontCat.x, frontCat.y, 'rgb(0,255,0)', 2, 2);
           sfxNow('cat_hurt');
         } else {
-          frontCat.hp -= e.dmg;
-          addParticle(frontCat.x, frontCat.y, 'rgb(255,200,100)', 2, 2);
-          sfxNow('cat_hurt');
-        }
+            frontCat.hp -= e.dmg;
+            addParticle(frontCat.x, frontCat.y, 'rgb(255,200,100)', 2, 2);
+            sfxNow('cat_hurt');
+}
         e.cdTimer = e.cooldown; e.attackAnim = 8;
       }
     } else if (e.x > 100) {
+      e.moving = true;
       e.x -= e.speed;
     } else {
       if (e.cdTimer <= 0) {
@@ -876,6 +913,9 @@ function update() {
   particles = particles.filter(p => p.life > 0);
   for (let i = 0; i < floatingTexts.length; i++) { floatingTexts[i].y -= 1; floatingTexts[i].life--; }
   floatingTexts = floatingTexts.filter(t => t.life > 0);
+  // ---------------- KNOCKBACK POR UMBRAL DE VIDA ----------------
+  for (let i = 0; i < cats.length; i++) checkKnockback(cats[i]);
+  for (let i = 0; i < enemies.length; i++) checkKnockback(enemies[i]);
   // ---------------- MUERTES ----------------
   enemies = enemies.filter(e => {
     if (e.hp <= 0) {

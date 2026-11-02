@@ -365,3 +365,35 @@ button.close-x:active:not(:disabled){
   transform: scale(1.10);
   filter: brightness(1.12);
 }
+/* ============================================================
+   UI THEME: Fondos de menús (v4 - Canvas puro para sprite sheets)
+   ============================================================ */
+
+/* Canvas de fondo para sprite sheets animados */
+.ui-bg-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Overlay decorativo */
+.ui-screen-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  opacity: 0.8;
+}
+
+/* Contenido del menú por encima */
+#titleScreen > *, #hubScreen > *, #upgradeScreen > *, 
+#storyScreen > *, #eventScreen > *, #legendScreen > * {
+  position: relative;
+  z-index: 2;
+}

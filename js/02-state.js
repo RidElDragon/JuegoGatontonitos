@@ -2,6 +2,7 @@
 // 02-state.js — Estado mutable global + cálculos/getters (v79g)
 // · addMoney(): TODA ganancia de dinero se clampa al cap en el momento.
 // · Cartera v78b + Income v78c en partida.
+// · v80: Defensa de base / Investigación / Recompensa mejorada.
 // ============================================================
 let coins = 0;
 const unitLevels = new Array(NUM_UNITS).fill(1);
@@ -78,8 +79,6 @@ let devSnapshot = null;
 function isDevMode() { return devMode; }
 function toggleDevMode() {
   if (!devMode) {
-    cannonDmgLevel, cannonRangeLevel, cannonCdLevel, coinBonusLevel, walletLevel,
-    baseDefLevel, researchLevel, rewardLevel,
     setStatus('🔧 Modo desarrollador ACTIVADO - NADA se guarda', '#ff88ff');
   } else {
     if (devSnapshot) { restoreMeta(devSnapshot); devSnapshot = null; setStatus('🔧 Modo desarrollador DESACTIVADO - Estado restaurado', '#888888'); }
@@ -146,6 +145,7 @@ function snapshotMeta() {
   return {
     coins, unitLevels: unitLevels.slice(), incomeLevel,
     cannonDmgLevel, cannonRangeLevel, cannonCdLevel, coinBonusLevel, walletLevel,
+    baseDefLevel, researchLevel, rewardLevel,
     ticketsNormal, ticketsRare, ticketsEvent, baseLevel,
     gachaLevels: gachaLevels.slice(), gachaUnlocked: gachaUnlocked.slice(),
     treasuresObtained: Object.assign({}, treasuresObtained),
@@ -228,6 +228,7 @@ function coinRewardFor(baseCoins, firstClear) {
   return Math.floor(baseEarned * (1 + getCoinBonusPercent()));
 }
 function getBaseMaxHP() { return 1500 + baseLevel * BASE_HP_PER_LEVEL + getTreasureFlatBaseHP() + getBaseDefBonus(); }
+
 // v80: Defensa de base / Investigación / Recompensa mejorada
 function getBaseDefBonus() { return baseDefLevel * BASE_DEF_PER_LVL; }
 function getBaseDefCost() { return BASE_DEF_BASE_COST + BASE_DEF_COST_STEP * baseDefLevel; }

@@ -267,6 +267,7 @@ function catHudBar(c, scale, bounce) {
 // -------------------- GATOS --------------------
 function drawCat(c, opts) {
   const hideHud = !!(opts && opts.hideHud);
+    if (window.trySpriteCat && window.trySpriteCat(c, hideHud)) return;   // v93: sprite con fallback
   const bounce = Math.sin(c.walkCycle) * 1.5;
   const attackScale = c.attackAnim > 0 ? 1.1 : 1;
   const scale = c.scale;

@@ -24,13 +24,15 @@ canvas.addEventListener('click', (ev) => {
 });
 // Inicialización (orden importante: meta → progreso → escuadrón)
 window.onload = function() {
-  loadMeta();
-  storyProgress = Math.min(loadStoryProgress(), STORY_MAX_LEVEL);
-  eventProgress = loadEventProgress();
-  legendProgress = Math.min(loadLegendProgress(), LEGEND_STAGES.length);
-  loadout = loadLoadout();
-  tempLoadout = [...loadout];
-  baseMeta = snapshotMeta();
-  showTitle();
-  loop();
+  loadAssets(function () {
+    loadMeta();
+    storyProgress = Math.min(loadStoryProgress(), STORY_MAX_LEVEL);
+    eventProgress = loadEventProgress();
+    legendProgress = Math.min(loadLegendProgress(), LEGEND_STAGES.length);
+    loadout = loadLoadout();
+    tempLoadout = [...loadout];
+    baseMeta = snapshotMeta();
+    showTitle();
+    loop();
+  });
 };

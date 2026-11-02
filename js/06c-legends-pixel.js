@@ -295,6 +295,7 @@ const LEGEND_DRAW = {
 };
 // v59 FIX: ASIGNACIÓN (no declaración) para evitar hoisting y recursión infinita
 window.drawEnemy = function (e, opts) {
+  if (window.trySpriteEnemy && window.trySpriteEnemy(e, opts)) return;   // v93: sprite con fallback
   const fn = LEGEND_DRAW[enemyKind(e)];
   if (!fn) { _baseDrawEnemy(e, opts); return; }
   const scale = e.scale;
