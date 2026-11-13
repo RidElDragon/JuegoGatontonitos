@@ -1,57 +1,79 @@
 #!/usr/bin/env node
-// tools/build-ui.js — Genera js/ui-manifest.js leyendo img/ui/screens/ (capas PNG + layers.json)
+// tools/build-ui.js — Genera js/ui-manifest.js leyendo img/ui/
 const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-const UI_DIR = path.join(ROOT, 'img', 'ui', 'screens');
+const UI_DIR = path.join(ROOT, 'img', 'ui');
 const OUT = path.join(ROOT, 'js', 'ui-manifest.js');
-const LAYERS = ['base', 'overlay'];
+const SCREEN_LAYERS = ['base', 'overlay'];
+const BUTTON_LAYERS = ['normal', 'hover', 'active']; // opcional: estados
 
-const screens = {};
+const manifest = { screens: {}, buttons: {}, icons: {} };
 const warnings = [];
 
-if (fs.existsSync(UI_DIR)) {
-  for (const t of fs.readdirSync(UI_DIR, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()) {
-    const dir = path.join(UI_DIR, t);
+function scanFolder(relPath, layers) {
+  const full = path.join(ROOT, relPath);
+  if (!fs.existsSync(full)) return {};
+  const result = {};
+  for (const f of fs.readdirSync(full)) {
+    if (!f.toLowerCase().endsWith('.png')) continue;
+    const name = f.slice(0, -4).toLowerCase();
+    if (!layers.includes(name)) {
+      warnings.push(`${relPath}/${f}: capa desconocida; se ignora`);
+      continue;
+    }
+    const filePath = path.join(full, f);
+    const stats = fs.statSync(filePath);
+    result[name] = { src: `${relPath}/${f}`, size: (stats.size / 1024).toFixed(1) + ' KB' };
+  }
+  return result;
+}
+
+// 1. Screens
+const screensDir = path.join(UI_DIR, 'screens');
+if (fs.existsSync(screensDir)) {
+  for (const t of fs.readdirSync(screensDir, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()) {
     const entry = {};
-    for (const f of fs.readdirSync(dir)) {
-      if (!f.toLowerCase().endsWith('.png')) continue;
-      const name = f.slice(0, -4).toLowerCase();
-      if (!LAYERS.includes(name)) {
-        warnings.push(`img/ui/screens/${t}/${f}: capa desconocida (válidas: ${LAYERS.join(', ')}); se ignora`);
-        continue;
+    for (const layer of SCREEN_LAYERS) {
+      const file = path.join(screensDir, t, layer + '.png');
+      if (fs.existsSync(file)) {
+        const stats = fs.statSync(file);
+        entry[layer] = { src: `img/ui/screens/${t}/${layer}.png`, size: (stats.size / 1024).toFixed(1) + ' KB' };
       }
-      const filePath = path.join(dir, f);
-      const stats = fs.statSync(filePath);
-      entry[name] = { src: `img/ui/screens/${t}/${f}`, size: (stats.size / 1024).toFixed(1) + ' KB' };
-      console.log(`  ${(t + '/' + name).padEnd(20)} ${entry[name].size}`);
     }
-    if (Object.keys(entry).length > 0) {
-      // Incrusta layers.json (frames/fps) en el manifiesto: así no hace falta fetch y funciona con doble clic
-      const cfgPath = path.join(dir, 'layers.json');
-      if (fs.existsSync(cfgPath)) {
-        try {
-          entry.config = JSON.parse(fs.readFileSync(cfgPath, 'utf8').replace(/^\uFEFF/, ''));
-          console.log(`  ${(t + '/layers.json').padEnd(20)} incrustado`);
-        } catch (e) {
-          warnings.push(`img/ui/screens/${t}/layers.json: JSON inválido (${e.message}); se ignora`);
-        }
-      }
-      screens[t] = entry;
-    }
+    if (Object.keys(entry).length > 0) manifest.screens[t] = entry;
+  }
+}
+
+// 2. Buttons
+manifest.buttons = scanFolder('img/ui/buttons', [...BUTTON_LAYERS, 'default']);
+
+// 3. Icons
+const iconsDir = path.join(UI_DIR, 'icons');
+if (fs.existsSync(iconsDir)) {
+  for (const f of fs.readdirSync(iconsDir)) {
+    if (!f.toLowerCase().endsWith('.png')) continue;
+    const name = f.slice(0, -4).toLowerCase();
+    const filePath = path.join(iconsDir, f);
+    const stats = fs.statSync(filePath);
+    manifest.icons[name] = { src: `img/ui/icons/${f}`, size: (stats.size / 1024).toFixed(1) + ' KB' };
   }
 }
 
 const out = `// ============================================================
-// js/ui-manifest.js — AUTO-GENERADO por tools/build-ui (.js o .bat)
-// No lo edites a mano.
+// js/ui-manifest.js — AUTO-GENERADO por tools/build-ui
 // ============================================================
-const UI_SCREEN_LIST = ${JSON.stringify(screens, null, 2)};
+const UI_MANIFEST = ${JSON.stringify(manifest, null, 2)};
+// Backwards compatibility
+const UI_SCREEN_LIST = UI_MANIFEST.screens;
 `;
 
 fs.writeFileSync(OUT, out);
-console.log(`\n${Object.keys(screens).length} pantalla(s) → js/ui-manifest.js`);
+console.log(`\n✅ ui-manifest.js generado:`);
+console.log(`   ${Object.keys(manifest.screens).length} pantalla(s)`);
+console.log(`   ${Object.keys(manifest.buttons).length} botón(es)`);
+console.log(`   ${Object.keys(manifest.icons).length} icono(s)`);
 if (warnings.length) {
   console.log(`\n⚠ ${warnings.length} aviso(s):`);
   warnings.forEach(w => console.log('  - ' + w));

@@ -79,6 +79,7 @@ let devSnapshot = null;
 function isDevMode() { return devMode; }
 function toggleDevMode() {
   if (!devMode) {
+    devSnapshot = snapshotMeta();
     setStatus('🔧 Modo desarrollador ACTIVADO - NADA se guarda', '#ff88ff');
   } else {
     if (devSnapshot) { restoreMeta(devSnapshot); devSnapshot = null; setStatus('🔧 Modo desarrollador DESACTIVADO - Estado restaurado', '#888888'); }
@@ -308,7 +309,7 @@ function getTreasureBonus(kind, unitIdx) {
     if (ef.units === 'all' || (Array.isArray(ef.units) && ef.units.includes(unitIdx))) total += ef.base * mult;
   }
   for (const tid in TREASURE_BOSS_EFFECTS) {
-    if (!treasuresObtained[tid]) continue;
+    if (treasuresObtained[tid] === undefined || treasuresObtained[tid] === null) continue;
     const q = treasuresObtained[tid];
     const mult = TREASURE_QUALITY_MULT[q];
     const ef = TREASURE_BOSS_EFFECTS[tid].effect;
@@ -329,7 +330,7 @@ function getTreasureFlatBaseHP() {
 function getTreasureCannonBonus() {
   let total = 0;
   for (const tid in TREASURE_BOSS_EFFECTS) {
-    if (!treasuresObtained[tid]) continue;
+    if (treasuresObtained[tid] === undefined || treasuresObtained[tid] === null) continue;
     const q = treasuresObtained[tid];
     const ef = TREASURE_BOSS_EFFECTS[tid].effect;
     if (ef.kind === 'cannonDmgFlat') total += ef.base * TREASURE_QUALITY_MULT[q];

@@ -19,7 +19,7 @@ function loop() {
   if (frameAccumulator > FRAME_MS * 4) frameAccumulator = 0;
   if (ticks > 0 && playing) {
     try {
-      update();
+      for (let i = 0; i < ticks && playing; i++) update();
       draw();
     } catch (err) {
       playing = false;

@@ -18,6 +18,7 @@ const UNLOCK_LEVEL = 10;
 let storage = loadStorage();
 let mis = loadMissions();
 let storageSnapshot = null;
+let missionsSnapshot = null;
 let focusBanner = 'normal';
 
 function loadStorage() { try { const o = JSON.parse(localStorage.getItem(STORE_KEY)); return Array.isArray(o) ? o : []; } catch (e) { return []; } }
@@ -28,7 +29,7 @@ function loadMissions() {
 }
 function saveMissions() { if (isDevMode()) return; try { localStorage.setItem(MIS_KEY, JSON.stringify(mis)); } catch (e) {} }
 function blocked() { return isTest(); }
-function gachaUnlocked() { return isDevMode() || storyProgress >= UNLOCK_LEVEL; }
+function isGachaAvailable() { return isDevMode() || storyProgress >= UNLOCK_LEVEL; }
 function snapshotStorage() { storageSnapshot = storage.map(s => Object.assign({}, s)); }
 function restoreStorage() { if (storageSnapshot) { storage = storageSnapshot.map(s => Object.assign({}, s)); storageSnapshot = null; } }
 function storedCount(kind, idx) { let n = 0; for (const s of storage) if (s.kind === kind && (idx === undefined || s.idx === idx)) n++; return n; }
@@ -192,18 +193,18 @@ function hideAll() { if (gScreen) gScreen.style.display = 'none'; if (sScreen) s
 
 function showBanners(focus) {
   leaveTestIfNeeded();
-  if (!gachaUnlocked()) { setStatus('🔒 Se desbloquea al superar Historia Nivel ' + UNLOCK_LEVEL, '#ffaa00'); return; }
+  if (!isGachaAvailable()) { setStatus('🔒 Se desbloquea al superar Historia Nivel ' + UNLOCK_LEVEL, '#ffaa00'); return; }
   focusBanner = focus || 'normal';
   screen = 'gacha'; playing = false; hideScreens(); gScreen.style.display = 'flex'; renderBanners();
 }
 function showStorage() {
   leaveTestIfNeeded();
-  if (!gachaUnlocked()) { setStatus('🔒 Se desbloquea al superar Historia Nivel ' + UNLOCK_LEVEL, '#ffaa00'); return; }
+  if (!isGachaAvailable()) { setStatus('🔒 Se desbloquea al superar Historia Nivel ' + UNLOCK_LEVEL, '#ffaa00'); return; }
   screen = 'storage'; playing = false; hideScreens(); sScreen.style.display = 'flex'; renderStorage();
 }
 function showMissions() {
   leaveTestIfNeeded();
-  if (!gachaUnlocked()) { setStatus('🔒 Se desbloquea al superar Historia Nivel ' + UNLOCK_LEVEL, '#ffaa00'); return; }
+  if (!isGachaAvailable()) { setStatus('🔒 Se desbloquea al superar Historia Nivel ' + UNLOCK_LEVEL, '#ffaa00'); return; }
   screen = 'missions'; playing = false; hideScreens(); mScreen.style.display = 'flex'; renderMissions();
 }
 
@@ -323,8 +324,23 @@ wrap('hideScreens', () => hideAll());
 const origToggleDevMode = window.toggleDevMode;
 window.toggleDevMode = function () {
   const wasDev = isDevMode(); origToggleDevMode(); const isNowDev = isDevMode();
-  if (!wasDev && isNowDev) snapshotStorage();
-  else if (wasDev && !isNowDev) { restoreStorage(); if (screen === 'gacha') renderBanners(); if (screen === 'storage') renderStorage(); if (screen === 'missions') renderMissions(); }
+  if (!wasDev && isNowDev) {
+    snapshotStorage();
+    missionsSnapshot = JSON.parse(JSON.stringify(mis));
+  } else if (wasDev && !isNowDev) {
+    restoreStorage();
+    if (missionsSnapshot) mis = missionsSnapshot;
+    missionsSnapshot = null;
+    if (screen === 'gacha') renderBanners();
+    if (screen === 'storage') renderStorage();
+    if (screen === 'missions') renderMissions();
+  }
+};
+window.resetGachaProgress = function () {
+  storage = [];
+  mis = { claimed: {}, stats: { pulls: 0, applies: 0, maxWave: 0 } };
+  storageSnapshot = null;
+  missionsSnapshot = null;
 };
 function setBattleChrome(on) { document.body.classList.toggle('in-battle', !!on); }
 ['showTitle','showCarousel','showChapters','showHub','showUpgrades','showTroops','showAch','showBookMenu','showGatopedia','showEnemyBook','showBanners','showStorage','showMissions'].forEach(f => wrap(f, () => { if (window.AudioSys && AudioSys.setMusic) AudioSys.setMusic('menu'); setBattleChrome(false); }));

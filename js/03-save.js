@@ -129,6 +129,10 @@ function saveGame(auto) {
   else setStatus('⚠️ Guardado solo en memoria (localStorage bloqueado)', '#ffaa00');
 }
 function loadGame() {
+  if (gameMode !== 'infinite') {
+    setStatus('El guardado de batalla solo se puede cargar en modo infinito', '#ff6666');
+    return false;
+  }
   const data = readSave();
   if (!data || !isValidSave(data)) { setStatus('❌ No hay guardado válido', '#ff6666'); return false; }
   money = data.money; baseHP = data.baseHP; enemyBaseHP = data.enemyBaseHP;
@@ -193,6 +197,8 @@ function resetAllProgress() {
   if (!confirm('🔁 Confirmación final: ¿reiniciar TODO el progreso desde cero?')) return;
   playing = false; gameOver = false;
   metaSnapshot = null; memorySave = null; baseMeta = null;
+  devSnapshot = null; devMode = false;
+  updateDevModeButton();
   try {
     localStorage.removeItem(META_KEY); localStorage.removeItem(META_BAK_KEY);
     localStorage.removeItem('catBattleStory'); localStorage.removeItem('catBattleEvents');
@@ -200,6 +206,8 @@ function resetAllProgress() {
     localStorage.removeItem('catBattleSave'); localStorage.removeItem('catBattleStorage');
     localStorage.removeItem('catBattleMissions'); localStorage.removeItem('catBattleBestiary');
     localStorage.removeItem('catBattleGamatoto');
+    localStorage.removeItem('catBattleAch');
+    localStorage.removeItem('catBattleForms');
   } catch (e) {}
   coins = 0;
   for (let i = 0; i < NUM_UNITS; i++) unitLevels[i] = 1;
@@ -211,6 +219,7 @@ function resetAllProgress() {
   treasuresObtained = {}; expedition = null;
   consumables = { speed:0, radar:0, rich:0, cpu:0, sabelotodo:0, sniper:0 };
   loadout = [0]; tempLoadout = [0];
+  unitFormPref = new Array(NUM_UNITS).fill('evo');
   spawnTimers = new Array(NUM_UNITS).fill(0);
   cats = []; enemies = []; projectiles = []; particles = []; floatingTexts = [];
   money = 400; baseHP = 1500; enemyBaseHP = 2000; enemyBaseMaxHP = 2000; wave = 1;
@@ -218,6 +227,8 @@ function resetAllProgress() {
   resetBattleFlags();
   gameMode = 'infinite';
   if (window.resetBestiary) window.resetBestiary();
+  if (window.clearAchievements) window.clearAchievements();
+  if (window.resetGachaProgress) window.resetGachaProgress();
   showMenu();
 }
 window.addEventListener('beforeunload', () => {

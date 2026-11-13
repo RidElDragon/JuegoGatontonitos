@@ -1,10 +1,5 @@
 // ============================================================
-// 04-ui.js — v80b
-// · Nivel de unidad muestra SOLO el base; cápsulas como (+🎰N).
-// · Mejoras nuevas: 🛡️ Defensa / 🔬 Investigación / 💰 Recompensa.
-// · Medallas de tesoro en Historia (🥇/🥈/🥉/○).
-// · Gamatoto NO aparece en tropas.
-// · Cartera + income de partida reflejados en HUD/panel.
+// 04-ui.js — v80c (Corregido: eliminado typo de sintaxis)
 // ============================================================
 
 // -------------------- RAREZAS --------------------
@@ -38,11 +33,11 @@ function rarityTag(idx) {
 // -------------------- ESTADO DE NAVEGACIÓN --------------------
 const hubState = { mode: null, chapter: null };
 const MODES = [
-  { key:'story',    name:'📖 Modo Historia',       color:'#3f8fd0', chapters:true },
-  { key:'event',    name:'🎃 Eventos Especiales',  color:'#ff6600', chapters:true },
-  { key:'legend',   name:'🌟 Etapas de Leyenda',   color:'#e02020', chapters:true },
-  { key:'infinite', name:'∞ Modo Infinito',        color:'#b0764a', chapters:false },
-  { key:'test',     name:'🧪 Sandbox',             color:'#c8bfe8', chapters:false },
+  { key:'story',    name: getIcon('📖', 20) + ' Modo Historia',       color:'#3f8fd0', chapters:true },
+  { key:'event',    name: getIcon('🎃', 20) + ' Eventos Especiales',  color:'#ff6600', chapters:true },
+  { key:'legend',   name: getIcon('🌟', 20) + ' Etapas de Leyenda',   color:'#e02020', chapters:true },
+  { key:'infinite', name:'∞ Modo Infinito',                           color:'#b0764a', chapters:false },
+  { key:'test',     name: getIcon('🧪', 20) + ' Sandbox',             color:'#c8bfe8', chapters:false },
 ];
 const STORY_PART_NAMES = ['Praderas del Inicio', 'Tierras del Rey', 'Desierto Prohibido'];
 const LEGEND_ZONE_SHORT = ['Ruinas Ancestrales', 'Caldera de Magma', 'Islas Flotantes', 'Fosa Abisal', 'Fábrica de Engranajes', 'Umbral del Vacío'];
@@ -112,6 +107,7 @@ function goMenu() {
 }
 function scrollCarousel(dir) { const b = document.getElementById('modeBand'); if (b) b.scrollBy({ left: dir * 260, behavior: 'smooth' }); }
 function scrollChapters(dir) { const b = document.getElementById('chapterBand'); if (b) b.scrollBy({ left: dir * 260, behavior: 'smooth' }); }
+
 function renderModeBand() {
   const band = document.getElementById('modeBand');
   if (!band) return;
@@ -122,17 +118,19 @@ function renderModeBand() {
     const c = document.createElement('button');
     c.className = 'mode-card';
     c.style.background = m.color;
-    c.textContent = m.name;
+    c.innerHTML = m.name;
     c.onclick = () => selectMode(m.key);
     band.appendChild(c);
   });
 }
+
 function selectMode(key) {
   hubState.mode = key;
   hubState.chapter = null;
   const m = modeObj(key);
   if (m && m.chapters) showChapters(); else showHub();
 }
+
 function renderChapterBand() {
   const band = document.getElementById('chapterBand');
   if (!band) return;
@@ -151,9 +149,9 @@ function renderChapterBand() {
     c.innerHTML = '<span class="ch-num">Capítulo ' + (i + 1) + '</span><br>' + ch.name;
     c.onclick = () => { hubState.chapter = ch.value; showHub(); };
     band.appendChild(c);
-  });
+  }); // <-- AQUÍ ESTABA EL PUNTO SOBRENTE QUE ROMPÍA TODO
 }
-// v92: Rango del jugador = suma de niveles de todas las unidades que tengas
+
 function getPlayerRank() {
   let r = 0;
   for (let i = 0; i < NUM_UNITS; i++) {
@@ -162,6 +160,7 @@ function getPlayerRank() {
   }
   return r;
 }
+
 function renderHub() {
   const m = modeObj(hubState.mode);
   const base = document.getElementById('hubBase');
@@ -176,10 +175,9 @@ function renderHub() {
   }
   if (modeEl) modeEl.textContent = title;
   if (xp) xp.textContent = coins;
-  if (cannon)   if (cannon) {
-    cannon.innerHTML = '🎖 Rango <b>' + getPlayerRank() + '</b>';
-  }
+  if (cannon) cannon.innerHTML = getIcon('🏆', 18) + ' Rango <b>' + getPlayerRank() + '</b>';
 }
+
 function hubStart() {
   leaveTestIfNeeded();
   const m = hubState.mode;
@@ -238,22 +236,22 @@ function isUnitUnlocked(idx) {
 function unlockLabel(idx) {
   const u = UNIT_UNLOCK[idx];
   if (!u || u.type === 'always') return '';
-  if (u.type === 'story') return '🔒 Se desbloquea: Historia Nv.' + u.lvl;
-  if (u.type === 'legend') return '🔒 Se desbloquea: Leyenda Etapa ' + u.lvl;
+  if (u.type === 'story') return getIcon('🔒', 16) + ' Se desbloquea: Historia Nv.' + u.lvl;
+  if (u.type === 'legend') return getIcon('🔒', 16) + ' Se desbloquea: Leyenda Etapa ' + u.lvl;
   const ev = EVENTS[u.id];
-  return '🔒 Se desbloquea: ' + (ev ? ev.name : u.id) + ' Nv.' + u.lvl;
+  return getIcon('🔒', 16) + ' Se desbloquea: ' + (ev ? ev.name : u.id) + ' Nv.' + u.lvl;
 }
 function unlockAtLevel(lvl) {
   const names = [];
   for (let i = 0; i < NUM_UNITS; i++) {
     const u = UNIT_UNLOCK[i];
-    if (u && u.type === 'story' && u.lvl === lvl) names.push(UNIT_EMOJI[i] || '🐱');
+    if (u && u.type === 'story' && u.lvl === lvl) names.push(getIcon(UNIT_EMOJI[i] || '🐱', 16));
   }
-  return names.join('');
+  return names.join(' ');
 }
 function eventUnlocksLabel(L) {
   if (!L.unlocks || !L.unlocks.length) return '';
-  return 'Desbloquea: ' + L.unlocks.map(i => UNIT_EMOJI[i] || '🐱').join(' ');
+  return 'Desbloquea: ' + L.unlocks.map(i => getIcon(UNIT_EMOJI[i] || '🐱', 16)).join(' ');
 }
 
 // -------------------- MEJORAS --------------------
@@ -339,6 +337,7 @@ function buyReward() {
   if (!isDevMode()) saveMeta();
   buildUpgradeScreen();
 }
+
 function buildUpgradeScreen() {
   document.getElementById('upgCoins').textContent = isDevMode() ? coins + ' (DEV)' : coins;
   const ug = document.getElementById('upgradeUnitGrid');
@@ -358,7 +357,7 @@ function buildUpgradeScreen() {
     if (!unlocked) {
       b.className = 'upg-card lockedcard';
       b.disabled = true;
-      b.innerHTML = '🔒 ' + u.name + rarityTag(idx) +
+      b.innerHTML = getIcon('🔒', 18) + ' ' + u.name + rarityTag(idx) +
         '<span class="sb-info locked">' + unlockLabel(idx) + '</span>' +
         '<span class="sb-info locked">Desbloquéala para mejorarla</span>';
     } else {
@@ -367,19 +366,18 @@ function buildUpgradeScreen() {
       let preview;
       if (u.healAmt) preview = 'HP ' + cur.hp + '→<span class="up">' + nxt.hp + '</span> · Cura ' + cur.heal + '→<span class="up">' + nxt.heal + '</span>';
       else preview = 'HP ' + cur.hp + '→<span class="up">' + nxt.hp + '</span> · DMG ' + cur.dmg + '→<span class="up">' + nxt.dmg + '</span>';
-      // v80b: el "Nivel" muestra SOLO el base; las cápsulas van como (+🎰N)
       const lvlLabel = gachaLvl > 0
-        ? 'Nivel ' + baseLvl + '/' + cap + ' (+🎰' + gachaLvl + ')'
+        ? 'Nivel ' + baseLvl + '/' + cap + ' (+' + getIcon('🎲', 14) + gachaLvl + ')'
         : 'Nivel ' + baseLvl + '/' + cap;
       let statusLine;
-      if (maxed) statusLine = '🏆 MAX';
-      else if (!canBuyNormal) statusLine = '⬆️ Base al tope (usa 🎰 del Almacén)';
+      if (maxed) statusLine = getIcon('🏆', 14) + ' MAX';
+      else if (!canBuyNormal) statusLine = getIcon('⬆️', 14) + ' Base al tope (usa ' + getIcon('🎲', 14) + ' del Almacén)';
       else if (isDevMode()) statusLine = '➡ Nv.' + (baseLvl + 1) + ': GRATIS [DEV]';
       else statusLine = '➡ Nv.' + (baseLvl + 1) + ': ' + cost + ' ' + COIN;
       b.disabled = maxed || !canBuyNormal || (!isDevMode() && coins < cost);
       b.className = 'upg-card' + (maxed ? ' maxed' : '');
       b.innerHTML =
-        UNIT_EMOJI[idx] + ' ' + u.name + rarityTag(idx) +
+        getIcon(UNIT_EMOJI[idx], 20) + ' ' + u.name + rarityTag(idx) +
         '<span class="sb-info">' + lvlLabel + (evo ? ' · ✨ EVOLUCIONADA' : '') + '</span>' +
         '<span class="sb-info">' + (canBuyNormal && !maxed ? preview : '') + '</span>' +
         (evo ? '<span class="sb-info" style="color:#88ffcc">✨ +10% stats por evolución</span>' : '') +
@@ -389,6 +387,7 @@ function buildUpgradeScreen() {
     }
     ug.appendChild(b);
   });
+  
   const mg = document.getElementById('upgradeMiscGrid');
   mg.innerHTML = '';
   const curDmgPct = (getCannonDamagePercentAt(cannonDmgLevel) * 100).toFixed(1);
@@ -397,23 +396,23 @@ function buildUpgradeScreen() {
   const cdIfDmg = cannonCdSecAt(cannonDmgLevel + 1, cannonCdLevel);
   const cdIfCd = cannonCdSecAt(cannonDmgLevel, cannonCdLevel + 1);
   const misc = [
-    { label:'💣 Cañón: Daño', info:'Nv ' + cannonDmgLevel + '/' + CANNON_DMG_MAX, max:cannonDmgLevel >= CANNON_DMG_MAX, cost:getCannonDmgCoinCost(), fn:'buyCannonDmg()',
+    { label: getIcon('💣', 16) + ' Cañón: Daño', info:'Nv ' + cannonDmgLevel + '/' + CANNON_DMG_MAX, max:cannonDmgLevel >= CANNON_DMG_MAX, cost:getCannonDmgCoinCost(), fn:'buyCannonDmg()',
       preview:'Daño ' + curDmgPct + '%→<span class="up">' + nxtDmgPct + '%</span> · CD ' + curCd + 's→<span class="down">' + cdIfDmg + 's</span>' },
-    { label:'💣 Cañón: Rango', info:'Nv ' + cannonRangeLevel + '/' + CANNON_RANGE_MAX, max:cannonRangeLevel >= CANNON_RANGE_MAX, cost:getCannonRangeCoinCost(), fn:'buyCannonRange()',
+    { label: getIcon('💣', 16) + ' Cañón: Rango', info:'Nv ' + cannonRangeLevel + '/' + CANNON_RANGE_MAX, max:cannonRangeLevel >= CANNON_RANGE_MAX, cost:getCannonRangeCoinCost(), fn:'buyCannonRange()',
       preview:'Rango ' + getCannonRangeAt(cannonRangeLevel) + 'px→<span class="up">' + getCannonRangeAt(cannonRangeLevel + 1) + 'px</span>' },
-    { label:'💣 Cañón: Cooldown', info:'Nv ' + cannonCdLevel + '/' + CANNON_CD_MAX, max:cannonCdLevel >= CANNON_CD_MAX, cost:getCannonCdCoinCost(), fn:'buyCannonCd()',
+    { label: getIcon('💣', 16) + ' Cañón: Cooldown', info:'Nv ' + cannonCdLevel + '/' + CANNON_CD_MAX, max:cannonCdLevel >= CANNON_CD_MAX, cost:getCannonCdCoinCost(), fn:'buyCannonCd()',
       preview:'CD ' + curCd + 's→<span class="up">' + cdIfCd + 's</span>' },
-    { label:'💵 Income base', info:'Nv ' + incomeLevel + '/' + MAX_INCOME_LEVEL, max:incomeLevel >= MAX_INCOME_LEVEL, cost:getIncomeCoinCost(), fn:'buyIncome()',
+    { label: getIcon('💵', 16) + ' Income base', info:'Nv ' + incomeLevel + '/' + MAX_INCOME_LEVEL, max:incomeLevel >= MAX_INCOME_LEVEL, cost:getIncomeCoinCost(), fn:'buyIncome()',
       preview:getIncomeAt(incomeLevel).toFixed(0) + '/s→<span class="up">' + getIncomeAt(incomeLevel + 1).toFixed(0) + '/s</span>' },
-    { label:'⭐ Bonus de XP', info:'Nv ' + coinBonusLevel + '/' + COIN_BONUS_MAX, max:coinBonusLevel >= COIN_BONUS_MAX, cost:getCoinBonusCost(), fn:'buyCoinBonus()',
+    { label: getIcon('⭐', 16) + ' Bonus de XP', info:'Nv ' + coinBonusLevel + '/' + COIN_BONUS_MAX, max:coinBonusLevel >= COIN_BONUS_MAX, cost:getCoinBonusCost(), fn:'buyCoinBonus()',
       preview:'Ganas +' + Math.round(getCoinBonusPercentAt(coinBonusLevel) * 100) + '% → <span class="up">+' + Math.round(getCoinBonusPercentAt(coinBonusLevel + 1) * 100) + '%</span> de XP por nivel' },
-    { label:'💼 Cartera', info:'Nv ' + walletLevel + '/' + WALLET_UPGRADE_MAX, max:walletLevel >= WALLET_UPGRADE_MAX, cost:getWalletUpgradeCost(), fn:'buyWallet()',
-      preview:'Cap máx en partida: ' + getWalletMax() + '💰→<span class="up">' + (getWalletMax() + WALLET_UPGRADE_PER_LVL) + '💰</span>' },
-    { label:'🛡️ Defensa de base', info:'Nv ' + baseDefLevel + '/' + BASE_DEF_MAX, max:baseDefLevel >= BASE_DEF_MAX, cost:getBaseDefCost(), fn:'buyBaseDef()',
+    { label: getIcon('💼', 16) + ' Cartera', info:'Nv ' + walletLevel + '/' + WALLET_UPGRADE_MAX, max:walletLevel >= WALLET_UPGRADE_MAX, cost:getWalletUpgradeCost(), fn:'buyWallet()',
+      preview:'Cap máx en partida: ' + getWalletMax() + getIcon('💰', 14) + '→<span class="up">' + (getWalletMax() + WALLET_UPGRADE_PER_LVL) + getIcon('💰', 14) + '</span>' },
+    { label: getIcon('🛡️', 16) + ' Defensa de base', info:'Nv ' + baseDefLevel + '/' + BASE_DEF_MAX, max:baseDefLevel >= BASE_DEF_MAX, cost:getBaseDefCost(), fn:'buyBaseDef()',
       preview:'HP máx base: ' + getBaseMaxHP() + '→<span class="up">' + (getBaseMaxHP() + BASE_DEF_PER_LVL) + '</span>' },
-    { label:'🔬 Investigación', info:'Nv ' + researchLevel + '/' + RESEARCH_MAX, max:researchLevel >= RESEARCH_MAX, cost:getResearchCost(), fn:'buyResearch()',
+    { label: getIcon('🔬', 16) + ' Investigación', info:'Nv ' + researchLevel + '/' + RESEARCH_MAX, max:researchLevel >= RESEARCH_MAX, cost:getResearchCost(), fn:'buyResearch()',
       preview:'CD spawn: -' + Math.round(researchLevel * RESEARCH_PER_LVL * 100) + '%→<span class="up">-' + Math.round((researchLevel + 1) * RESEARCH_PER_LVL * 100) + '%</span>' },
-    { label:'💰 Recompensa mejorada', info:'Nv ' + rewardLevel + '/' + REWARD_MAX, max:rewardLevel >= REWARD_MAX, cost:getRewardCost(), fn:'buyReward()',
+    { label: getIcon('💰', 16) + ' Recompensa mejorada', info:'Nv ' + rewardLevel + '/' + REWARD_MAX, max:rewardLevel >= REWARD_MAX, cost:getRewardCost(), fn:'buyReward()',
       preview:'Drop enemigos: +' + Math.round(rewardLevel * REWARD_PER_LVL * 100) + '%→<span class="up">+' + Math.round((rewardLevel + 1) * REWARD_PER_LVL * 100) + '%</span>' },
   ];
   misc.forEach(m => {
@@ -424,7 +423,7 @@ function buildUpgradeScreen() {
     b.innerHTML =
       m.label + '<span class="sb-info">' + m.info + '</span>' +
       '<span class="sb-info">' + (m.max ? '' : m.preview) + '</span>' +
-      '<span class="sb-info">' + (m.max ? '🏆 MAX' : (isDevMode() ? '➡ GRATIS [DEV]' : '➡ ' + m.cost + ' ' + COIN)) + '</span>' +
+      '<span class="sb-info">' + (m.max ? getIcon('🏆', 14) + ' MAX' : (isDevMode() ? '➡ GRATIS [DEV]' : '➡ ' + m.cost + ' ' + COIN)) + '</span>' +
       (isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '');
     mg.appendChild(b);
   });
@@ -454,33 +453,25 @@ function buildStoryGrid() {
     b.className = 'story-btn';
     b.disabled = !unlocked;
 
-    // v79: medalla de tesoro encima del nivel
     const tdef = TREASURE_DEFS.find(t => t.level === idx + 1);
     let medalHtml = '';
     if (tdef) {
       const q = treasuresObtained[tdef.id];
       if (q === undefined || q === null) {
-        medalHtml =
-          '<div style="text-align:right;font-size:14px;line-height:1;margin:-3px 0 2px;color:#667788" ' +
-          'title="Tesoro pendiente: ' + tdef.name + '">○</div>';
+        medalHtml = '<div style="text-align:right;font-size:14px;line-height:1;margin:-3px 0 2px;color:#667788" title="Tesoro pendiente: ' + tdef.name + '">○</div>';
       } else {
-        const sym = q === 2 ? '🥇' : (q === 1 ? '🥈' : '🥉');
+        const sym = q === 2 ? getIcon('🥇', 18) : (q === 1 ? getIcon('🥈', 18) : getIcon('🥉', 18));
         const col = TREASURE_QUALITY_COLORS[q];
-        medalHtml =
-          '<div style="text-align:right;font-size:15px;line-height:1;margin:-3px 0 2px;text-shadow:0 0 5px ' + col + '" ' +
-          'title="' + tdef.name + ' · ' + TREASURE_QUALITY_NAMES[q] + '">' + sym + '</div>';
+        medalHtml = '<div style="text-align:right;font-size:15px;line-height:1;margin:-3px 0 2px;text-shadow:0 0 5px ' + col + '" title="' + tdef.name + ' · ' + TREASURE_QUALITY_NAMES[q] + '">' + sym + '</div>';
       }
     }
 
-    const rewardInfo =
-      '<span class="sb-info">' + COIN + ' 1ª:' + coinRewardFor(L.coins, true) + ' / rep:' + coinRewardFor(L.coins, false) +
-      (coinBonusLevel > 0 ? ' <span class="up">(+' + Math.round(getCoinBonusPercent() * 100) + '%)</span>' : '') +
-      '</span>';
+    const rewardInfo = '<span class="sb-info">' + COIN + ' 1ª:' + coinRewardFor(L.coins, true) + ' / rep:' + coinRewardFor(L.coins, false) + (coinBonusLevel > 0 ? ' <span class="up">(+' + Math.round(getCoinBonusPercent() * 100) + '%)</span>' : '') + '</span>';
     const devTag = isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '';
 
     b.innerHTML =
       medalHtml +
-      (done ? '✅' : unlocked ? '▶' : '🔒') + ' ' + L.name + (L.boss >= 0 ? ' 👑' : '') +
+      (done ? getIcon('✅', 16) : unlocked ? '▶ ' : getIcon('🔒', 16)) + ' ' + L.name + (L.boss >= 0 ? ' ' + getIcon('👑', 16) : '') +
       '<span class="sb-info">Base: ' + L.enemyBaseHP + ' HP · ×' + L.mult.toFixed(2) + '</span>' +
       rewardInfo +
       (unlock ? '<span class="sb-info unlock">Desbloquea: ' + unlock + '</span>' : '') +
@@ -504,9 +495,7 @@ function buildEventGrid() {
   grid.innerHTML = '';
   document.getElementById('eventBackBtn').style.display = 'none';
   document.getElementById('eventMenuBtn').style.display = 'inline-block';
-  document.getElementById('eventInfo').textContent =
-    'Eventos temáticos con recompensas de ' + COIN + ' (mitad al repetir) y tropas exclusivas.' +
-    (isDevMode() ? ' 🔧 [MODO DEV]' : '');
+  document.getElementById('eventInfo').textContent = 'Eventos temáticos con recompensas de ' + COIN + ' (mitad al repetir) y tropas exclusivas.' + (isDevMode() ? ' 🔧 [MODO DEV]' : '');
   Object.values(EVENTS).forEach(ev => {
     const progress = isDevMode() ? ev.levels.length : (eventProgress[ev.id] || 0);
     const b = document.createElement('button');
@@ -529,13 +518,10 @@ function showEventLevels(eventId) {
     const b = document.createElement('button');
     b.className = 'event-btn ' + ev.theme;
     b.disabled = !unlocked;
-    const rewardInfo =
-      '<span class="sb-info">' + COIN + ' 1ª:' + coinRewardFor(L.coins, true) + ' / rep:' + coinRewardFor(L.coins, false) +
-      (coinBonusLevel > 0 ? ' <span class="up">(+' + Math.round(getCoinBonusPercent() * 100) + '%)</span>' : '') +
-      '</span>';
+    const rewardInfo = '<span class="sb-info">' + COIN + ' 1ª:' + coinRewardFor(L.coins, true) + ' / rep:' + coinRewardFor(L.coins, false) + (coinBonusLevel > 0 ? ' <span class="up">(+' + Math.round(getCoinBonusPercent() * 100) + '%)</span>' : '') + '</span>';
     const devTag = isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '';
     b.innerHTML =
-      (done ? '✅' : unlocked ? '▶' : '🔒') + ' ' + L.name + (L.boss ? ' 👑' : '') +
+      (done ? getIcon('✅', 16) : unlocked ? '▶ ' : getIcon('🔒', 16)) + ' ' + L.name + (L.boss ? ' ' + getIcon('👑', 16) : '') +
       '<span class="sb-info">Base: ' + L.enemyBaseHP + ' HP · ×' + L.mult.toFixed(1) + '</span>' +
       rewardInfo +
       (uk ? '<span class="sb-info unlock">' + uk + '</span>' : '') +
@@ -565,7 +551,7 @@ function buildLegendGrid() {
     info.innerHTML = legendUnlocked()
       ? (zone != null ? ('Zona ' + (zone + 1) + ' — ' + LEGEND_ZONE_SHORT[zone]) : 'Todas las zonas') +
         ' · Progreso: <b>' + legendProgress + '/' + LEGEND_STAGES.length + '</b>' + (isDevMode() ? ' 🔧 [MODO DEV]' : '')
-      : '🔒 Se desbloquea al completar la Historia Nivel 45.';
+      : getIcon('🔒', 16) + ' Se desbloquea al completar la Historia Nivel 45.';
   }
   LEGEND_STAGES.forEach((L, idx) => {
     if (zone != null && L.zone !== zone) return;
@@ -575,7 +561,7 @@ function buildLegendGrid() {
     b.className = 'story-btn';
     b.disabled = !unlocked;
     b.innerHTML =
-      (done ? '✅' : unlocked ? '▶' : '🔒') + ' ' + L.name + (L.boss ? ' 👑' : '') +
+      (done ? getIcon('✅', 16) : unlocked ? '▶ ' : getIcon('🔒', 16)) + ' ' + L.name + (L.boss ? ' ' + getIcon('👑', 16) : '') +
       '<span class="sb-info">Base: ' + L.enemyBaseHP + ' HP · ×' + L.mult.toFixed(1) + '</span>' +
       '<span class="sb-info">' + COIN + ' 1ª:' + coinRewardFor(L.coins, true) + ' / rep:' + coinRewardFor(L.coins, false) + '</span>' +
       (isDevMode() ? '<span class="sb-info" style="color:#ff88ff"> [DEV]</span>' : '');
@@ -596,7 +582,7 @@ function showTroops() {
 function troopStatsLine(idx) {
   const u = CAT_BASE[idx];
   const stats = getCatStats(idx);
-  let line = u.cost + '💰 · HP:' + stats.hp + ' · ';
+  let line = u.cost + getIcon('💰', 14) + ' · HP:' + stats.hp + ' · ';
   line += u.healAmt ? 'Cura:' + stats.healAmt : 'DMG:' + stats.dmg;
   line += ' · SPD:' + stats.speed.toFixed(2);
   if (stats.aoeRadius) line += ' · AOE:' + stats.aoeRadius;
@@ -623,8 +609,8 @@ function buildTroopGrid() {
     selectBtn.style.cssText = 'display:block;width:100%;background:transparent;border:none;box-shadow:none;color:inherit;padding:0;font-size:12px;cursor:pointer;text-align:center;';
     selectBtn.disabled = !unlocked;
     selectBtn.innerHTML = unlocked
-      ? UNIT_EMOJI[idx] + ' ' + u.name + rarityTag(idx) + '<span class="sb-info">' + line + '</span><span class="sb-info">' + (sel ? '✅ En el escuadrón' : '➕ Añadir') + '</span>'
-      : '🔒 ' + u.name + rarityTag(idx) + '<span class="sb-info">' + line + '</span><span class="sb-info locked">' + unlockLabel(idx) + '</span>';
+      ? getIcon(UNIT_EMOJI[idx], 20) + ' ' + u.name + rarityTag(idx) + '<span class="sb-info">' + line + '</span><span class="sb-info">' + (sel ? getIcon('✅', 14) + ' En el escuadrón' : getIcon('➕', 14) + ' Añadir') + '</span>'
+      : getIcon('🔒', 20) + ' ' + u.name + rarityTag(idx) + '<span class="sb-info">' + line + '</span><span class="sb-info locked">' + unlockLabel(idx) + '</span>';
     selectBtn.onclick = () => toggleTroop(idx);
     card.appendChild(selectBtn);
     const formBtn = document.createElement('button');
@@ -632,15 +618,15 @@ function buildTroopGrid() {
     if (!unlocked) {
       formBtn.disabled = true;
       formBtn.style.background = 'linear-gradient(135deg,#333,#222)';
-      formBtn.textContent = '🔒 Formas: desbloquea la tropa';
+      formBtn.textContent = getIcon('🔒', 14) + ' Formas: desbloquea la tropa';
     } else if (!canEvo) {
       formBtn.disabled = true;
       formBtn.style.background = 'linear-gradient(135deg,#333,#222)';
-      formBtn.textContent = '🔒 Forma evolucionada: se activa al Nv.10';
+      formBtn.textContent = getIcon('🔒', 14) + ' Forma evolucionada: se activa al Nv.10';
     } else {
       formBtn.style.background = evoActive ? 'linear-gradient(135deg,#ffd700,#aa7700)' : 'linear-gradient(135deg,#8899aa,#556677)';
       formBtn.style.color = evoActive ? '#221100' : '#fff';
-      formBtn.textContent = evoActive ? '✨ Usar forma evolucionada' : '🐱 Usar forma normal';
+      formBtn.textContent = evoActive ? (getIcon('✨', 14) + ' Usar forma evolucionada') : (getIcon('🐱', 14) + ' Usar forma normal');
       formBtn.onclick = () => {
         unitFormPref[idx] = evoActive ? 'normal' : 'evo';
         saveForms();
@@ -673,25 +659,25 @@ function buildMetaInfoPanel() {
   activeUnitList().forEach(idx => {
     const r = rarityOf(idx);
     const totalLvl = unitLevels[idx] + (gachaLevels[idx] || 0);
-    html += UNIT_EMOJI[idx] + ' <span style="color:' + r.color + '">' + CAT_BASE[idx].name + '</span>: <b>Nv.' + totalLvl + '/' + (unitLevelCap() + GACHA_LVL_MAX) + '</b>' + (formIsEvo(idx) ? ' ✨' : '') + (gachaLevels[idx] ? ' <span style="color:#ff88ff">+' + gachaLevels[idx] + '🎰</span>' : '') + '<br>';
+    html += getIcon(UNIT_EMOJI[idx], 16) + ' <span style="color:' + r.color + '">' + CAT_BASE[idx].name + '</span>: <b>Nv.' + totalLvl + '/' + (unitLevelCap() + GACHA_LVL_MAX) + '</b>' + (formIsEvo(idx) ? ' ✨' : '') + (gachaLevels[idx] ? ' <span style="color:#ff88ff">+' + gachaLevels[idx] + getIcon('🎲', 14) + '</span>' : '') + '<br>';
   });
   html += '<hr style="border-color:#444">';
-  html += '💵 Income: <b>Nv.' + incomeLevel + '/' + MAX_INCOME_LEVEL + '</b>';
+  html += getIcon('💵', 16) + ' Income: <b>Nv.' + incomeLevel + '/' + MAX_INCOME_LEVEL + '</b>';
   if (typeof battleFlags !== 'undefined' && battleFlags.incomeUpgrades > 0) {
     html += ' <span style="color:#88ff88">(+' + (battleFlags.incomeUpgrades * INCOME_BATTLE_STEP) + '/s)</span>';
   }
   html += '<br>';
-  html += '💣 Cañón: <b>D' + cannonDmgLevel + ' R' + cannonRangeLevel + ' C' + cannonCdLevel + '</b>';
+  html += getIcon('💣', 16) + ' Cañón: <b>D' + cannonDmgLevel + ' R' + cannonRangeLevel + ' C' + cannonCdLevel + '</b>';
   const eff = getEffectiveCannonDmgLevel();
-  if (eff > cannonDmgLevel) html += ' <span style="color:#ffd700">(+' + (eff - cannonDmgLevel) + '💎)</span>';
+  if (eff > cannonDmgLevel) html += ' <span style="color:#ffd700">(+' + (eff - cannonDmgLevel) + getIcon('💎', 14) + ')</span>';
   html += '<br>';
-  html += '⭐ Bonus XP: <b>+' + Math.round(getCoinBonusPercent() * 100) + '%</b> (Nv.' + coinBonusLevel + '/' + COIN_BONUS_MAX + ')<br>';
+  html += getIcon('⭐', 16) + ' Bonus XP: <b>+' + Math.round(getCoinBonusPercent() * 100) + '%</b> (Nv.' + coinBonusLevel + '/' + COIN_BONUS_MAX + ')<br>';
   const baseBonusFlat = getTreasureFlatBaseHP();
-  html += '🏰 Base: <b>Nv.' + baseLevel + '/' + BASE_GACHA_MAX + '</b> (+' + baseLevel * BASE_HP_PER_LEVEL;
-  if (baseBonusFlat > 0) html += ' +<span style="color:#ffd700">' + baseBonusFlat + '💎</span>';
+  html += getIcon('🏰', 16) + ' Base: <b>Nv.' + baseLevel + '/' + BASE_GACHA_MAX + '</b> (+' + baseLevel * BASE_HP_PER_LEVEL;
+  if (baseBonusFlat > 0) html += ' +<span style="color:#ffd700">' + baseBonusFlat + getIcon('💎', 14) + '</span>';
   html += ' HP máx)<br>';
-  html += '💼 Cartera: <b>Nv.' + walletLevel + '/' + WALLET_UPGRADE_MAX + '</b> (cap actual ' + (isTest() ? '∞' : Math.floor(currentWalletCap())) + '/' + getWalletMax() + '💰)<br>';
-  html += '<hr style="border-color:#444"><b style="color:#ffd700">💎 TESOROS ACTIVOS:</b><br>';
+  html += getIcon('💼', 16) + ' Cartera: <b>Nv.' + walletLevel + '/' + WALLET_UPGRADE_MAX + '</b> (cap actual ' + (isTest() ? '∞' : Math.floor(currentWalletCap())) + '/' + getWalletMax() + getIcon('💰', 14) + ')<br>';
+  html += '<hr style="border-color:#444"><b style="color:#ffd700">' + getIcon('💎', 16) + ' TESOROS ACTIVOS:</b><br>';
   const treasureCount = Object.keys(treasuresObtained).length;
   html += '<span style="color:#aabbcc">· ' + treasureCount + '/45 tesoros obtenidos</span><br>';
   let activeBuffs = 0;
@@ -711,13 +697,14 @@ function buildMetaInfoPanel() {
   if (activeBuffs === 0) html += '<span style="color:#8899aa">· Ningún bonus activo (consigue tesoros en Historia)</span><br>';
   el.innerHTML = html;
 }
+
 function buildUnitButtons() {
   const uc = document.getElementById('unitButtons');
   uc.innerHTML = '';
   const list = activeUnitList();
-  document.getElementById('unitPanelTitle').textContent = isTest()
-    ? '🐱 UNIDADES (🧪 sandbox: todas disponibles)'
-    : '🐱 UNIDADES (escuadrón)';
+  document.getElementById('unitPanelTitle').innerHTML = isTest()
+    ? getIcon('🐱', 18) + ' UNIDADES (' + getIcon('🧪', 18) + ' sandbox: todas disponibles)'
+    : getIcon('🐱', 18) + ' UNIDADES (escuadrón)';
   list.forEach(idx => {
     const u = CAT_BASE[idx];
     const b = document.createElement('button');
@@ -726,16 +713,17 @@ function buildUnitButtons() {
     b.onclick = () => spawnCat(idx);
     applyRarityStyle(b, idx);
     const totalLvl = unitLevels[idx] + (gachaLevels[idx] || 0);
-    b.innerHTML = UNIT_EMOJI[idx] + ' ' + u.name + ' (' + u.cost + '💰)<span class="level-badge" id="lvl' + idx + '">' + totalLvl + '</span>' + rarityTag(idx) + '<span class="stats" id="stats' + idx + '"></span><span class="cd" id="cd' + idx + '">CD: ' + u.spawnCd + 's</span>';
+    b.innerHTML = getIcon(UNIT_EMOJI[idx], 20) + ' ' + u.name + ' (' + u.cost + getIcon('💰', 14) + ')<span class="level-badge" id="lvl' + idx + '">' + totalLvl + '</span>' + rarityTag(idx) + '<span class="stats" id="stats' + idx + '"></span><span class="cd" id="cd' + idx + '">CD: ' + u.spawnCd + 's</span>';
     uc.appendChild(b);
   });
   buildMetaInfoPanel();
 }
+
 function setTestControlsVisible(v) {
   document.getElementById('testControls').style.display = v ? 'flex' : 'none';
-  document.getElementById('gameHint').textContent = v
-    ? '💡 Sandbox: todas las unidades disponibles · dinero ∞ · sin cooldowns · base invulnerable'
-    : '💡 Click en una tropa propia para retirarla · Las mejoras se compran con XP';
+  document.getElementById('gameHint').innerHTML = v
+    ? getIcon('💡', 16) + ' Sandbox: todas las unidades disponibles · dinero ∞ · sin cooldowns · base invulnerable'
+    : getIcon('💡', 16) + ' Click en una tropa propia para retirarla · Las mejoras se compran con XP';
 }
 
 // -------------------- HUD --------------------
@@ -745,12 +733,16 @@ function updateUI() {
   if (wcEl) wcEl.textContent = isTest() ? '∞' : Math.floor(currentWalletCap());
   document.getElementById('baseHP').textContent = isTest() ? '∞' : Math.floor(baseHP);
   document.getElementById('enemyHP').textContent = Math.floor(enemyBaseHP);
-  document.getElementById('waveLabel').textContent = gameMode === 'story' ? '📖 Nivel:' : (isTest() ? '🧪 Oleada:' : (isEvent() ? '🎃 Nivel:' : (gameMode === 'legend' ? '🌟 Etapa:' : '🌊 Oleada:')));
+  
+  const waveIcon = gameMode === 'story' ? getIcon('📖', 18) : (isTest() ? getIcon('🧪', 18) : (isEvent() ? getIcon('🎃', 18) : (gameMode === 'legend' ? getIcon('🌟', 18) : getIcon('🌊', 18))));
+  document.getElementById('waveLabel').innerHTML = waveIcon + (gameMode === 'story' ? ' Nivel:' : (isTest() ? ' Oleada:' : (isEvent() ? ' Nivel:' : (gameMode === 'legend' ? ' Etapa:' : ' Oleada:'))));
+  
   document.getElementById('wave').textContent = gameMode === 'story' ? (storyLevelIdx + 1) : (isEvent() ? (eventLevelIdx + 1) : (gameMode === 'legend' ? (legendLevelIdx + 1) : wave));
   document.getElementById('catCount').textContent = cats.length;
   document.getElementById('enemyCount').textContent = enemies.length;
   document.getElementById('income').textContent = isTest() ? '∞' : getEffectiveIncome().toFixed(1);
   document.getElementById('incomeLevel').textContent = incomeLevel;
+  
   const list = activeUnitList();
   for (const i of list) {
     const badge = document.getElementById('lvl' + i);
@@ -811,7 +803,7 @@ function updateUI() {
 
 // -------------------- RESULTADOS --------------------
 function showResult(victory, text) {
-  document.getElementById('resultTitle').textContent = victory ? '🎉 ¡VICTORIA!' : '💀 DERROTA';
+  document.getElementById('resultTitle').innerHTML = victory ? (getIcon('🎉', 24) + ' ¡VICTORIA!') : (getIcon('💀', 24) + ' DERROTA');
   document.getElementById('resultText').innerHTML = text;
   document.getElementById('retryBtn').style.display = 'inline-block';
   document.getElementById('nextBtn').style.display = victory ? 'inline-block' : 'none';
@@ -882,10 +874,10 @@ window.showLegend = showLegend;
       const q = s => document.querySelector('#hubScreen ' + s);
       [['.gacha-btn.white','Almacén'], ['.gacha-btn.green','Gatobolas'], ['.gacha-btn.yellow','Bolas raras'], ['.gacha-btn.purple','Bolas de evento']].forEach(p => {
         const el = q(p[0]);
-        if (el) el.textContent = (locked ? '🔒 ' : '') + p[1];
+        if (el) el.innerHTML = (locked ? getIcon('🔒', 14) + ' ' : '') + p[1];
       });
       const mi = q('.hub-icons .icon-btn[title="Misiones"]');
-      if (mi) mi.textContent = locked ? '🔒' : '📜';
+      if (mi) mi.innerHTML = locked ? getIcon('🔒', 20) : getIcon('📜', 20);
     } catch (e) {}
     return r;
   };

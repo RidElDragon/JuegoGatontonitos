@@ -184,17 +184,21 @@ function renderAch() {
 // -------------------- RESET --------------------
 function resetAchievements() {
   if (!confirm('⚠️ ¿Reiniciar TODOS los logros? Se borrará el progreso de logros (no afecta al resto del juego).')) return;
+  clearAchievements();
+  setStatus('🏆 Logros reiniciados', '#ffaa00');
+}
+function clearAchievements() {
   data = { unlocked: {}, stats: {} };
   track = resetTrack();
   try { localStorage.removeItem(ACH_KEY); } catch (e) {}
   save();
   if (achScreen && achScreen.style.display !== 'none') renderAch();
-  setStatus('🏆 Logros reiniciados', '#ffaa00');
 }
 
 // -------------------- EXPOSICIÓN --------------------
 window.showAch = showAch;
 window.resetAchievements = resetAchievements;
+window.clearAchievements = clearAchievements;
 
 // Arranque
 buildUI();
