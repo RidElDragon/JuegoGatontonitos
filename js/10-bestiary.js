@@ -368,6 +368,7 @@ window.resetBestiary = function () {
   seen = {};
   try { localStorage.removeItem(B_KEY); } catch (e) {}
 };
+window.exportBestiary = () => JSON.parse(JSON.stringify(seen));
 
 // ---------------- Elementos de galería ----------------
 function lockedThumb() {

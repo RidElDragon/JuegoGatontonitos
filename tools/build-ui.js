@@ -1,80 +1,34 @@
 #!/usr/bin/env node
-// tools/build-ui.js — Genera js/ui-manifest.js leyendo img/ui/
+// Genera un único formato para fondos, botones e iconos opcionales.
 const fs = require('fs');
 const path = require('path');
-
 const ROOT = path.join(__dirname, '..');
 const UI_DIR = path.join(ROOT, 'img', 'ui');
-const OUT = path.join(ROOT, 'js', 'ui-manifest.js');
-const SCREEN_LAYERS = ['base', 'overlay'];
-const BUTTON_LAYERS = ['normal', 'hover', 'active']; // opcional: estados
-
 const manifest = { screens: {}, buttons: {}, icons: {} };
-const warnings = [];
-
-function scanFolder(relPath, layers) {
-  const full = path.join(ROOT, relPath);
-  if (!fs.existsSync(full)) return {};
-  const result = {};
-  for (const f of fs.readdirSync(full)) {
-    if (!f.toLowerCase().endsWith('.png')) continue;
-    const name = f.slice(0, -4).toLowerCase();
-    if (!layers.includes(name)) {
-      warnings.push(`${relPath}/${f}: capa desconocida; se ignora`);
-      continue;
-    }
-    const filePath = path.join(full, f);
-    const stats = fs.statSync(filePath);
-    result[name] = { src: `${relPath}/${f}`, size: (stats.size / 1024).toFixed(1) + ' KB' };
-  }
-  return result;
+function entries(dir) { return fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }).sort((a,b) => a.name.localeCompare(b.name)) : []; }
+function image(file) { return { src: path.relative(ROOT, file).split(path.sep).join('/') }; }
+function config(dir) {
+  const file = path.join(dir, 'layers.json');
+  if (!fs.existsSync(file)) return {};
+  try { const value = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')); return value && typeof value === 'object' && !Array.isArray(value) ? value : {}; }
+  catch (err) { throw new Error(`${file}: JSON inválido: ${err.message}`); }
 }
-
-// 1. Screens
-const screensDir = path.join(UI_DIR, 'screens');
-if (fs.existsSync(screensDir)) {
-  for (const t of fs.readdirSync(screensDir, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()) {
-    const entry = {};
-    for (const layer of SCREEN_LAYERS) {
-      const file = path.join(screensDir, t, layer + '.png');
-      if (fs.existsSync(file)) {
-        const stats = fs.statSync(file);
-        entry[layer] = { src: `img/ui/screens/${t}/${layer}.png`, size: (stats.size / 1024).toFixed(1) + ' KB' };
-      }
-    }
-    if (Object.keys(entry).length > 0) manifest.screens[t] = entry;
+for (const folder of entries(path.join(UI_DIR, 'screens')).filter(e => e.isDirectory())) {
+  const dir = path.join(UI_DIR, 'screens', folder.name), entry = {};
+  for (const file of entries(dir).filter(e => e.isFile() && /^(base|overlay)\.png$/i.test(e.name))) entry[path.parse(file.name).name.toLowerCase()] = image(path.join(dir, file.name));
+  if (Object.keys(entry).length) manifest.screens[folder.name] = { ...entry, config: config(dir) };
+}
+const buttonsDir = path.join(UI_DIR, 'buttons');
+for (const item of entries(buttonsDir)) {
+  const file = path.join(buttonsDir, item.name);
+  if (item.isFile() && /\.png$/i.test(item.name)) manifest.buttons[path.parse(item.name).name] = { normal: image(file) };
+  if (item.isDirectory()) {
+    const states = {};
+    for (const state of entries(file).filter(e => e.isFile() && /^(normal|hover|active|disabled)\.png$/i.test(e.name))) states[path.parse(state.name).name.toLowerCase()] = image(path.join(file, state.name));
+    if (states.normal) manifest.buttons[item.name] = states;
   }
 }
-
-// 2. Buttons
-manifest.buttons = scanFolder('img/ui/buttons', [...BUTTON_LAYERS, 'default']);
-
-// 3. Icons
-const iconsDir = path.join(UI_DIR, 'icons');
-if (fs.existsSync(iconsDir)) {
-  for (const f of fs.readdirSync(iconsDir)) {
-    if (!f.toLowerCase().endsWith('.png')) continue;
-    const name = f.slice(0, -4).toLowerCase();
-    const filePath = path.join(iconsDir, f);
-    const stats = fs.statSync(filePath);
-    manifest.icons[name] = { src: `img/ui/icons/${f}`, size: (stats.size / 1024).toFixed(1) + ' KB' };
-  }
-}
-
-const out = `// ============================================================
-// js/ui-manifest.js — AUTO-GENERADO por tools/build-ui
-// ============================================================
-const UI_MANIFEST = ${JSON.stringify(manifest, null, 2)};
-// Backwards compatibility
-const UI_SCREEN_LIST = UI_MANIFEST.screens;
-`;
-
-fs.writeFileSync(OUT, out);
-console.log(`\n✅ ui-manifest.js generado:`);
-console.log(`   ${Object.keys(manifest.screens).length} pantalla(s)`);
-console.log(`   ${Object.keys(manifest.buttons).length} botón(es)`);
-console.log(`   ${Object.keys(manifest.icons).length} icono(s)`);
-if (warnings.length) {
-  console.log(`\n⚠ ${warnings.length} aviso(s):`);
-  warnings.forEach(w => console.log('  - ' + w));
-}
+for (const file of entries(path.join(UI_DIR, 'icons')).filter(e => e.isFile() && /\.png$/i.test(e.name))) manifest.icons[path.parse(file.name).name.toLowerCase()] = image(path.join(UI_DIR, 'icons', file.name));
+const output = '// AUTO-GENERADO por tools/build-ui.js\nconst UI_MANIFEST = ' + JSON.stringify(manifest, null, 2) + ';\nconst UI_SCREEN_LIST = UI_MANIFEST.screens;\n';
+fs.writeFileSync(path.join(ROOT, 'js', 'ui-manifest.js'), output);
+console.log(`UI: ${Object.keys(manifest.screens).length} fondos, ${Object.keys(manifest.buttons).length} botones, ${Object.keys(manifest.icons).length} iconos.`);

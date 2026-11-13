@@ -33,11 +33,11 @@ function rarityTag(idx) {
 // -------------------- ESTADO DE NAVEGACIÓN --------------------
 const hubState = { mode: null, chapter: null };
 const MODES = [
-  { key:'story',    name: getIcon('📖', 20) + ' Modo Historia',       color:'#3f8fd0', chapters:true },
-  { key:'event',    name: getIcon('🎃', 20) + ' Eventos Especiales',  color:'#ff6600', chapters:true },
-  { key:'legend',   name: getIcon('🌟', 20) + ' Etapas de Leyenda',   color:'#e02020', chapters:true },
+  { key:'story',    icon:'📖', name:'Modo Historia',       color:'#3f8fd0', chapters:true },
+  { key:'event',    icon:'🎃', name:'Eventos Especiales',  color:'#ff6600', chapters:true },
+  { key:'legend',   icon:'🌟', name:'Etapas de Leyenda',   color:'#e02020', chapters:true },
   { key:'infinite', name:'∞ Modo Infinito',                           color:'#b0764a', chapters:false },
-  { key:'test',     name: getIcon('🧪', 20) + ' Sandbox',             color:'#c8bfe8', chapters:false },
+  { key:'test',     icon:'🧪', name:'Sandbox',             color:'#c8bfe8', chapters:false },
 ];
 const STORY_PART_NAMES = ['Praderas del Inicio', 'Tierras del Rey', 'Desierto Prohibido'];
 const LEGEND_ZONE_SHORT = ['Ruinas Ancestrales', 'Caldera de Magma', 'Islas Flotantes', 'Fosa Abisal', 'Fábrica de Engranajes', 'Umbral del Vacío'];
@@ -118,7 +118,7 @@ function renderModeBand() {
     const c = document.createElement('button');
     c.className = 'mode-card';
     c.style.background = m.color;
-    c.innerHTML = m.name;
+    c.innerHTML = (m.icon ? getIcon(m.icon, 20) + ' ' : '') + m.name;
     c.onclick = () => selectMode(m.key);
     band.appendChild(c);
   });
@@ -405,7 +405,7 @@ function buildUpgradeScreen() {
     { label: getIcon('💵', 16) + ' Income base', info:'Nv ' + incomeLevel + '/' + MAX_INCOME_LEVEL, max:incomeLevel >= MAX_INCOME_LEVEL, cost:getIncomeCoinCost(), fn:'buyIncome()',
       preview:getIncomeAt(incomeLevel).toFixed(0) + '/s→<span class="up">' + getIncomeAt(incomeLevel + 1).toFixed(0) + '/s</span>' },
     { label: getIcon('⭐', 16) + ' Bonus de XP', info:'Nv ' + coinBonusLevel + '/' + COIN_BONUS_MAX, max:coinBonusLevel >= COIN_BONUS_MAX, cost:getCoinBonusCost(), fn:'buyCoinBonus()',
-      preview:'Ganas +' + Math.round(getCoinBonusPercentAt(coinBonusLevel) * 100) + '% → <span class="up">+' + Math.round(getCoinBonusPercentAt(coinBonusLevel + 1) * 100) + '%</span> de XP por nivel' },
+      preview:'Ganas +' + Math.round(getCoinBonusPercentAt(coinBonusLevel) * 100) + '% → <span class="up">+' + Math.round(getCoinBonusPercentAt(coinBonusLevel + 1) * 100) + '%</span> de XP en la primera victoria y en las repeticiones' },
     { label: getIcon('💼', 16) + ' Cartera', info:'Nv ' + walletLevel + '/' + WALLET_UPGRADE_MAX, max:walletLevel >= WALLET_UPGRADE_MAX, cost:getWalletUpgradeCost(), fn:'buyWallet()',
       preview:'Cap máx en partida: ' + getWalletMax() + getIcon('💰', 14) + '→<span class="up">' + (getWalletMax() + WALLET_UPGRADE_PER_LVL) + getIcon('💰', 14) + '</span>' },
     { label: getIcon('🛡️', 16) + ' Defensa de base', info:'Nv ' + baseDefLevel + '/' + BASE_DEF_MAX, max:baseDefLevel >= BASE_DEF_MAX, cost:getBaseDefCost(), fn:'buyBaseDef()',

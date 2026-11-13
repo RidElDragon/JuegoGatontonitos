@@ -6,6 +6,7 @@ let memorySave = null;
 let localStorageOK = true;
 const META_KEY = 'catBattleMeta';
 const META_BAK_KEY = 'catBattleMetaBak';
+let metaReady = false;
 
 function metaObjIsValid(m) {
   if (!m || typeof m !== 'object') return false;
@@ -54,6 +55,8 @@ function applyMetaObj(m) {
   }
 }
 function saveMeta() {
+  if (window.cloudReloading) return;
+  if (!metaReady) return;
   if (isTest()) return;
   if (isDevMode()) return;
   const obj = {
@@ -78,19 +81,27 @@ function saveMeta() {
 }
 function loadMeta() {
   const m = readMetaObj();
-  if (m) { applyMetaObj(m); return; }
+  if (m) { applyMetaObj(m); metaReady = true; return; }
   const bak = readMetaBackupObj();
   if (bak) {
     applyMetaObj(bak);
+    metaReady = true;
     try { localStorage.setItem(META_KEY, JSON.stringify(bak)); } catch (e) {}
     setTimeout(() => setStatus('🩹 Mejoras restauradas desde la copia de seguridad', '#88ccff'), 400);
     return;
   }
+  try {
+    // Un guardado incompatible o dañado se conserva para poder recuperarlo.
+    metaReady = localStorage.getItem(META_KEY) === null && localStorage.getItem(META_BAK_KEY) === null;
+  } catch (e) { metaReady = false; }
+  if (!metaReady) setTimeout(() => {
+    alert('No se pudo cargar el progreso guardado. Se ha bloqueado el guardado de mejoras para conservar los datos existentes.');
+  }, 400);
 }
 window.restoreMetaBackup = function () {
   const bak = readMetaBackupObj();
   if (!bak) { setStatus('❌ Sin copia de seguridad válida', '#ff6666'); return; }
-  applyMetaObj(bak); saveMeta(); setStatus('🩹 Copia de seguridad aplicada', '#88ff88');
+  applyMetaObj(bak); metaReady = true; saveMeta(); setStatus('🩹 Copia de seguridad aplicada', '#88ff88');
 };
 
 function buildSaveData() {
@@ -102,6 +113,8 @@ function buildSaveData() {
   };
 }
 function writeSave(data) {
+  if (window.cloudReloading) return false;
+  if (isDevMode() || isTest()) return false;
   memorySave = data;
   try {
     localStorage.setItem('catBattleSave', JSON.stringify(data));
@@ -192,18 +205,23 @@ function resetAllProgress() {
   const msg = '⚠️ ¿Seguro? Se borrará TODO el progreso:\n' +
     '· XP y todas las mejoras (y su copia de seguridad)\n· 📖 Progreso de Historia\n· 🎃🛸 Progreso de Eventos y tropas desbloqueadas\n' +
     '· 🌟 Progreso de Etapas de Leyenda\n· 🎟 Tickets, Almacén y Misiones\n· 💎 Tesoros y Gamatoto\n· 🎒 Consumibles\n' +
-    '· 📖 Bestiario (enemigos descubiertos)\n· 💾 Guardado de la partida infinita\n· 🎖 Escuadrón seleccionado\n¡Esta acción no se puede deshacer!';
+    '· 📖 Bestiario (enemigos descubiertos)\n· 💾 Guardado de la partida infinita\n· 🎖 Escuadrón seleccionado\n' +
+    (window.AccountUI && window.AccountUI.isLinked() ? 'La partida de esta cuenta también se reiniciará en la nube al sincronizar.\n' : '') +
+    '¡Esta acción no se puede deshacer!';
   if (!confirm(msg)) return;
   if (!confirm('🔁 Confirmación final: ¿reiniciar TODO el progreso desde cero?')) return;
   playing = false; gameOver = false;
   metaSnapshot = null; memorySave = null; baseMeta = null;
   devSnapshot = null; devMode = false;
+  devProfileSnapshot = null;
+  metaReady = true;
   updateDevModeButton();
   try {
     localStorage.removeItem(META_KEY); localStorage.removeItem(META_BAK_KEY);
     localStorage.removeItem('catBattleStory'); localStorage.removeItem('catBattleEvents');
     localStorage.removeItem('catBattleLegend'); localStorage.removeItem('catBattleLoadout');
     localStorage.removeItem('catBattleSave'); localStorage.removeItem('catBattleStorage');
+    localStorage.removeItem('catBattleStorageLegacy');
     localStorage.removeItem('catBattleMissions'); localStorage.removeItem('catBattleBestiary');
     localStorage.removeItem('catBattleGamatoto');
     localStorage.removeItem('catBattleAch');

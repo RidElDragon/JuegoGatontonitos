@@ -76,13 +76,19 @@ let fpsTickCount = 0;
 
 let devMode = false;
 let devSnapshot = null;
+let devProfileSnapshot = null;
 function isDevMode() { return devMode; }
 function toggleDevMode() {
   if (!devMode) {
     devSnapshot = snapshotMeta();
+    devProfileSnapshot = { loadout: loadout.slice(), forms: unitFormPref.slice() };
     setStatus('🔧 Modo desarrollador ACTIVADO - NADA se guarda', '#ff88ff');
   } else {
     if (devSnapshot) { restoreMeta(devSnapshot); devSnapshot = null; setStatus('🔧 Modo desarrollador DESACTIVADO - Estado restaurado', '#888888'); }
+    if (devProfileSnapshot) {
+      loadout = devProfileSnapshot.loadout.slice(); tempLoadout = loadout.slice();
+      unitFormPref = devProfileSnapshot.forms.slice(); devProfileSnapshot = null;
+    }
   }
   devMode = !devMode;
   if (screen === 'story') buildStoryGrid();
@@ -119,7 +125,7 @@ function loadForms() {
   } catch (e) {}
   return new Array(NUM_UNITS).fill('evo');
 }
-function saveForms() { try { localStorage.setItem('catBattleForms', JSON.stringify(unitFormPref)); } catch (e) {} }
+function saveForms() { if (isDevMode() || isTest()) return; try { localStorage.setItem('catBattleForms', JSON.stringify(unitFormPref)); } catch (e) {} }
 let unitFormPref = loadForms();
 function formIsEvo(idx) { return unitFormPref[idx] !== 'normal' && unitLevels[idx] >= EVOLVE_LEVEL; }
 
@@ -184,6 +190,7 @@ function leaveTestIfNeeded() {
     else if (baseMeta) restoreMeta(baseMeta);
     else loadMeta();
     metaSnapshot = null;
+    gameMode = 'infinite';
   }
 }
 

@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function count(v,max) { return v is int && v>=0 && v<=max; }
+    function recentLogin() {
+      return request.auth.token.auth_time is int
+        && request.time < timestamp.value(request.auth.token.auth_time * 1000) + duration.value(5,'m');
+    }
+    function deleting(uid) { return exists(/databases/$(database)/documents/accountDeletions/$(uid)); }
+    function valid() {
+      let d=request.resource.data;
+      let p=d.progress;
+      let m=p.meta;
+      return d.keys().hasOnly(['schema','revision','updatedAt','progress'])
+        && d.schema==1 && count(d.revision,1000000000) && d.updatedAt==request.time
+        && p.keys().hasOnly(['meta','story','events','legend','loadout','forms','storage','missions','achievements','bestiary','battle'])
+        && count(m.coins,1000000000) && count(m.ticketsNormal,1000000000) && count(m.ticketsRare,1000000000) && count(m.ticketsEvent,1000000000)
+        && count(m.incomeLevel,10) && m.incomeLevel>=1
+        && count(m.cannonDmgLevel,9) && m.cannonDmgLevel>=1
+        && count(m.cannonRangeLevel,5) && m.cannonRangeLevel>=1
+        && count(m.cannonCdLevel,5) && m.cannonCdLevel>=1
+        && count(m.coinBonusLevel,10) && count(m.walletLevel,10)
+        && count(m.baseDefLevel,10) && count(m.researchLevel,10) && count(m.rewardLevel,10) && count(m.baseLevel,20)
+        && m.unitLevels.size()==13 && m.unitLevels.toSet().hasOnly([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30])
+        && m.gachaLevels.size()==13 && m.gachaLevels.toSet().hasOnly([0,1,2,3,4,5,6,7,8,9,10])
+        && m.gachaUnlocked.size()==13 && m.gachaUnlocked.toSet().hasOnly([true,false])
+        && count(p.story,45) && count(p.legend,30)
+        && p.loadout.size()>=1 && p.loadout.size()<=6 && p.loadout.toSet().hasOnly([0,1,2,3,4,5,6,7,8,9,10,11,12])
+        && p.forms.size()==13 && p.forms.toSet().hasOnly(['normal','evo'])
+        && p.events is map && p.events.keys().hasOnly(['halloween','alien','infernal','xmas'])
+        && m.treasuresObtained is map && m.treasuresObtained.size()<=45
+        && m.consumables is map && (m.expedition==null || m.expedition is map)
+        && p.storage.version==2 && p.storage.items is list && p.storage.items.size()<=112
+        && p.missions is map && p.achievements is map && p.bestiary is map && p.bestiary.size()<=100
+        && (p.battle==null || p.battle is map);
+    }
+    match /players/{uid} {
+      allow get: if request.auth!=null && request.auth.uid==uid;
+      allow create: if request.auth!=null && request.auth.uid==uid && !deleting(uid) && request.resource.data.revision==1 && valid();
+      allow update: if request.auth!=null && request.auth.uid==uid && !deleting(uid) && request.resource.data.revision==resource.data.revision+1 && valid();
+      allow delete: if request.auth!=null && request.auth.uid==uid && recentLogin()
+        && existsAfter(/databases/$(database)/documents/accountDeletions/$(uid));
+      allow list: if false;
+    }
+    match /accountDeletions/{uid} {
+      // Marca mínima sin correo ni progreso: bloquea tokens antiguos que intenten recrear una partida eliminada.
+      allow get: if request.auth!=null && request.auth.uid==uid;
+      allow create: if request.auth!=null && request.auth.uid==uid && recentLogin()
+        && request.resource.data.keys().hasOnly(['requestedAt']) && request.resource.data.requestedAt==request.time
+        && !existsAfter(/databases/$(database)/documents/players/$(uid));
+      allow update,delete,list: if false;
+    }
+    match /{document=**} { allow read,write: if false; }
+  }
+}

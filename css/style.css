@@ -400,3 +400,21 @@ button.close-x:active:not(:disabled){
   height: 22px;
   margin: 0 2px;
 }
+/* Solo las pantallas que tengan sprites válidos necesitan estas capas. */
+.ui-themed-screen { position: relative; isolation: isolate; }
+.ui-themed-screen > :not(.ui-bg-canvas):not(.ui-screen-overlay) { position: relative; z-index: 2; }
+.ui-themed-screen > .ui-bg-canvas { position: absolute; z-index: 0; }
+.ui-themed-screen > .ui-screen-overlay { position: absolute; z-index: 1; pointer-events: none; }
+
+/* Cuenta opcional; no cambia el diseño de las pantallas existentes. */
+#accountOverlay[hidden] { display: none; }
+#accountOverlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.8); display: flex; align-items: center; justify-content: center; padding: 16px; overflow: auto; }
+.account-box { width: min(560px,100%); max-height: 85vh; overflow: auto; box-sizing: border-box; background: #202036; border: 2px solid #ffd700; border-radius: 12px; padding: 20px; }
+.account-box label { display: block; text-align: left; margin: 12px 0; }
+.account-box input { display: block; box-sizing: border-box; width: 100%; margin-top: 5px; padding: 10px; color: #fff; background: #121225; border: 1px solid #8090bb; border-radius: 5px; }
+.account-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 14px; }
+#accountStatus { min-height: 3em; color: #ffe090; }
+.account-note { color: #bfc5d6; font-size: 12px; line-height: 1.5; }
+.account-danger { background: #922d39; color: #fff; border: 1px solid #ed8d94; }
+.account-delete-form { margin-top: 18px; padding: 12px; border: 1px solid #ed8d94; border-radius: 6px; }
+.account-delete-form[hidden] { display: none; }

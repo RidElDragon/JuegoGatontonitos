@@ -24,7 +24,8 @@ canvas.addEventListener('click', (ev) => {
 });
 // Inicialización (orden importante: meta → progreso → escuadrón)
 window.onload = function() {
-  loadAssets(function () {
+  loadAssets(async function () {
+    await loadIcons();
     loadMeta();
     storyProgress = Math.min(loadStoryProgress(), STORY_MAX_LEVEL);
     eventProgress = loadEventProgress();
@@ -32,6 +33,7 @@ window.onload = function() {
     loadout = loadLoadout();
     tempLoadout = [...loadout];
     baseMeta = snapshotMeta();
+    window.gameReady = true;
     showTitle();
     loop();
   });

@@ -1,0 +1,3 @@
+﻿const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+module.exports=function fixture(){const c={performance:{now:()=>0},localStorage:{getItem:()=>null}};vm.createContext(c);for(const file of ['01-config.js','02-state.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../js',file),'utf8'),c);return JSON.parse(JSON.stringify({meta:vm.runInContext('snapshotMeta()',c),story:0,events:{},legend:0,loadout:[0],forms:Array(13).fill('evo'),storage:{version:2,items:[]},missions:{claimed:{},stats:{pulls:0,applies:0,maxWave:0}},achievements:{unlocked:{},stats:{}},bestiary:{},battle:null}));};
+

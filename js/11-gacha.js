@@ -15,26 +15,69 @@
 const STORE_KEY = 'catBattleStorage';
 const MIS_KEY = 'catBattleMissions';
 const UNLOCK_LEVEL = 10;
+let storageReadOnly = false;
 let storage = loadStorage();
 let mis = loadMissions();
 let storageSnapshot = null;
 let missionsSnapshot = null;
 let focusBanner = 'normal';
 
-function loadStorage() { try { const o = JSON.parse(localStorage.getItem(STORE_KEY)); return Array.isArray(o) ? o : []; } catch (e) { return []; } }
-function saveStorage() { if (isDevMode()) return; try { localStorage.setItem(STORE_KEY, JSON.stringify(storage)); } catch (e) {} }
+function stackKey(it) { return JSON.stringify([it.kind, it.idx ?? null, it.banner ?? null]); }
+function normalizeStorage(items) {
+  if (!Array.isArray(items)) throw new Error('Formato de almacén desconocido');
+  const stacks = new Map();
+  for (const item of items) {
+    if (!item || !['base', 'unlock', 'unitLvl'].includes(item.kind)) throw new Error('Premio inválido');
+    if (item.kind !== 'base' && (!Number.isInteger(item.idx) || item.idx < 0 || item.idx >= NUM_UNITS)) throw new Error('Unidad inválida');
+    const count = item.count === undefined ? 1 : item.count;
+    if (!Number.isSafeInteger(count) || count < 1) throw new Error('Cantidad inválida');
+    if (item.banner != null && typeof item.banner !== 'string') throw new Error('Banner inválido');
+    const stack = { kind: item.kind, ...(item.kind !== 'base' ? { idx: item.idx } : {}), banner: item.banner ?? null, count };
+    const key = stackKey(stack);
+    if (stacks.has(key)) {
+      const total = stacks.get(key).count + count;
+      if (!Number.isSafeInteger(total)) throw new Error('Cantidad fuera de rango');
+      stacks.get(key).count = total;
+    } else stacks.set(key, stack);
+  }
+  return [...stacks.values()];
+}
+function loadStorage() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw === null) return [];
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data) && data?.version !== 2) throw new Error('Versión de almacén desconocida');
+    return normalizeStorage(Array.isArray(data) ? data : data.items);
+  } catch (e) {
+    storageReadOnly = true;
+    console.warn('No se pudo cargar el almacén; se conserva el guardado original.', e);
+    return [];
+  }
+}
+function saveStorage() {
+  if (isDevMode() || storageReadOnly) return;
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw && Array.isArray(JSON.parse(raw)) && !localStorage.getItem('catBattleStorageLegacy')) localStorage.setItem('catBattleStorageLegacy', raw);
+    localStorage.setItem(STORE_KEY, JSON.stringify({ version: 2, items: storage }));
+  } catch (e) { setStatus('No se pudo guardar el almacén en este dispositivo', '#ffaa00'); }
+}
+function addStoredItem(item) { storage = normalizeStorage([...storage, item]); }
+function consumeStoredItem(index) { if (--storage[index].count === 0) storage.splice(index, 1); }
+function inventoryCount(items = storage) { return items.reduce((n, item) => n + item.count, 0); }
 function loadMissions() {
   try { const o = JSON.parse(localStorage.getItem(MIS_KEY)); if (o && typeof o === 'object') return { claimed: o.claimed || {}, stats: Object.assign({ pulls: 0, applies: 0, maxWave: 0 }, o.stats || {}) }; } catch (e) {}
   return { claimed: {}, stats: { pulls: 0, applies: 0, maxWave: 0 } };
 }
 function saveMissions() { if (isDevMode()) return; try { localStorage.setItem(MIS_KEY, JSON.stringify(mis)); } catch (e) {} }
-function blocked() { return isTest(); }
+function blocked() { return isTest() || storageReadOnly; }
 function isGachaAvailable() { return isDevMode() || storyProgress >= UNLOCK_LEVEL; }
 function snapshotStorage() { storageSnapshot = storage.map(s => Object.assign({}, s)); }
 function restoreStorage() { if (storageSnapshot) { storage = storageSnapshot.map(s => Object.assign({}, s)); storageSnapshot = null; } }
-function storedCount(kind, idx) { let n = 0; for (const s of storage) if (s.kind === kind && (idx === undefined || s.idx === idx)) n++; return n; }
+function storedCount(kind, idx) { let n = 0; for (const s of storage) if (s.kind === kind && (idx === undefined || s.idx === idx)) n += s.count; return n; }
 
-function mkItem(kind, idx, banner) { return { uid: Date.now() + '-' + Math.random().toString(36).slice(2, 8), kind: kind, idx: idx, banner: banner || null }; }
+function mkItem(kind, idx, banner) { return { kind, ...(idx === undefined ? {} : { idx }), banner: banner || null, count: 1 }; }
 
 function itemLabel(it) {
   if (it.kind === 'unlock') return '🔓 Desbloquear tropa: ' + (UNIT_EMOJI[it.idx] || '🐱') + ' ' + CAT_BASE[it.idx].name;
@@ -53,10 +96,10 @@ function groupItems(list){
   const map = {}; const order = [];
   list.forEach(it => {
     const k = groupKey(it);
-    if (!map[k]) { map[k] = { kind: it.kind, idx: it.idx, banner: it.banner, count: 0, uids: [], byBanner: {} }; order.push(k); }
-    map[k].count++; map[k].uids.push(it.uid);
+    if (!map[k]) { map[k] = { kind: it.kind, idx: it.idx, banner: it.banner, count: 0, keys: [], byBanner: Object.create(null) }; order.push(k); }
+    map[k].count += it.count; map[k].keys.push(stackKey(it));
     const b = it.banner || 'legacy';
-    map[k].byBanner[b] = (map[k].byBanner[b] || 0) + 1;
+    map[k].byBanner[b] = (map[k].byBanner[b] || 0) + it.count;
   });
   return order.map(k => map[k]);
 }
@@ -91,7 +134,7 @@ function doPull(banner) {
   mis.stats.pulls++; saveMissions();
   const meta = BANNER_META[banner];
   const item = rollItem(meta.pool, banner);
-  storage.push(item); saveStorage(); saveMeta();
+  addStoredItem(item); saveStorage(); saveMeta();
   if (window.sfx) { sfx('spawn'); setTimeout(() => sfx('upgrade'), 200); }
   renderBanners();
 }
@@ -99,7 +142,7 @@ function doPull(banner) {
 // Al tope (🎰 o base) NO se aplica NI se reembolsa: se conserva como stock.
 function applyItem(uid) {
   if (blocked()) { setStatus('❌ En sandbox el almacén no está disponible', '#ff6666'); return; }
-  const i = storage.findIndex(s => s.uid === uid); if (i < 0) return;
+  const i = storage.findIndex(s => stackKey(s) === uid); if (i < 0) return;
   const it = storage[i];
   if (it.kind === 'unlock') {
     gachaUnlocked[it.idx] = true;
@@ -116,14 +159,14 @@ function applyItem(uid) {
     }
     baseLevel++;
   }
-  storage.splice(i, 1); mis.stats.applies++; saveMissions(); saveStorage(); saveMeta();
+  consumeStoredItem(i); mis.stats.applies++; saveMissions(); saveStorage(); saveMeta();
   if (window.sfx) sfx('upgrade');
   renderStorage(); renderBanners();
 }
 function discardItem(uid) {
   if (blocked()) { setStatus('❌ En sandbox el almacén no está disponible', '#ff6666'); return; }
-  const i = storage.findIndex(s => s.uid === uid); if (i < 0) return;
-  coins += itemRefund(storage[i]); storage.splice(i, 1);
+  const i = storage.findIndex(s => stackKey(s) === uid); if (i < 0) return;
+  coins += itemRefund(storage[i]); consumeStoredItem(i);
   saveStorage(); saveMeta();
   if (window.sfx) sfx('coin');
   renderStorage(); renderBanners();
@@ -221,10 +264,10 @@ function storageCard(g) {
   const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;';
   const ap = document.createElement('button');
   ap.className = 'save-btn'; ap.style.background = 'linear-gradient(135deg,#88ff88,#228822)';
-  ap.textContent = '✅ Aplicar 1'; ap.disabled = blocked(); ap.onclick = () => applyItem(g.uids[0]);
+  ap.textContent = '✅ Aplicar 1'; ap.disabled = blocked(); ap.onclick = () => applyItem(g.keys[0]);
   const di = document.createElement('button');
   di.className = 'save-btn'; di.style.background = 'linear-gradient(135deg,#ff8844,#884400)';
-  di.textContent = '🗑️ Descartar 1 (+' + itemRefund(sample) + ' XP)'; di.disabled = blocked(); di.onclick = () => discardItem(g.uids[0]);
+  di.textContent = '🗑️ Descartar 1 (+' + itemRefund(sample) + ' XP)'; di.disabled = blocked(); di.onclick = () => discardItem(g.keys[0]);
   row.appendChild(ap); row.appendChild(di); card.appendChild(row);
   return card;
 }
@@ -252,7 +295,7 @@ function buildBannerCard(key) {
   if (!pend.length) {
     box.innerHTML = '<div class="sb-info" style="opacity:.75">Sin premios pendientes de este banner.</div>';
   } else {
-    box.innerHTML = '<div class="sb-info" style="font-weight:bold;color:#fff">📦 Pendientes de este banner (' + pend.length + '):</div>';
+    box.innerHTML = '<div class="sb-info" style="font-weight:bold;color:#fff">📦 Pendientes de este banner (' + inventoryCount(pend) + '):</div>';
     groupItems(pend).forEach(g => {
       const d = document.createElement('div');
       d.className = 'sb-info'; d.style.cssText = 'font-size:11px;padding:2px 0;border-bottom:1px dotted rgba(255,255,255,.18);color:#fff';
@@ -285,7 +328,7 @@ function renderBanners() {
 // v91: stack GLOBAL por tipo (una tarjeta por mejora, sin secciones por banner)
 function renderStorage() {
   const info = document.getElementById('storageListInfo');
-  if (info) info.innerHTML = 'Pendientes: <b>' + storage.length + '</b> · Apilados por tipo (el origen es solo informativo). Aplica (permanente) o descarta por XP.' + (isDevMode() ? ' <span style="color:#ff88ff">🔧 Modo dev: nada se guarda.</span>' : '');
+  if (info) info.innerHTML = storageReadOnly ? 'No se pudo leer el almacén. Su guardado original se conserva; las operaciones están bloqueadas.' : 'Pendientes: <b>' + inventoryCount() + '</b> · Apilados por tipo (el origen es solo informativo). Aplica (permanente) o descarta por XP.' + (isDevMode() ? ' <span style="color:#ff88ff">🔧 Modo dev: nada se guarda.</span>' : '');
   const list = document.getElementById('storageList'); if (!list) return;
   list.innerHTML = '';
   if (!storage.length) { const h = document.createElement('div'); h.className = 'best-section'; h.textContent = 'Almacén vacío: usa tickets en los 🎰 Banners.'; list.appendChild(h); return; }
@@ -338,9 +381,14 @@ window.toggleDevMode = function () {
 };
 window.resetGachaProgress = function () {
   storage = [];
+  storageReadOnly = false;
   mis = { claimed: {}, stats: { pulls: 0, applies: 0, maxWave: 0 } };
   storageSnapshot = null;
   missionsSnapshot = null;
+};
+window.exportGachaProgress = function () {
+  if (storageReadOnly) throw new Error('El almacén no se puede leer; no se subirá un guardado incompleto.');
+  return JSON.parse(JSON.stringify({ storage: { version: 2, items: storage }, missions: mis }));
 };
 function setBattleChrome(on) { document.body.classList.toggle('in-battle', !!on); }
 ['showTitle','showCarousel','showChapters','showHub','showUpgrades','showTroops','showAch','showBookMenu','showGatopedia','showEnemyBook','showBanners','showStorage','showMissions'].forEach(f => wrap(f, () => { if (window.AudioSys && AudioSys.setMusic) AudioSys.setMusic('menu'); setBattleChrome(false); }));

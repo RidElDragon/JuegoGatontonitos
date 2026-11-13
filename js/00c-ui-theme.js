@@ -4,6 +4,9 @@
 
 const UI_SCREEN_MAP = {
   'titleScreen':   'title',
+  'carouselScreen': 'carousel',
+  'chapterScreen': 'chapters',
+  'troopScreen': 'troops',
   'hubScreen':     'hub',
   'upgradeScreen': 'upgrades',
   'storyScreen':   'story',
@@ -27,106 +30,123 @@ const BUTTON_CLASS_MAP = {
   'icon-btn':     'icon-default',
   'hub-back':     'hub-back',
   'carousel-arrow': 'carousel-arrow',
+  'mode-card': 'mode-card',
+  'chapter-card': 'chapter-card',
+  'close-x': 'close-x',
 };
 
-const UI_ANIM_CACHE = {};
-
-async function loadLayerConfig(folder) {
-  try {
-    const response = await fetch(`img/ui/screens/${folder}/layers.json`);
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (e) { return null; }
+// No se altera el CSS hasta verificar que la imagen existe y se puede cargar.
+const UI_IMAGE_CACHE = new Map();
+const UI_ANIMATIONS = new Map();
+function loadUIImage(src) {
+  if (!src) return Promise.resolve(null);
+  if (!UI_IMAGE_CACHE.has(src)) UI_IMAGE_CACHE.set(src, new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(img.naturalWidth > 0 && img.naturalHeight > 0 ? img : null);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  }));
+  return UI_IMAGE_CACHE.get(src);
 }
-
-function setupSpriteCanvas(el, src, frames, fps) {
-  el.style.backgroundImage = 'none';
-  el.classList.remove('ui-animated-bg');
-  let canvas = el.querySelector('.ui-bg-canvas');
-  if (!canvas) {
-    canvas = document.createElement('canvas');
-    canvas.className = 'ui-bg-canvas';
-    canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;';
-    el.insertBefore(canvas, el.firstChild);
-  }
+function stopUIAnimation(el) {
+  const state = UI_ANIMATIONS.get(el);
+  if (!state) return;
+  cancelAnimationFrame(state.raf);
+  state.observer.disconnect();
+  state.canvas.remove();
+  UI_ANIMATIONS.delete(el);
+}
+function setupSpriteCanvas(el, img, frames, fps, overlay) {
+  // Una animación por capa; la base y el overlay pueden animarse por separado.
+  const key = overlay || el;
+  stopUIAnimation(key);
+  const canvas = document.createElement('canvas');
+  canvas.className = 'ui-bg-canvas';
+  if (overlay) overlay.appendChild(canvas); else el.insertBefore(canvas, el.firstChild);
   const ctx = canvas.getContext('2d');
-  const img = new Image();
-  let currentFrame = 0, lastTime = 0;
-  img.onload = () => {
-    const resize = () => { canvas.width = el.clientWidth; canvas.height = el.clientHeight; };
-    resize();
-    window.addEventListener('resize', resize);
-    const cellW = img.width / frames, cellH = img.height;
-    const animate = (ts) => {
-      if (!lastTime) lastTime = ts;
-      const delta = ts - lastTime;
-      if (delta >= 1000 / fps) { currentFrame = (currentFrame + 1) % frames; lastTime = ts; }
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, currentFrame * cellW, 0, cellW, cellH, 0, 0, canvas.width, canvas.height);
-      requestAnimationFrame(animate);
-    };
-    requestAnimationFrame(animate);
-  };
-  img.src = src;
+  const state = { canvas, raf: 0, observer: null };
+  let frame = 0, last = null;
+  function draw() {
+    const width = el.clientWidth, height = el.clientHeight;
+    if (!width || !height || !el.getClientRects().length || document.hidden) return;
+    if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+    const cellWidth = img.naturalWidth / frames, cellHeight = img.naturalHeight;
+    const scale = Math.max(width / cellWidth, height / cellHeight);
+    const w = cellWidth * scale, h = cellHeight * scale;
+    ctx.clearRect(0, 0, width, height);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, frame * cellWidth, 0, cellWidth, cellHeight, (width-w)/2, (height-h)/2, w, h);
+  }
+  function tick(ts) {
+    state.raf = 0;
+    if (!el.isConnected || !el.getClientRects().length || document.hidden) { last = null; return; }
+    if (last === null) last = ts;
+    const steps = Math.floor((ts - last) / (1000 / fps));
+    if (steps) { frame = (frame + steps) % frames; last += steps * 1000 / fps; draw(); }
+    state.raf = requestAnimationFrame(tick);
+  }
+  function resume() {
+    draw();
+    if (!state.raf && el.getClientRects().length && !document.hidden) state.raf = requestAnimationFrame(tick);
+  }
+  state.resume = resume;
+  state.observer = new ResizeObserver(resume);
+  state.observer.observe(el);
+  UI_ANIMATIONS.set(key, state);
+  resume();
 }
-
-function setupStaticBg(el, src) {
-  const canvas = el.querySelector('.ui-bg-canvas');
-  if (canvas) canvas.remove();
-  el.style.backgroundImage = `url('${src}')`;
-  el.style.backgroundSize = 'cover';
-  el.style.backgroundPosition = 'center';
-  el.classList.remove('ui-animated-bg');
-}
-
+document.addEventListener('visibilitychange', () => {
+  for (const state of UI_ANIMATIONS.values()) state.resume();
+});
 async function applyUITheme() {
-  const manifest = (typeof UI_MANIFEST !== 'undefined') ? UI_MANIFEST : { screens: {}, buttons: {}, icons: {} };
-
-  // 1. Fondos de pantallas
-  for (const domId in UI_SCREEN_MAP) {
-    const folder = UI_SCREEN_MAP[domId];
-    const entry = manifest.screens[folder];
-    const el = document.getElementById(domId);
-    if (!el || !entry) continue;
-    const config = await loadLayerConfig(folder);
-    if (entry.base) {
-      if (config && config.base && config.base.frames && config.base.frames > 1) {
-        setupSpriteCanvas(el, entry.base.src, config.base.frames, config.base.fps || 8);
+  const manifest = typeof UI_MANIFEST !== 'undefined' ? UI_MANIFEST : { screens: {}, buttons: {} };
+  await Promise.all(Object.entries(UI_SCREEN_MAP).map(async ([id, folder]) => {
+    const el = document.getElementById(id), entry = (manifest.screens || {})[folder];
+    if (!el || !entry) return;
+    await Promise.all(['base', 'overlay'].map(async layer => {
+      const img = await loadUIImage(entry[layer]?.src);
+      if (!img) return;
+      el.classList.add('ui-themed-screen');
+      let target = el;
+      if (layer === 'overlay') {
+        target = el.querySelector('.ui-screen-overlay');
+        if (!target) { target = document.createElement('div'); target.className = 'ui-screen-overlay'; el.appendChild(target); }
+      }
+      const config = entry.config?.[layer] || {};
+      const frames = Number.isInteger(config.frames) && config.frames > 1 ? config.frames : 1;
+      const fps = Number.isFinite(config.fps) && config.fps > 0 ? config.fps : 8;
+      if (frames > 1 && img.naturalWidth % frames === 0) {
+        setupSpriteCanvas(el, img, frames, fps, layer === 'overlay' ? target : null);
+        target.style.backgroundImage = 'none';
       } else {
-        setupStaticBg(el, entry.base.src);
+        stopUIAnimation(target);
+        target.style.backgroundImage = `url("${img.src}")`;
+        target.style.backgroundSize = 'cover';
+        target.style.backgroundPosition = 'center';
       }
-    }
-    if (entry.overlay) {
-      let overlayEl = el.querySelector('.ui-screen-overlay');
-      if (!overlayEl) {
-        overlayEl = document.createElement('div');
-        overlayEl.className = 'ui-screen-overlay';
-        overlayEl.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;pointer-events:none;';
-        el.appendChild(overlayEl);
-      }
-      overlayEl.style.backgroundImage = `url('${entry.overlay.src}')`;
-      overlayEl.style.backgroundSize = 'cover';
-      overlayEl.style.backgroundPosition = 'center';
+    }));
+  }));
+  // Reglas CSS: también alcanzan los botones creados después de cargar el tema.
+  const rules = [];
+  for (const [cssClass, name] of Object.entries(BUTTON_CLASS_MAP)) {
+    const entry = (manifest.buttons || {})[name] || (manifest.buttons || {}).default;
+    if (!entry) continue;
+    const normal = await loadUIImage(entry.normal?.src || entry.src);
+    if (!normal) continue;
+    const selector = `button.${cssClass}`;
+    rules.push(`${selector}{border:8px solid transparent!important;border-image:url(${JSON.stringify(normal.src)}) 8 fill stretch!important;background:transparent!important;}`);
+    for (const state of ['hover', 'active', 'disabled']) {
+      const img = await loadUIImage(entry[state]?.src);
+      if (!img) continue;
+      const suffix = state === 'disabled' ? ':disabled' : `:${state}:not(:disabled)`;
+      rules.push(`${selector}${suffix}{border-image-source:url(${JSON.stringify(img.src)})!important;}`);
     }
   }
-
-  // 2. Botones nine-slice
-  const buttons = manifest.buttons || {};
-  for (const cssClass in BUTTON_CLASS_MAP) {
-    const btnName = BUTTON_CLASS_MAP[cssClass];
-    const btnData = buttons[btnName] || buttons['default'];
-    if (!btnData) continue;
-    const src = btnData.default || btnData.normal || btnData.src;
-    if (!src) continue;
-    // Aplicar border-image a todos los botones con esa clase
-    document.querySelectorAll(`.${cssClass}`).forEach(btn => {
-      btn.style.borderImage = `url('${src}') 8 round`;
-      btn.style.border = '8px solid transparent';
-    });
+  let style = document.getElementById('ui-sprite-styles');
+  if (rules.length || style) {
+    if (!style) { style = document.createElement('style'); style.id = 'ui-sprite-styles'; document.head.appendChild(style); }
+    style.textContent = rules.join('\n');
   }
-
-  // Los iconos se gestionan en 00d-icons.js, incluida su precarga.
 }
-
 if (document.readyState === 'complete') applyUITheme();
 else window.addEventListener('load', applyUITheme);

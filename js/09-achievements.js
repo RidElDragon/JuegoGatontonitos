@@ -51,8 +51,8 @@ function resetTrack() {
   return { cannonShots: 0, won: false };
 }
 function has(id) { return !!data.unlocked[id]; }
-function bump(stat, n) { data.stats[stat] = (data.stats[stat] || 0) + (n || 1); }
-function setMax(stat, v) { if (v > (data.stats[stat] || 0)) data.stats[stat] = v; }
+function bump(stat, n) { if (isDevMode() || isTest()) return; data.stats[stat] = (data.stats[stat] || 0) + (n || 1); }
+function setMax(stat, v) { if (isDevMode() || isTest()) return; if (v > (data.stats[stat] || 0)) data.stats[stat] = v; }
 
 // -------------------- TOAST --------------------
 let toastEl = null, toastT = null;
@@ -69,7 +69,7 @@ function toast(a) {
   if (window.sfx) window.sfx('upgrade');
 }
 function tryUnlock(id) {
-  if (isDevMode()) return;
+  if (isDevMode() || isTest()) return;
   if (has(id)) return;
   const a = ACH.find(x => x.id === id);
   if (!a) return;
@@ -199,6 +199,7 @@ function clearAchievements() {
 window.showAch = showAch;
 window.resetAchievements = resetAchievements;
 window.clearAchievements = clearAchievements;
+window.exportAchievements = () => JSON.parse(JSON.stringify(data));
 
 // Arranque
 buildUI();
