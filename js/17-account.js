@@ -3,6 +3,9 @@
   let panel, status, sdkPromise, sdk, auth, db, user=null, remote=null, linked=false, busy=false, authReady=false;
   let timer=null, lastAttempt=0, stateVersion=0;
   let deletionPending=false;
+  let accountUsername=null;
+  let usernameAppCheck=null,usernameAppCheckSDK=null;
+  const usernamesEnabled=()=>typeof window.CAT_USERNAME_API==='string'&&!!window.CAT_USERNAME_API.trim();
   const owner=()=>localStorage.getItem('catBattleLocalOwner')||'guest';
   let localOwner=owner(),sessionBase=null,statusText='';
   const checkpointKey=uid=>'catBattleCloudBase:'+uid;
@@ -26,6 +29,34 @@
   sessionBase=localOwner==='guest'?null:readCheckpoint(localOwner);
   function remember(uid,doc){localStorage.setItem(checkpointKey(uid),JSON.stringify({revision:doc.revision,fingerprint:CloudCore.canonical(doc.progress)}));}
   function cloudRef(uid){return sdk.doc(db,'players',uid);}
+  function normalizedUsername(value){
+    const name=value.trim();
+    if(!/^[a-zA-Z0-9_]{3,20}$/.test(name))throw new Error('Usa entre 3 y 20 letras sin acentos, números o guion bajo para tu nombre.');
+    return name;
+  }
+  async function usernameRequest(path,method='GET',body=null,account=null){
+    if(!usernamesEnabled())throw new Error('El acceso por nombre aún no está activado. Usa tu correo.');
+    const base=new URL(window.CAT_USERNAME_API);
+    if(base.protocol!=='https:'&&!(base.protocol==='http:'&&['localhost','127.0.0.1'].includes(base.hostname)))throw new Error('La dirección del servicio de nombres debe usar HTTPS.');
+    const headers={'Content-Type':'application/json'};
+    if(account)headers.Authorization='Bearer '+await account.getIdToken();
+    if(usernameAppCheck)headers['X-Firebase-AppCheck']=(await usernameAppCheckSDK.getToken(usernameAppCheck)).token;
+    let response;
+    try{response=await fetch(base.href.replace(/\/$/,'')+path,{method,headers,credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(20000),...(body?{body:JSON.stringify(body)}:{})});}
+    catch(e){throw new Error('No se pudo conectar con el acceso por nombre. Puedes iniciar sesión con tu correo.');}
+    let data;try{data=await response.json();}catch(e){throw new Error('El servicio de nombres devolvió una respuesta inválida.');}
+    if(!response.ok){const error=new Error(data.message||'No se pudo completar la operación con el nombre de usuario.');error.code='username/'+data.code;throw error;}
+    return data;
+  }
+  async function loadUsername(account,token){
+    if(!usernamesEnabled())return;
+    try{
+      const data=await usernameRequest('/username','GET',null,account);
+      if(token!==stateVersion)return;
+      accountUsername=data.username||null;updateButtons();
+      if(panel)panel.querySelector('#accountNameStatus').textContent=accountUsername?'Puedes iniciar sesión con '+accountUsername+' o con tu correo.':'Elige un nombre único para entrar también sin escribir tu correo.';
+    }catch(e){if(token===stateVersion&&panel)panel.querySelector('#accountNameStatus').textContent=errorText(e);}
+  }
   function deletionRef(uid){return sdk.doc(db,'accountDeletions',uid);}
   const pendingMessage='El progreso de la nube se ha eliminado y sus subidas están bloqueadas. Vuelve a pulsar «Eliminar cuenta» para terminar de eliminar el acceso.';
   async function checkDeletion(uid){
@@ -38,7 +69,7 @@
   }
   function updateButtons(){
     if(!panel)return;
-    panel.querySelector('#accountIdentity').textContent=user?user.email||'Cuenta conectada':(owner()==='guest'?'Modo invitado':'Partida local de una cuenta; inicia sesión para sincronizar');
+    panel.querySelector('#accountIdentity').textContent=user?(accountUsername||user.email||'Cuenta conectada'):(owner()==='guest'?'Modo invitado':'Partida local de una cuenta; inicia sesión para sincronizar');
     for(const b of panel.querySelectorAll('[data-account-auth]'))b.disabled=busy||!!user||!configured();
     panel.querySelector('#cloudUpload').disabled=busy||!authReady||!user||(owner()!=='guest'&&owner()!==user.uid);
     panel.querySelector('#cloudDownload').disabled=busy||!authReady||!user||!remote;
@@ -48,6 +79,9 @@
     panel.querySelector('#accountDelete').disabled=busy||!authReady||!user;
     panel.querySelector('#accountDeleteConfirm').disabled=busy;
     panel.querySelector('#accountDeleteCancel').disabled=busy;
+    panel.querySelector('#accountSetUsername').disabled=busy||!user||!usernamesEnabled()||deletionPending;
+    panel.querySelector('#accountUsernameForm').hidden=!user||!!accountUsername||!usernamesEnabled()||deletionPending;
+    if(user)for(const id of ['accountRegisterForm','accountRecoverForm'])panel.querySelector('#'+id).hidden=true;
   }
   async function services(){
     if(sdkPromise)return sdkPromise;
@@ -58,14 +92,17 @@
       const [app,a,f]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-auth.js'),import(base+'firebase-firestore.js')]);
       sdk={...a,...f};const instance=app.initializeApp(window.CAT_FIREBASE_CONFIG);auth=a.getAuth(instance);db=f.getFirestore(instance);
       auth.languageCode='es';
-      if(window.CAT_APP_CHECK_SITE_KEY){const check=await import(base+'firebase-app-check.js');check.initializeAppCheck(instance,{provider:new check.ReCaptchaV3Provider(window.CAT_APP_CHECK_SITE_KEY),isTokenAutoRefreshEnabled:true});}
+      if(window.CAT_APP_CHECK_SITE_KEY){const check=await import(base+'firebase-app-check.js');usernameAppCheckSDK=check;usernameAppCheck=check.initializeAppCheck(instance,{provider:new check.ReCaptchaV3Provider(window.CAT_APP_CHECK_SITE_KEY),isTokenAutoRefreshEnabled:true});}
       await a.setPersistence(auth,a.browserLocalPersistence);
       a.onAuthStateChanged(auth,async current=>{
-        const token=++stateVersion;user=current;linked=false;remote=null;deletionPending=false;authReady=false;clearTimeout(timer);timer=null;updateButtons();
+        const token=++stateVersion;user=current;accountUsername=null;linked=false;remote=null;deletionPending=false;authReady=false;clearTimeout(timer);timer=null;
+        if(panel)panel.querySelector('#accountNameStatus').textContent='';
+        updateButtons();
         if(!user){authReady=true;message('Juega como invitado o inicia sesión para recuperar tu partida.');updateButtons();return;}
         try{
           if(await checkDeletion(current.uid)){if(token===stateVersion){authReady=true;updateButtons();}return;}
           if(token!==stateVersion)return;
+          loadUsername(current,token);
           const snap=await f.getDocFromServer(cloudRef(current.uid));if(token!==stateVersion)return;
           remote=snap.exists()?snap.data():null;
           if(remote){if(remote.schema!==1||!Number.isSafeInteger(remote.revision))throw new Error('Guardado de nube incompatible. Se ha conservado sin cambios.');CloudSchema.validate(remote.progress);}
@@ -83,8 +120,30 @@
   }
   async function action(fn){if(busy)return;busy=true;updateButtons();try{await fn();}catch(e){message(errorText(e));}finally{busy=false;updateButtons();}}
   async function authenticate(register){await action(async()=>{
-    await services();const email=panel.querySelector('#accountEmail').value.trim(),input=panel.querySelector('#accountPassword'),password=input.value;input.value='';
-    try{if(register)await sdk.createUserWithEmailAndPassword(auth,email,password);else await sdk.signInWithEmailAndPassword(auth,email,password);}finally{input.value='';}
+    const input=panel.querySelector(register?'#accountRegisterPassword':'#accountPassword'),password=input.value;input.value='';
+    try{
+      await services();
+      if(register){
+        const email=panel.querySelector('#accountRegisterEmail').value.trim();
+        const name=usernamesEnabled()?normalizedUsername(panel.querySelector('#accountRegisterUsername').value):null;
+        const credential=await sdk.createUserWithEmailAndPassword(auth,email,password);
+        if(name){
+          try{
+            const result=await usernameRequest('/username','POST',{username:name},credential.user);
+            if(user?.uid===credential.user.uid){accountUsername=result.username;updateButtons();}
+          }catch(e){message('Tu cuenta ya está creada y puedes entrar por correo. Falta asignar el nombre: '+errorText(e));}
+        }
+      }else{
+        const identifier=panel.querySelector('#accountEmail').value.trim();
+        let email=identifier;
+        if(!identifier.includes('@')){
+          const result=await usernameRequest('/login','POST',{username:normalizedUsername(identifier),password});
+          if(typeof result.email!=='string'||!result.email.includes('@'))throw new Error('Respuesta de acceso inválida.');
+          email=result.email;
+        }
+        await sdk.signInWithEmailAndPassword(auth,email,password);
+      }
+    }finally{input.value='';}
   });}
   async function upload(manual=false){
     if(deletionPending)throw new Error(pendingMessage);
@@ -176,6 +235,11 @@
         deletionPending=true;remote=null;
       }
       message('Progreso eliminado. Terminando de eliminar la cuenta…');
+      // El directorio elimina el correo y libera el nombre antes de cerrar el acceso de Firebase.
+      if(usernamesEnabled()){
+        try{await usernameRequest('/username','DELETE',null,account);}
+        catch(e){throw new Error(pendingMessage+' No se pudo retirar el nombre de usuario: '+errorText(e));}
+      }
       try{await sdk.deleteUser(account);}
       catch(e){throw new Error(pendingMessage+' '+errorText(e));}
       // Evita que los listeners de cierre vuelvan a escribir la partida eliminada.
@@ -190,7 +254,36 @@
   function build(){
     if(panel)return;
     panel=document.createElement('div');panel.id='accountOverlay';panel.hidden=true;
-    panel.innerHTML='<section class="account-box" role="dialog" aria-modal="true" aria-labelledby="accountTitle"><h2 id="accountTitle">Cuenta y guardado</h2><p id="accountIdentity"></p><p id="accountStatus" role="status" aria-live="polite"></p><form id="accountForm"><label>Correo<input id="accountEmail" type="email" autocomplete="username" required maxlength="254"></label><label>Contraseña<input id="accountPassword" type="password" autocomplete="current-password" required minlength="6" maxlength="128"></label><div class="account-actions"><button class="save-btn" data-account-auth type="submit">Iniciar sesión</button><button class="save-btn" data-account-auth id="accountRegister" type="button">Crear cuenta</button><button class="save-btn" data-account-auth id="accountRecover" type="button">Recuperar contraseña</button></div></form><div class="account-actions"><button class="save-btn" id="cloudUpload">Subir partida local</button><button class="save-btn" id="cloudDownload">Descargar partida de la cuenta</button><button class="save-btn" id="accountLogout">Cerrar sesión / volver a invitado</button><button class="account-danger" id="accountDelete">Eliminar cuenta</button><button class="back" id="accountClose">Volver</button></div><form id="accountDeleteForm" class="account-delete-form" hidden><p>La eliminación es definitiva: se borrarán tu cuenta, su progreso en la nube y el respaldo de esta cuenta en este navegador.</p><label>Contraseña actual<input id="accountDeletePassword" type="password" autocomplete="current-password" required maxlength="128"></label><div class="account-actions"><button id="accountDeleteConfirm" class="account-danger" type="submit">Eliminar definitivamente</button><button id="accountDeleteCancel" class="back" type="button">Cancelar</button></div></form><p class="account-note">Puedes jugar sin cuenta. La sincronización necesita internet; los cambios sin conexión se conservan en este dispositivo.</p></section>';
+    panel.innerHTML=`
+<section class="account-box" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
+  <h2 id="accountTitle">Cuenta y guardado</h2><p id="accountIdentity"></p><p id="accountStatus" role="status" aria-live="polite"></p>
+  <form id="accountForm">
+    <label>Usuario o correo<input id="accountEmail" type="text" autocomplete="username" required maxlength="254"></label>
+    <label>Contrase&ntilde;a<input id="accountPassword" type="password" autocomplete="current-password" required minlength="6" maxlength="128"></label>
+    <div class="account-actions"><button class="save-btn" data-account-auth type="submit">Iniciar sesi&oacute;n</button><button class="save-btn" data-account-auth id="accountRegister" type="button">Crear cuenta</button><button class="save-btn" data-account-auth id="accountRecover" type="button">Recuperar contrase&ntilde;a</button></div>
+  </form>
+  <form id="accountRegisterForm" class="account-subform" hidden>
+    <h3>Crear cuenta</h3>
+    <label id="accountRegisterUsernameLabel">Nombre de usuario<input id="accountRegisterUsername" type="text" autocomplete="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]{3,20}"></label>
+    <p class="account-note" id="accountRegisterNameNote">El nombre es &uacute;nico. Usa de 3 a 20 letras sin acentos, n&uacute;meros o guion bajo; no distingue may&uacute;sculas. Por ahora no se puede cambiar desde el juego.</p>
+    <label>Correo para tu cuenta y su recuperaci&oacute;n<input id="accountRegisterEmail" type="email" autocomplete="email" required maxlength="254"></label>
+    <label>Contrase&ntilde;a<input id="accountRegisterPassword" type="password" autocomplete="new-password" required minlength="6" maxlength="128"></label>
+    <div class="account-actions"><button id="accountRegisterConfirm" class="save-btn" data-account-auth type="submit">Registrarme</button><button id="accountRegisterCancel" class="back" type="button">Cancelar</button></div>
+  </form>
+  <form id="accountRecoverForm" class="account-subform" hidden>
+    <h3>Recuperar acceso</h3><label>Correo de tu cuenta<input id="accountRecoverEmail" type="email" autocomplete="email" required maxlength="254"></label>
+    <div class="account-actions"><button id="accountRecoverConfirm" class="save-btn" data-account-auth type="submit">Enviar correo de recuperaci&oacute;n</button><button id="accountRecoverCancel" class="back" type="button">Cancelar</button></div>
+  </form>
+  <p id="accountNameStatus" role="status"></p>
+  <form id="accountUsernameForm" class="account-subform" hidden>
+    <label>Elige tu nombre de usuario<input id="accountUsername" type="text" autocomplete="username" required minlength="3" maxlength="20" pattern="[A-Za-z0-9_]{3,20}"></label>
+    <p class="account-note">De 3 a 20 letras sin acentos, n&uacute;meros o guion bajo. Por ahora no se puede cambiar desde el juego. Podr&aacute;s seguir entrando por correo.</p>
+    <button id="accountSetUsername" class="save-btn" type="submit">Guardar nombre</button>
+  </form>
+  <div class="account-actions"><button class="save-btn" id="cloudUpload">Subir partida local</button><button class="save-btn" id="cloudDownload">Descargar partida de la cuenta</button><button class="save-btn" id="accountLogout">Cerrar sesi&oacute;n / volver a invitado</button><button class="account-danger" id="accountDelete">Eliminar cuenta</button><button class="back" id="accountClose">Volver</button></div>
+  <form id="accountDeleteForm" class="account-delete-form" hidden><p>La eliminaci&oacute;n es definitiva: se borrar&aacute;n tu cuenta, su progreso en la nube y el respaldo de esta cuenta en este navegador.</p><label>Contrase&ntilde;a actual<input id="accountDeletePassword" type="password" autocomplete="current-password" required maxlength="128"></label><div class="account-actions"><button id="accountDeleteConfirm" class="account-danger" type="submit">Eliminar definitivamente</button><button id="accountDeleteCancel" class="back" type="button">Cancelar</button></div></form>
+  <p class="account-note">Puedes jugar sin cuenta. La sincronizaci&oacute;n necesita internet; los cambios sin conexi&oacute;n se conservan en este dispositivo.</p>
+</section>`;
     document.body.appendChild(panel);status=panel.querySelector('#accountStatus');
     const restore=document.createElement('button');restore.id='accountRestore';restore.type='button';restore.className='save-btn';restore.textContent='Recuperar respaldo local de esta cuenta';
     panel.querySelector('#accountLogout').parentElement.appendChild(restore);
@@ -200,8 +293,33 @@
       persist();CloudCore.archive(localStorage,owner());CloudCore.restoreAccount(localStorage,user.uid);reload();
     });
     panel.querySelector('#accountForm').onsubmit=e=>{e.preventDefault();authenticate(false);};
-    panel.querySelector('#accountRegister').onclick=()=>{if(panel.querySelector('#accountForm').reportValidity())authenticate(true);};
-    panel.querySelector('#accountRecover').onclick=()=>action(async()=>{await services();const input=panel.querySelector('#accountEmail');if(!input.reportValidity()||!input.value)return;await sdk.sendPasswordResetEmail(auth,input.value.trim());message('Si el correo corresponde a una cuenta, recibirás instrucciones para recuperar el acceso.');});
+    panel.querySelector('#accountRegister').onclick=()=>{
+      panel.querySelector('#accountRegisterForm').hidden=false;
+      panel.querySelector('#accountRegisterUsernameLabel').hidden=!usernamesEnabled();
+      panel.querySelector('#accountRegisterNameNote').hidden=!usernamesEnabled();
+      panel.querySelector('#accountRegisterUsername').required=usernamesEnabled();
+    };
+    panel.querySelector('#accountRegisterForm').onsubmit=event=>{event.preventDefault();return authenticate(true);};
+    panel.querySelector('#accountRegisterCancel').onclick=()=>{panel.querySelector('#accountRegisterPassword').value='';panel.querySelector('#accountRegisterForm').hidden=true;};
+    panel.querySelector('#accountRecover').onclick=()=>{
+      panel.querySelector('#accountRecoverForm').hidden=false;
+      const identifier=panel.querySelector('#accountEmail').value.trim();
+      panel.querySelector('#accountRecoverEmail').value=identifier.includes('@')?identifier:'';
+    };
+    panel.querySelector('#accountRecoverForm').onsubmit=event=>{event.preventDefault();return action(async()=>{
+      await services();const input=panel.querySelector('#accountRecoverEmail');
+      if(!input.reportValidity()||!input.value)return;
+      await sdk.sendPasswordResetEmail(auth,input.value.trim());
+      message('Si el correo corresponde a una cuenta, recibirás instrucciones para recuperar el acceso.');
+    });};
+    panel.querySelector('#accountRecoverCancel').onclick=()=>{panel.querySelector('#accountRecoverForm').hidden=true;};
+    panel.querySelector('#accountUsernameForm').onsubmit=event=>{event.preventDefault();return action(async()=>{
+      if(!user||deletionPending)throw new Error('Inicia sesión en una cuenta activa para elegir un nombre.');
+      const current=user,name=normalizedUsername(panel.querySelector('#accountUsername').value);
+      const result=await usernameRequest('/username','POST',{username:name},current);
+      if(user?.uid!==current.uid)return;
+      accountUsername=result.username;panel.querySelector('#accountNameStatus').textContent='Nombre guardado. Puedes entrar con '+accountUsername+' o con tu correo.';updateButtons();
+    });};
     panel.querySelector('#cloudUpload').onclick=uploadChosen;panel.querySelector('#cloudDownload').onclick=download;panel.querySelector('#accountLogout').onclick=logout;
     panel.querySelector('#accountDelete').onclick=()=>{
       panel.querySelector('#accountDeleteForm').hidden=false;
@@ -211,7 +329,11 @@
     panel.querySelector('#accountDeleteCancel').onclick=()=>{
       panel.querySelector('#accountDeletePassword').value='';panel.querySelector('#accountDeleteForm').hidden=true;
     };
-    panel.querySelector('#accountClose').onclick=()=>{if(!busy){panel.querySelector('#accountPassword').value='';panel.querySelector('#accountDeletePassword').value='';panel.querySelector('#accountDeleteForm').hidden=true;panel.hidden=true;}};
+    panel.querySelector('#accountClose').onclick=()=>{if(!busy){
+      for(const id of ['accountPassword','accountRegisterPassword','accountDeletePassword'])panel.querySelector('#'+id).value='';
+      for(const id of ['accountDeleteForm','accountRegisterForm','accountRecoverForm'])panel.querySelector('#'+id).hidden=true;
+      panel.hidden=true;
+    }};
     updateButtons();
   }
   window.AccountUI={open(){build();panel.hidden=false;message(configured()?(statusText||'Conectando con tu cuenta…'):'El guardado en la nube aún no está activado. Puedes seguir jugando como invitado.');if(configured())services().then(()=>updateButtons()).catch(e=>message(errorText(e)));updateButtons();},capture,isLinked:()=>linked};

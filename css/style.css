@@ -418,3 +418,6 @@ button.close-x:active:not(:disabled){
 .account-danger { background: #922d39; color: #fff; border: 1px solid #ed8d94; }
 .account-delete-form { margin-top: 18px; padding: 12px; border: 1px solid #ed8d94; border-radius: 6px; }
 .account-delete-form[hidden] { display: none; }
+.account-subform { margin-top: 16px; padding: 12px; border: 1px solid #8090bb; border-radius: 6px; }
+.account-subform[hidden] { display: none; }
+#accountNameStatus { color: #c8d8ff; font-size: 13px; }

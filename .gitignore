@@ -3,3 +3,6 @@
 .firebase/
 .env
 .env.*
+.wrangler/
+workers/**/.wrangler/
+workers/**/.dev.vars*

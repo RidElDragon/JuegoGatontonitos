@@ -1,0 +1,21 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "gatontopia-usernames",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-11-13",
+  "workers_dev": true,
+  "vars": {
+    "FIREBASE_PROJECT_ID": "gatontopia",
+    "ALLOWED_ORIGINS":"https://rideldragon.github.io,http://localhost:8000"
+  },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "gatontopia-usernames",
+    "database_id": "5e0e8873-8d92-459b-96b0-73fc79fbede6"
+  }],
+  "ratelimits": [
+    {"name":"AUTH_IP_LIMIT","namespace_id":"21001","simple":{"limit":30,"period":60}},
+    {"name":"LOGIN_NAME_LIMIT","namespace_id":"21002","simple":{"limit":8,"period":60}}
+  ],
+  "observability": {"enabled":false}
+}

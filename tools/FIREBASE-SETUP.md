@@ -75,3 +75,7 @@ npx firebase deploy --project TU_PROJECT_ID --only firestore:rules,hosting
 ```
 
 Las pruebas de eliminación utilizan cuentas simuladas y el emulador. No eliminan usuarios del proyecto real.
+
+## Acceso por nombre de usuario
+
+La extensión opcional de Cloudflare mantiene los correos en un directorio privado y conserva el inicio directo por correo. La configuración y despliegue del plan gratuito se describen en [workers/username-api/README.md](../workers/username-api/README.md). No necesitas Firebase Hosting ni un servidor de pago. Al eliminar una cuenta, la API retira también su nombre y correo del directorio antes de finalizar la eliminación de Authentication.
